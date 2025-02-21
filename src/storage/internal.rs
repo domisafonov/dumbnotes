@@ -82,11 +82,16 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         let filename = user_dir.join(note.id.to_string());
         let tmp_filename = user_dir.join(Uuid::new_v4().to_string());
         self.io.write_file(&tmp_filename, format_note(note)).await?;
-        self.io.rename_file(&tmp_filename, &filename).await?;
+        if let Err(e) = self.io.rename_file(&tmp_filename, &filename).await {
+            if let Err(e) = self.io.remove_file(&tmp_filename).await {
+                log::error!("TODO");
+            }
+            return Err(e)
+        }
         Ok(())
     }
 
-    fn get_user_dir(&self, username: &UsernameString) -> PathBuf {
+    fn get_user_dir(&self, username: &UsernameString) -> PathBuf { // TODO: change to get_note_path
         self.basedir.join(username as &str)
     }
 }
@@ -119,6 +124,10 @@ trait NoteStorageIo {
         to: &Path,
     ) -> io::Result<()> {
         fs::rename(from, to).await
+    }
+
+    async fn remove_file(&mut self, path: &Path) -> io::Result<()> {
+        fs::remove_file(path).await
     }
 }
 pub struct ProductionNoteStorageIo {}
