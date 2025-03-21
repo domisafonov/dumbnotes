@@ -83,7 +83,7 @@ impl NoteStorageIo for ProductionNoteStorageIo {
     async fn remove_file(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
         fs::remove_file(path).await
     }
-    
+
     fn getuid(&self) -> u32 {
         unsafe { libc::getuid() }
     }

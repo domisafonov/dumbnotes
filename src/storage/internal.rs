@@ -23,6 +23,7 @@ const REQUIRED_UNIX_PERMISSIONS: u32 = 0o700;
 pub type NoteStorage = NoteStorageImpl<ProductionNoteStorageIo>;
 
 #[allow(private_bounds)]
+#[derive(Debug)]
 pub struct NoteStorageImpl<Io: NoteStorageIo> {
     io: Io,
     basedir: PathBuf,
