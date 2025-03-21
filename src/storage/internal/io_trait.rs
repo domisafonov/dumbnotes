@@ -32,6 +32,11 @@ pub trait NoteStorageIo: Send {
         &mut self,
         path: impl AsRef<Path>,
     ) -> io::Result<()>;
+    
+    async fn read_dir(
+        &mut self,
+        path: impl AsRef<Path>,
+    ) -> io::Result<fs::ReadDir>;
 
     fn getuid(&self) -> u32;
 }
@@ -46,7 +51,10 @@ pub struct ProductionNoteStorageIo;
 
 #[async_trait(?Send)]
 impl NoteStorageIo for ProductionNoteStorageIo {
-    async fn metadata(&mut self, path: impl AsRef<Path>) -> io::Result<Metadata> {
+    async fn metadata(
+        &mut self, 
+        path: impl AsRef<Path>,
+    ) -> io::Result<Metadata> {
         let meta = fs::metadata(path).await?;
         Ok(Metadata {
             is_dir: meta.is_dir(),
@@ -58,7 +66,7 @@ impl NoteStorageIo for ProductionNoteStorageIo {
     async fn open_file(
         &mut self,
         path: impl AsRef<Path>,
-    ) -> io::Result<(impl tokio::io::AsyncRead + Unpin, u64)> {
+    ) -> io::Result<(impl io::AsyncRead + Unpin, u64)> {
         let file = fs::File::open(path).await?;
         let metadata = file.metadata().await?;
         Ok((file, metadata.len()))
@@ -82,6 +90,13 @@ impl NoteStorageIo for ProductionNoteStorageIo {
 
     async fn remove_file(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
         fs::remove_file(path).await
+    }
+    
+    async fn read_dir(
+        &mut self,
+        path: impl AsRef<Path>,
+    ) -> io::Result<fs::ReadDir> {
+        fs::read_dir(path).await
     }
 
     fn getuid(&self) -> u32 {

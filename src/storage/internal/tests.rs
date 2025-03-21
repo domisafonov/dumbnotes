@@ -7,6 +7,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
+use tokio::fs::ReadDir;
 use tokio::io;
 use tokio::io::{AsyncRead, ReadBuf};
 
@@ -131,6 +132,8 @@ async fn write_note_rename_error() {
     todo!()
 }
 
+// TODO: list_notes, get_note_details, delete_note
+
 struct TestStorageIo {
     files: HashMap<String, FileSpec>,
 }
@@ -139,7 +142,7 @@ impl TestStorageIo {
     fn new() -> Self {
         TestStorageIo {
             files: HashMap::from([
-                ("/".into(), FileSpec::Dir(None)),
+                ("/".into(), FileSpec::Dir),
                 ("/meta_fail".into(), 
                     FileSpec::MetadataError(
                         Box::new(|| io::Error::from(io::ErrorKind::StorageFull))
@@ -153,6 +156,7 @@ impl TestStorageIo {
                 ),
                 ("/not_enough_perms_dir".into(), FileSpec::NotEnoughPermsDir),
                 ("/other_owner_dir".into(), FileSpec::OtherOwnerDir),
+                ("/note_dir".into(), FileSpec::Dir),
             ]),
         }
     }
@@ -169,7 +173,7 @@ struct TestFile {
 }
 
 enum FileSpec {
-    Dir(Option<Box<FileSpec>>),
+    Dir,
     MetadataError(Box<dyn Send + Fn() -> io::Error>),
     File,
     NotEnoughPermsDir,
@@ -180,7 +184,7 @@ enum FileSpec {
 impl NoteStorageIo for TestStorageIo {
     async fn metadata(&mut self, path: impl AsRef<Path>) -> io::Result<Metadata> {
         match self.files.get(path.as_ref().to_str().unwrap()).unwrap() {
-            FileSpec::Dir(_) => Ok(Metadata { is_dir: true, uid: 1, mode: 0o700 }),
+            FileSpec::Dir => Ok(Metadata { is_dir: true, uid: 1, mode: 0o700 }),
             FileSpec::MetadataError(err) => Err(err()),
             FileSpec::File => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
             FileSpec::NotEnoughPermsDir => Ok(Metadata { is_dir: false, uid: 1, mode: 0o600 }),
@@ -206,13 +210,21 @@ impl NoteStorageIo for TestStorageIo {
         todo!()
     }
 
+    async fn read_dir(&mut self, path: impl AsRef<Path>) -> std::io::Result<ReadDir> {
+        todo!()
+    }
+    
     fn getuid(&self) -> u32 {
         1
     }
 }
 
 impl AsyncRead for TestFile {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>, 
+        cx: &mut Context<'_>, 
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         todo!()
     }
 }

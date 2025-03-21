@@ -1,6 +1,7 @@
 use std::fmt;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
+use time::error::ComponentRange;
 
 #[derive(Debug)]
 pub enum StorageError {
@@ -8,6 +9,7 @@ pub enum StorageError {
     IoError(IoError),
     PermissionError,
     TooBigError,
+    OutOfRangeDate,
 }
 impl fmt::Display for StorageError { // TODO: prettier strings
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -23,5 +25,11 @@ impl From<IoError> for StorageError {
         } else {
             StorageError::IoError(value)
         }
+    }
+}
+
+impl From<ComponentRange> for StorageError {
+    fn from(value: ComponentRange) -> Self {
+        StorageError::OutOfRangeDate
     }
 }

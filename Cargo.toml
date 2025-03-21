@@ -12,6 +12,7 @@ log = "0.4.25"
 rocket = { version = "0.5.1", default-features = false }
 serde = { version = "1.0.217", features = ["derive"] }
 syslog = "7.0.0"
+time = { version = "0.3.40", features = ["std", "alloc", "formatting"] }
 tokio = { version = "1.43.0", features = ["fs", "io-util"] }
 toml = "0.8.20"
 uuid = { version = "1.13.1", features = ["v4", "fast-rng"] }
