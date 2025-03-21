@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::cmp::min;
+use std::ffi::OsString;
 use std::ops::Add;
 use std::path::PathBuf;
 use std::os::unix::prelude::*;
@@ -104,23 +105,10 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         let mut read = self.io.read_dir(self.get_user_dir(username)).await?;
         let mut ret = Vec::new();
         while let Some(entry) = read.next_entry().await? {
-            // TODO: that's a mess
-            let name = entry.file_name();
-            if name.as_bytes().len() < HYPNENED_UUID_SIZE {
-                continue
-            }
-            let name = String::from_utf8(name.as_bytes()[0..HYPNENED_UUID_SIZE].to_owned());
-            if name.is_err() {
-                continue
-            }
-            let name = name.unwrap();
-            if name.chars().any(|c| c.is_uppercase()) {
-                continue
-            }
-            if let Ok(uuid) = Hyphenated::from_str(&name) {
+            if let Some(uuid) = Self::try_extract_uuid(entry.file_name()) {
                 ret.push(
                     NoteMetadata { 
-                        id: uuid.into_uuid(),
+                        id: uuid,
                         mtime: UtcDateTime::from_unix_timestamp(entry.metadata().await?.mtime())?, // TODO: more sane handling
                     }
                 )
@@ -147,6 +135,19 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
 
     fn get_user_dir(&self, username: &UsernameString) -> PathBuf { // TODO: change to get_note_path
         self.basedir.join(username as &str)
+    }
+    
+    fn try_extract_uuid(filename: OsString) -> Option<Uuid> {
+        Some(filename)
+            .filter(|n| n.as_bytes().len() >= HYPNENED_UUID_SIZE)
+            .map(|v| String::from_utf8(v.as_bytes()[0..HYPNENED_UUID_SIZE].to_owned()))
+            .transpose()
+            .unwrap_or_default()
+            .filter(|v| !v.chars().any(|c| c.is_uppercase()))
+            .map(|v| Hyphenated::from_str(&v))
+            .transpose()
+            .unwrap_or_default()
+            .map(Hyphenated::into_uuid)
     }
 }
 
