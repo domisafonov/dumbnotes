@@ -1,19 +1,21 @@
 use std::borrow::Cow;
-use std::fs::Metadata;
 use std::io::Error as IoError;
 use std::ops::Add;
-use std::path::{Path, PathBuf};
-
-#[cfg(unix)] use std::os::unix::prelude::*;
+use std::path::PathBuf;
 
 use tokio::{fs, io};
 use tokio::io::AsyncReadExt;
 use uuid::Uuid;
+use io_trait::NoteStorageIo;
 
 use crate::config::{UsernameString, MAX_NOTE_LEN};
 use crate::data::Note;
 use crate::storage::errors::StorageError;
 
+use io_trait::Metadata;
+use io_trait::ProductionNoteStorageIo;
+
+mod io_trait;
 #[cfg(test)] mod tests;
 
 const REQUIRED_UNIX_PERMISSIONS: u32 = 0o700;
@@ -42,10 +44,10 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     ) -> Result<NoteStorageImpl<Io>, StorageError> {
         let path = PathBuf::from(basedir);
         let meta = io.metadata(&path).await?;
-        if !meta.is_dir() {
+        if !meta.is_dir {
             return Err(StorageError::DirectoryDoesNotExist);
         }
-        validate_note_root_permissions(&meta)?;
+        validate_note_root_permissions(&io, &meta)?;
         Ok(NoteStorageImpl { io, basedir: path })
     }
 
@@ -55,8 +57,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         note_id: Uuid,
     ) -> Result<Note, StorageError> {
         let path = self.get_user_dir(username).join(note_id.to_string());
-        let (file, metadata) = self.io.open_file(&path).await?;
-        let file_size = metadata.len();
+        let (file, file_size) = self.io.open_file(&path).await?;
         if file_size > MAX_NOTE_LEN {
             return Err(StorageError::TooBigError);
         }
@@ -96,60 +97,16 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     }
 }
 
-trait NoteStorageIo {
-    async fn metadata(&mut self, path: &Path) -> io::Result<Metadata> {
-        fs::metadata(path).await
-    }
-
-    async fn open_file(
-        &mut self,
-        path: &Path
-    ) -> io::Result<(impl io::AsyncRead + Unpin, Metadata)> {
-        let file = fs::File::open(path).await?;
-        let metadata = file.metadata().await?;
-        Ok((file, metadata))
-    }
-
-    async fn write_file(
-        &mut self,
-        path: &Path,
-        data: String
-    ) -> io::Result<()> {
-        fs::write(path, data).await
-    }
-
-    async fn rename_file(
-        &mut self,
-        from: &Path,
-        to: &Path,
-    ) -> io::Result<()> {
-        fs::rename(from, to).await
-    }
-
-    async fn remove_file(&mut self, path: &Path) -> io::Result<()> {
-        fs::remove_file(path).await
-    }
-}
-pub struct ProductionNoteStorageIo {}
-impl NoteStorageIo for ProductionNoteStorageIo {}
-
-#[cfg(unix)]
-fn validate_note_root_permissions(
-    meta: &Metadata
+pub fn validate_note_root_permissions(
+    io: &impl NoteStorageIo,
+    meta: &Metadata,
 ) -> Result<(), StorageError> {
-    let uid = unsafe { libc::getuid() };
-    if meta.uid() != uid
-        || meta.mode() & REQUIRED_UNIX_PERMISSIONS != REQUIRED_UNIX_PERMISSIONS {
+    let uid = io.getuid();
+    if meta.uid != uid
+        || meta.mode & REQUIRED_UNIX_PERMISSIONS != REQUIRED_UNIX_PERMISSIONS {
         return Err(StorageError::PermissionError)
     }
     Ok(())
-}
-
-#[cfg(not(unix))]
-fn validate_note_root_permissions(
-    meta: &Metadata
-) -> Result<(), StorageError> {
-    todo!()
 }
 
 async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin>(
