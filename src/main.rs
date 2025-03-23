@@ -1,13 +1,9 @@
-mod config;
-mod storage;
-mod data;
-mod util;
-
 use std::error::Error;
 use std::str::FromStr;
 use uuid::Uuid;
-use crate::config::UsernameString;
-use crate::storage::NoteStorage;
+
+use dumbnotes::config::UsernameString;
+use dumbnotes::storage::NoteStorage;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
