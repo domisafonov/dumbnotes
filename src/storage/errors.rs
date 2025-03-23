@@ -1,7 +1,8 @@
 use std::fmt;
-use std::io::Error as IoError;
-use std::io::ErrorKind;
 use time::error::ComponentRange;
+
+use tokio::io::Error as IoError;
+use tokio::io::ErrorKind;
 
 #[derive(Debug)]
 pub enum StorageError {
@@ -29,7 +30,7 @@ impl From<IoError> for StorageError {
 }
 
 impl From<ComponentRange> for StorageError {
-    fn from(value: ComponentRange) -> Self {
+    fn from(_value: ComponentRange) -> Self {
         StorageError::OutOfRangeDate
     }
 }

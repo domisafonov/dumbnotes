@@ -48,7 +48,7 @@ impl NoteStorage {
 impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     async fn new_internal(
         basedir: &str,
-        mut io: Io
+        io: Io,
     ) -> Result<NoteStorageImpl<Io>, StorageError> {
         let path = PathBuf::from(basedir);
         let meta = io.metadata(&path).await?;

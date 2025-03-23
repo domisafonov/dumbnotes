@@ -1,10 +1,11 @@
 // TODO: remember to test errors being logged
 
-use data::TestStorageIo;
+use mocks::TestStorageIo;
 use crate::storage::internal::tests::data::*;
 use super::*;
 
 mod data;
+mod mocks;
 
 #[tokio::test]
 async fn create_storage_ok() {
