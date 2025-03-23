@@ -22,6 +22,8 @@ pub enum FileSpec {
     },
     NotEnoughPermsDir,
     OtherOwnerDir,
+    CantOpen,
+    CantRead,
 }
 
 impl FileSpec {
@@ -32,7 +34,12 @@ impl FileSpec {
     }
 }
 
-struct TestFile {
+enum TestFile {
+    File(TestFileFile),
+    CantRead,
+}
+
+struct TestFileFile {
     contents: Vec<u8>,
     position: usize,
     lock: AtomicBool,
@@ -40,11 +47,11 @@ struct TestFile {
 
 impl TestFile {
     fn new(contents: impl AsRef<[u8]>) -> Self {
-        TestFile {
+        TestFile::File(TestFileFile {
             contents: contents.as_ref().to_vec(),
             position: 0,
             lock: AtomicBool::new(false),
-        }
+        })
     }
 }
 
@@ -54,7 +61,13 @@ impl AsyncRead for TestFile {
         _cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let this = self.get_mut();
+        let this = match self.get_mut() {
+            TestFile::File(file) => file,
+            TestFile::CantRead => return Poll::Ready(
+                Err(io::Error::from(io::ErrorKind::BrokenPipe))
+            ),
+        };
+
         while this.lock.compare_exchange_weak(
             false,
             true,
@@ -107,9 +120,13 @@ impl NoteStorageIo for TestStorageIo<'_> {
         match self.get_spec(path) {
             FileSpec::Dir => Ok(Metadata { is_dir: true, uid: 1, mode: 0o700 }),
             FileSpec::MetadataError(err) => Err(err()),
-            FileSpec::File {..} => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
             FileSpec::NotEnoughPermsDir => Ok(Metadata { is_dir: false, uid: 1, mode: 0o600 }),
             FileSpec::OtherOwnerDir => Ok(Metadata { is_dir: true, uid: 2, mode: 0o700 }),
+
+            FileSpec::File {..}
+                | FileSpec::CantOpen
+                | FileSpec::CantRead
+            => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
         }
     }
 
@@ -121,6 +138,8 @@ impl NoteStorageIo for TestStorageIo<'_> {
             FileSpec::File { contents } => Ok(
                 (TestFile::new(contents), contents.len() as u64)
             ),
+            FileSpec::CantOpen => Err(io::Error::from(io::ErrorKind::Other)),
+            FileSpec::CantRead => Ok((TestFile::CantRead, 0)),
             _ => unreachable!()
         }
     }

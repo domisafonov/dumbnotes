@@ -12,7 +12,9 @@ lazy_static!(
     pub static ref READ_NOTE_EMPTY_NAME_UUID: Uuid = Uuid::new_v4();
     pub static ref READ_NOTE_EMPTY_CONTENTS_UUID: Uuid = Uuid::new_v4();
     pub static ref READ_NOTE_NO_NEWLINE_UUID: Uuid = Uuid::new_v4();
-    pub static ref READ_NOTE_INVALID_UTF8: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_INVALID_UTF8_UUID: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_CANT_OPEN_UUID: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_CANT_READ_UUID: Uuid = Uuid::new_v4();
 
     pub static ref DEFAULT_SPECS: HashMap<String, FileSpec> = HashMap::from([
         ("/".into(), FileSpec::Dir),
@@ -31,30 +33,28 @@ lazy_static!(
         ("/other_owner_dir".into(), FileSpec::OtherOwnerDir),
         ("/note_dir".into(), FileSpec::Dir),
         ("/read_note".into(), FileSpec::Dir),
-        ("/read_note/".to_string() + &READ_NOTE_NORMAL_UUID.hyphenated().to_string(),
+        (make_path("/read_note", *READ_NOTE_NORMAL_UUID),
             FileSpec::File {
                contents: "normal title\nnormal contents".as_bytes().into(),
             },
         ),
-        ("/read_note/".to_string() + &READ_NOTE_EMPTY_UUID.hyphenated().to_string(),
-            FileSpec::empty_file()
-        ),
-        ("/read_note/".to_string() + &READ_NOTE_EMPTY_NAME_UUID.hyphenated().to_string(),
+        (make_path("/read_note", *READ_NOTE_EMPTY_UUID), FileSpec::empty_file()),
+        (make_path("/read_note", *READ_NOTE_EMPTY_NAME_UUID),
             FileSpec::File {
                 contents: "\nnormal contents".as_bytes().into(),
             }
         ),
-        ("/read_note/".to_string() + &READ_NOTE_EMPTY_CONTENTS_UUID.hyphenated().to_string(),
+        (make_path("/read_note", *READ_NOTE_EMPTY_CONTENTS_UUID),
             FileSpec::File {
                 contents: "normal title\n".as_bytes().into(),
             }
         ),
-        ("/read_note/".to_string() + &READ_NOTE_NO_NEWLINE_UUID.hyphenated().to_string(),
+        (make_path("/read_note", *READ_NOTE_NO_NEWLINE_UUID),
             FileSpec::File {
                 contents: "normal title".as_bytes().into(),
             }
         ),
-        ("/read_note/".to_string() + &READ_NOTE_INVALID_UTF8.hyphenated().to_string(),
+        (make_path("/read_note", *READ_NOTE_INVALID_UTF8_UUID),
             FileSpec::File {
                 contents: vec!(
                     0xA0, 0xA1,
@@ -67,8 +67,14 @@ lazy_static!(
                 ),
             }
         ),
+        (make_path("/read_note", *READ_NOTE_CANT_OPEN_UUID), FileSpec::CantOpen),
+        (make_path("/read_note", *READ_NOTE_CANT_READ_UUID), FileSpec::CantRead),
     ]);
 );
 
 pub const READ_NOTE_INVALID_UTF8_TITLE: &str = "okt(";
 pub const READ_NOTE_INVALID_UTF8_CONTENTS: &str = "(okc";
+
+fn make_path(base: &str, uuid: Uuid) -> String {
+    base.to_string() + "/" + &uuid.hyphenated().to_string()
+}

@@ -85,25 +85,30 @@ async fn read_note_empty_contents() {
 }
 
 #[tokio::test]
+async fn read_note_cant_open() {
+    read_note_with_error(io::ErrorKind::Other, *READ_NOTE_CANT_OPEN_UUID).await
+}
+
+#[tokio::test]
 async fn read_note_cant_read() {
-    todo!()
+    read_note_with_error(io::ErrorKind::BrokenPipe, *READ_NOTE_CANT_READ_UUID).await
 }
 
 #[tokio::test]
 async fn read_note_invalid_utf8() {
-    let note = read_note_successfully(*READ_NOTE_INVALID_UTF8).await;
+    let note = read_note_successfully(*READ_NOTE_INVALID_UTF8_UUID).await;
     assert_eq!(note.name, Some(READ_NOTE_INVALID_UTF8_TITLE.into()));
     assert_eq!(note.contents, READ_NOTE_INVALID_UTF8_CONTENTS);
 }
 
 #[tokio::test]
 async fn read_note_file_too_big() {
-    todo!() // will implement after the config
+    todo!("implement the test after the config is done")
 }
 
 #[tokio::test]
 async fn read_note_name_too_big() {
-    todo!() // will implement after the config
+    todo!("implement the test after the config is done")
 }
 
 #[tokio::test]
@@ -115,7 +120,7 @@ async fn read_note_name_not_terminated_with_newline() {
 
 #[tokio::test]
 async fn read_note_file_became_too_big_after_metadata_read() {
-    todo!()
+    todo!("implement the test after the config is done")
 }
 
 async fn read_note_successfully(id: Uuid) -> Note {
@@ -128,6 +133,20 @@ async fn read_note_successfully(id: Uuid) -> Note {
     ).await.expect("successful note read");
     assert_eq!(note.id, id);
     note
+}
+
+async fn read_note_with_error(error_kind: io::ErrorKind, uuid: Uuid) {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    let err = storage.read_note(
+        &UsernameString::from_str("read_note").unwrap(),
+        uuid,
+    ).await.expect_err("should fail");
+    match err {
+        StorageError::IoError(e) if e.kind() == error_kind => (),
+        e => panic!("wrong error type: {e:#?}"),
+    }
 }
 
 #[tokio::test]
