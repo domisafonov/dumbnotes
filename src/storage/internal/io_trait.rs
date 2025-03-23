@@ -7,34 +7,34 @@ use tokio::{fs, io};
 #[async_trait(?Send)]
 pub trait NoteStorageIo: Send {
     async fn metadata(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
     ) -> io::Result<Metadata>;
 
     async fn open_file(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
     ) -> io::Result<(impl io::AsyncRead + Unpin, u64)>;
 
     async fn write_file(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
     ) -> io::Result<()>;
 
     async fn rename_file(
-        &mut self,
+        &self,
         from: impl AsRef<Path>,
         to: impl AsRef<Path>,
     ) -> io::Result<()>;
 
     async fn remove_file(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
     ) -> io::Result<()>;
     
     async fn read_dir(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
     ) -> io::Result<fs::ReadDir>;
 
@@ -52,7 +52,7 @@ pub struct ProductionNoteStorageIo;
 #[async_trait(?Send)]
 impl NoteStorageIo for ProductionNoteStorageIo {
     async fn metadata(
-        &mut self, 
+        &self, 
         path: impl AsRef<Path>,
     ) -> io::Result<Metadata> {
         let meta = fs::metadata(path).await?;
@@ -64,7 +64,7 @@ impl NoteStorageIo for ProductionNoteStorageIo {
     }
 
     async fn open_file(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
     ) -> io::Result<(impl io::AsyncRead + Unpin, u64)> {
         let file = fs::File::open(path).await?;
@@ -73,7 +73,7 @@ impl NoteStorageIo for ProductionNoteStorageIo {
     }
 
     async fn write_file(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
     ) -> io::Result<()> {
@@ -81,19 +81,19 @@ impl NoteStorageIo for ProductionNoteStorageIo {
     }
 
     async fn rename_file(
-        &mut self,
+        &self,
         from: impl AsRef<Path>,
         to: impl AsRef<Path>,
     ) -> io::Result<()> {
         fs::rename(from, to).await
     }
 
-    async fn remove_file(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
+    async fn remove_file(&self, path: impl AsRef<Path>) -> io::Result<()> {
         fs::remove_file(path).await
     }
     
     async fn read_dir(
-        &mut self,
+        &self,
         path: impl AsRef<Path>,
     ) -> io::Result<fs::ReadDir> {
         fs::read_dir(path).await

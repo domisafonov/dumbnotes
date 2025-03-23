@@ -1,29 +1,31 @@
 use std::borrow::Cow;
-use std::cmp::min;
 use std::ffi::OsString;
 use std::ops::Add;
 use std::path::PathBuf;
 use std::os::unix::prelude::*;
 use std::str::FromStr;
+use rocket::futures::future::join_all;
 use time::UtcDateTime;
-use tokio::{fs, io};
+use tokio::io;
 use tokio::io::AsyncReadExt;
 use uuid::fmt::Hyphenated;
 use uuid::Uuid;
-use io_trait::NoteStorageIo;
 
-use crate::config::{UsernameString, MAX_NOTE_LEN};
+use crate::config::{UsernameString, MAX_NOTE_LEN, MAX_NOTE_NAME_LEN};
 use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
+use crate::util::StrExt;
 
 use io_trait::Metadata;
+use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
 
 mod io_trait;
 #[cfg(test)] mod tests;
 
 const REQUIRED_UNIX_PERMISSIONS: u32 = 0o700;
-const HYPNENED_UUID_SIZE: usize = 36;
+const HYPHENED_UUID_SIZE: usize = 36;
+const TMP_FILENAME_SUFFIX: &str = ".tmp";
 
 pub type NoteStorage = NoteStorageImpl<ProductionNoteStorageIo>;
 
@@ -51,7 +53,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         let path = PathBuf::from(basedir);
         let meta = io.metadata(&path).await?;
         if !meta.is_dir {
-            return Err(StorageError::DirectoryDoesNotExist);
+            return Err(StorageError::DoesNotExist);
         }
         validate_note_root_permissions(&io, &meta)?;
         Ok(NoteStorageImpl { io, basedir: path })
@@ -62,7 +64,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         username: &UsernameString,
         note_id: Uuid,
     ) -> Result<Note, StorageError> {
-        let path = self.get_user_dir(username).join(note_id.to_string());
+        let path = self.get_note_path(username, note_id);
         let (file, file_size) = self.io.open_file(&path).await?;
         if file_size > MAX_NOTE_LEN {
             return Err(StorageError::TooBigError);
@@ -70,11 +72,13 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         let contents = read_limited_utf8_lossy(MAX_NOTE_LEN, file).await?;
         let (name, contents) = contents.split_once('\n')
             .unwrap_or((&contents, ""));
+        if name.len() > MAX_NOTE_NAME_LEN as usize {
+            return Err(StorageError::TooBigError);
+        }
         Ok(
             Note {
                 id: note_id,
-                name: Some(name).filter(|n| !n.trim().is_empty())
-                    .map(str::to_owned),
+                name: name.nonblank_to_some(),
                 contents: contents.to_owned(),
             }
         )
@@ -85,9 +89,8 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         username: &UsernameString,
         note: &Note,
     ) -> Result<(), StorageError> {
-        let user_dir = self.get_user_dir(username);
-        let filename = user_dir.join(note.id.to_string());
-        let tmp_filename = user_dir.join(Uuid::new_v4().to_string());
+        let filename = self.get_note_path(username, note.id);
+        let tmp_filename = self.get_note_tmp_path(username, note.id);
         self.io.write_file(&tmp_filename, format_note(note)).await?;
         if let Err(e) = self.io.rename_file(&tmp_filename, &filename).await {
             if let Err(e) = self.io.remove_file(&tmp_filename).await {
@@ -102,6 +105,8 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         &mut self,
         username: &UsernameString,
     ) -> Result<Vec<NoteMetadata>, StorageError> {
+        // TODO: reimplement with `scandir()` (needs an async implementation)
+        //  and a data limit
         let mut read = self.io.read_dir(self.get_user_dir(username)).await?;
         let mut ret = Vec::new();
         while let Some(entry) = read.next_entry().await? {
@@ -109,20 +114,57 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                 ret.push(
                     NoteMetadata { 
                         id: uuid,
-                        mtime: UtcDateTime::from_unix_timestamp(entry.metadata().await?.mtime())?, // TODO: more sane handling
+                        mtime: UtcDateTime
+                            ::from_unix_timestamp(
+                                entry.metadata().await
+                                    .map(|nm| nm.mtime())
+                                    .unwrap_or(0)
+                            )
+                            .unwrap_or(UtcDateTime::MIN),
                     }
                 )
             }
         }
+        ret.sort_by_key(|nm| nm.mtime);
         Ok(ret)
     }
     
     pub async fn get_note_details(
         &mut self,
         username: &UsernameString,
-        metadata: NoteMetadata,
-    ) -> Result<NoteInfo, StorageError> {
-        todo!()
+        notes: impl IntoIterator<Item=NoteMetadata>,
+    ) -> Result<Vec<Option<NoteInfo>>, StorageError> {
+        Ok(
+            join_all(
+                notes.into_iter()
+                    .map(async |nm| {
+                        let file = self.io
+                            .open_file(self.get_note_path(username, nm.id))
+                            .await
+                            .map(|(file, _)| Some(file))
+                            .unwrap_or_else(|e|
+                                // TODO: log
+                                None
+                            )?;
+                        let buf = read_limited_utf8_lossy(MAX_NOTE_NAME_LEN, file)
+                            .await
+                            .map(Some)
+                            .unwrap_or_else(|e|
+                                // TODO: log
+                                None
+                            )?;
+                        let name = buf.split_once('\n')
+                            .map(|(name, _)| name)
+                            .unwrap_or(&buf);
+                        Some(
+                            NoteInfo {
+                                metadata: nm,
+                                name: name.nonblank_to_some(),
+                            }
+                        )
+                    })
+            ).await
+        )
     }
     
     pub async fn delete_note(
@@ -130,17 +172,35 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         username: &UsernameString,
         id: Uuid,
     ) -> Result<(), StorageError> {
-        Ok(self.io.remove_file(self.get_user_dir(username).join(id.to_string())).await?)
+        Ok(
+            self.io
+                .remove_file(self.get_note_path(username, id))
+                .await?
+        )
     }
 
-    fn get_user_dir(&self, username: &UsernameString) -> PathBuf { // TODO: change to get_note_path
+    fn get_user_dir(&self, username: &UsernameString) -> PathBuf {
         self.basedir.join(username as &str)
     }
     
+    fn get_note_path(&self, username: &UsernameString, uuid: Uuid) -> PathBuf {
+        self.get_user_dir(username).join(uuid.hyphenated().to_string())
+    }
+    
+    fn get_note_tmp_path(
+        &self,
+        username: &UsernameString,
+        uuid: Uuid,
+    ) -> PathBuf {
+        // TODO: guarantee uniqueness, deletion, and write locking
+        self.get_user_dir(username)
+            .join(uuid.hyphenated().to_string() + TMP_FILENAME_SUFFIX)
+    }
+
     fn try_extract_uuid(filename: OsString) -> Option<Uuid> {
         Some(filename)
-            .filter(|n| n.as_bytes().len() >= HYPNENED_UUID_SIZE)
-            .map(|v| String::from_utf8(v.as_bytes()[0..HYPNENED_UUID_SIZE].to_owned()))
+            .filter(|n| n.as_bytes().len() >= HYPHENED_UUID_SIZE)
+            .map(|v| String::from_utf8(v.as_bytes()[0..HYPHENED_UUID_SIZE].to_owned()))
             .transpose()
             .unwrap_or_default()
             .filter(|v| !v.chars().any(|c| c.is_uppercase()))
@@ -166,7 +226,7 @@ pub fn validate_note_root_permissions(
 async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin>(
     limit: u64,
     reader: R
-) -> Result<String, StorageError> {
+) -> Result<String, io::Error> {
     let mut buf = Vec::with_capacity(limit as usize);
     io::BufReader::new(reader).take(limit).read_to_end(&mut buf).await?;
     Ok(

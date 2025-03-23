@@ -1,6 +1,7 @@
 mod config;
 mod storage;
 mod data;
+mod util;
 
 use std::error::Error;
 use std::str::FromStr;

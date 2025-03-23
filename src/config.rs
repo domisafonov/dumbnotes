@@ -1,7 +1,10 @@
 pub struct UsernameString(String);
 
 // TODO: extract to the settings struct
+// TODO: validate to fit both in u64 and usize
+// TODO: use static-assertions crate for the defaults?
 pub const MAX_NOTE_LEN: u64 = 128 * 1024;
+pub const MAX_NOTE_NAME_LEN: u64 = 256;
 
 #[derive(Debug)]
 pub struct UsernameParseError;

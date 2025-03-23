@@ -45,7 +45,7 @@ async fn create_storage_dir_does_not_exist_error() {
     let err = NoteStorageImpl::new_internal("/a_file", io)
         .await.expect_err("should fail");
     match err {
-        StorageError::DirectoryDoesNotExist => (),
+        StorageError::DoesNotExist => (),
         e => panic!("wrong error type: #{e:?}"),
     }
 }
@@ -93,6 +93,17 @@ async fn read_note_invalid_utf8() {
 
 #[tokio::test]
 async fn read_note_file_too_big() {
+    todo!()
+}
+
+#[tokio::test]
+async fn read_note_name_too_big() {
+    todo!()
+}
+
+#[tokio::test]
+async fn read_note_name_not_terminated_with_newline() {
+    // incorrect format, but must still work
     todo!()
 }
 
@@ -182,7 +193,7 @@ enum FileSpec {
 
 #[async_trait(?Send)]
 impl NoteStorageIo for TestStorageIo {
-    async fn metadata(&mut self, path: impl AsRef<Path>) -> io::Result<Metadata> {
+    async fn metadata(&self, path: impl AsRef<Path>) -> io::Result<Metadata> {
         match self.files.get(path.as_ref().to_str().unwrap()).unwrap() {
             FileSpec::Dir => Ok(Metadata { is_dir: true, uid: 1, mode: 0o700 }),
             FileSpec::MetadataError(err) => Err(err()),
@@ -192,25 +203,25 @@ impl NoteStorageIo for TestStorageIo {
         }
     }
 
-    async fn open_file(&mut self, path: impl AsRef<Path>) -> io::Result<(impl AsyncRead + Unpin, u64)> {
+    async fn open_file(&self, path: impl AsRef<Path>) -> io::Result<(impl AsyncRead + Unpin, u64)> {
         Ok(
             (TestFile {}, 0)
         )
     }
 
-    async fn write_file(&mut self, path: impl AsRef<Path>, data: impl AsRef<[u8]>) -> io::Result<()> {
+    async fn write_file(&self, path: impl AsRef<Path>, data: impl AsRef<[u8]>) -> io::Result<()> {
         todo!()
     }
 
-    async fn rename_file(&mut self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
+    async fn rename_file(&self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
         todo!()
     }
 
-    async fn remove_file(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
+    async fn remove_file(&self, path: impl AsRef<Path>) -> io::Result<()> {
         todo!()
     }
 
-    async fn read_dir(&mut self, path: impl AsRef<Path>) -> std::io::Result<ReadDir> {
+    async fn read_dir(&self, path: impl AsRef<Path>) -> io::Result<ReadDir> {
         todo!()
     }
     

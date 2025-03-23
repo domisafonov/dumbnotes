@@ -5,7 +5,7 @@ use time::error::ComponentRange;
 
 #[derive(Debug)]
 pub enum StorageError {
-    DirectoryDoesNotExist,
+    DoesNotExist,
     IoError(IoError),
     PermissionError,
     TooBigError,
@@ -21,7 +21,7 @@ impl std::error::Error for StorageError {}
 impl From<IoError> for StorageError {
     fn from(value: IoError) -> Self {
         if value.kind() == ErrorKind::NotFound {
-            StorageError::DirectoryDoesNotExist
+            StorageError::DoesNotExist
         } else {
             StorageError::IoError(value)
         }
