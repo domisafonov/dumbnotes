@@ -17,6 +17,9 @@ use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
 
 lazy_static!(
     pub static ref READ_NOTE_NORMAL_UUID: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_EMPTY_UUID: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_EMPTY_NAME_UUID: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_EMPTY_CONTENTS_UUID: Uuid = Uuid::new_v4();
 );
 
 enum FileSpec {
@@ -113,6 +116,19 @@ impl TestStorageIo {
                        contents: "normal title\nnormal contents".as_bytes().into(),
                     },
                 ),
+                ("/read_note/".to_string() + &READ_NOTE_EMPTY_UUID.hyphenated().to_string(),
+                    FileSpec::empty_file()
+                ),
+                ("/read_note/".to_string() + &READ_NOTE_EMPTY_NAME_UUID.hyphenated().to_string(),
+                    FileSpec::File {
+                        contents: "\nnormal contents".as_bytes().into(),
+                    }
+                ),
+                ("/read_note/".to_string() + &READ_NOTE_EMPTY_CONTENTS_UUID.hyphenated().to_string(),
+                    FileSpec::File {
+                        contents: "normal title\n".as_bytes().into(),
+                    }
+                )
             ]),
         }
     }
