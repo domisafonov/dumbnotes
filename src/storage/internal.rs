@@ -232,7 +232,7 @@ async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin>(
     Ok(
         match String::from_utf8_lossy(&buf) {
             Cow::Borrowed(_) => unsafe { String::from_utf8_unchecked(buf) },
-            owned@Cow::Owned(_) => owned.into_owned(),
+            owned@Cow::Owned(_) => owned.replace(std::char::REPLACEMENT_CHARACTER, ""),
         }
     )
 }

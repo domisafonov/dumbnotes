@@ -11,6 +11,8 @@ lazy_static!(
     pub static ref READ_NOTE_EMPTY_UUID: Uuid = Uuid::new_v4();
     pub static ref READ_NOTE_EMPTY_NAME_UUID: Uuid = Uuid::new_v4();
     pub static ref READ_NOTE_EMPTY_CONTENTS_UUID: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_NO_NEWLINE_UUID: Uuid = Uuid::new_v4();
+    pub static ref READ_NOTE_INVALID_UTF8: Uuid = Uuid::new_v4();
 
     pub static ref DEFAULT_SPECS: HashMap<String, FileSpec> = HashMap::from([
         ("/".into(), FileSpec::Dir),
@@ -47,5 +49,26 @@ lazy_static!(
                 contents: "normal title\n".as_bytes().into(),
             }
         ),
+        ("/read_note/".to_string() + &READ_NOTE_NO_NEWLINE_UUID.hyphenated().to_string(),
+            FileSpec::File {
+                contents: "normal title".as_bytes().into(),
+            }
+        ),
+        ("/read_note/".to_string() + &READ_NOTE_INVALID_UTF8.hyphenated().to_string(),
+            FileSpec::File {
+                contents: vec!(
+                    0xA0, 0xA1,
+                    b'o', b'k', b't',
+                    0xE2, 0x28, 0xA1, // 0x28 is '('
+                    b'\n',
+                    0xC3, 0x28, // 0x28 is '('
+                    b'o', b'k', b'c',
+                    0xFC, 0xA1, 0xA1, 0xA1, 0xA1, 0xA1,
+                ),
+            }
+        ),
     ]);
 );
+
+pub const READ_NOTE_INVALID_UTF8_TITLE: &str = "okt(";
+pub const READ_NOTE_INVALID_UTF8_CONTENTS: &str = "(okc";

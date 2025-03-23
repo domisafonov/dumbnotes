@@ -21,7 +21,7 @@ async fn create_storage_metadata_fail() {
         .await.expect_err("should fail");
     match err {
         StorageError::IoError(_) => (),
-        e => panic!("wrong error type: #{e:?}"),
+        e => panic!("wrong error type: {e:#?}"),
     }
 }
 
@@ -41,7 +41,7 @@ async fn create_storage_dir_does_not_exist_error() {
         .await.expect_err("should fail");
     match err {
         StorageError::DoesNotExist => (),
-        e => panic!("wrong error type: #{e:?}"),
+        e => panic!("wrong error type: {e:#?}"),
     }
 }
 
@@ -52,7 +52,7 @@ async fn create_storage_wrong_permissions() {
         .await.expect_err("should fail");
     match err {
         StorageError::PermissionError => (),
-        e => panic!("wrong error type: #{e:?}"),
+        e => panic!("wrong error type: {e:#?}"),
     }
 }
 
@@ -84,6 +84,40 @@ async fn read_note_empty_contents() {
     assert_eq!(note.contents, "");
 }
 
+#[tokio::test]
+async fn read_note_cant_read() {
+    todo!()
+}
+
+#[tokio::test]
+async fn read_note_invalid_utf8() {
+    let note = read_note_successfully(*READ_NOTE_INVALID_UTF8).await;
+    assert_eq!(note.name, Some(READ_NOTE_INVALID_UTF8_TITLE.into()));
+    assert_eq!(note.contents, READ_NOTE_INVALID_UTF8_CONTENTS);
+}
+
+#[tokio::test]
+async fn read_note_file_too_big() {
+    todo!() // will implement after the config
+}
+
+#[tokio::test]
+async fn read_note_name_too_big() {
+    todo!() // will implement after the config
+}
+
+#[tokio::test]
+async fn read_note_name_not_terminated_with_newline() {
+    let note = read_note_successfully(*READ_NOTE_NO_NEWLINE_UUID).await;
+    assert_eq!(note.name, Some("normal title".into()));
+    assert_eq!(note.contents, "");
+}
+
+#[tokio::test]
+async fn read_note_file_became_too_big_after_metadata_read() {
+    todo!()
+}
+
 async fn read_note_successfully(id: Uuid) -> Note {
     let io = TestStorageIo::new();
     let mut storage = NoteStorageImpl::new_internal("/", io)
@@ -94,37 +128,6 @@ async fn read_note_successfully(id: Uuid) -> Note {
     ).await.expect("successful note read");
     assert_eq!(note.id, id);
     note
-}
-
-#[tokio::test]
-async fn read_note_cant_read() {
-    todo!()
-}
-
-#[tokio::test]
-async fn read_note_invalid_utf8() {
-    todo!()
-}
-
-#[tokio::test]
-async fn read_note_file_too_big() {
-    todo!()
-}
-
-#[tokio::test]
-async fn read_note_name_too_big() {
-    todo!()
-}
-
-#[tokio::test]
-async fn read_note_name_not_terminated_with_newline() {
-    // incorrect format, but must still work
-    todo!()
-}
-
-#[tokio::test]
-async fn read_note_file_became_too_big_after_metadata_read() {
-    todo!()
 }
 
 #[tokio::test]
