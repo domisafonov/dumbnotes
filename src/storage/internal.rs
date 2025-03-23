@@ -186,7 +186,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     fn get_note_path(&self, username: &UsernameString, uuid: Uuid) -> PathBuf {
         self.get_user_dir(username).join(uuid.hyphenated().to_string())
     }
-    
+
     fn get_note_tmp_path(
         &self,
         username: &UsernameString,
@@ -238,11 +238,12 @@ async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin>(
 }
 
 fn format_note(note: &Note) -> String {
-    String::with_capacity(
+    String
+        ::with_capacity(
         note.name.as_ref().map(String::len).unwrap_or(0) +
             "\n".len() +
             note.contents.len()
-    )
+        )
         .add(note.name.as_deref().unwrap_or(""))
         .add("\n")
         .add(&note.contents)

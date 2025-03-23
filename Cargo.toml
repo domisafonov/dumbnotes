@@ -16,3 +16,6 @@ time = { version = "0.3.40", features = ["std", "alloc", "formatting"] }
 tokio = { version = "1.43.0", features = ["fs", "io-util"] }
 toml = "0.8.20"
 uuid = { version = "1.13.1", features = ["v4", "fast-rng"] }
+
+[dev-dependencies]
+lazy_static = "1.5.0"

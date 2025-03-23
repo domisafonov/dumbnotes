@@ -356,6 +356,7 @@ dependencies = [
  "argon2",
  "async-trait",
  "clap",
+ "lazy_static",
  "libc",
  "log",
  "rocket",
