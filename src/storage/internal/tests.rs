@@ -57,58 +57,42 @@ async fn create_storage_wrong_permissions() {
 
 #[tokio::test]
 async fn read_note_normal() {
-    let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
-        .await.expect("successful storage creation");
-    let note = storage.read_note(
-        &UsernameString::from_str("read_note").unwrap(),
-        *READ_NOTE_NORMAL_UUID
-    ).await.expect("successful note read");
-    assert_eq!(note.id, *READ_NOTE_NORMAL_UUID);
+    let note = read_note_successfully(*READ_NOTE_NORMAL_UUID).await;
     assert_eq!(note.name, Some("normal title".into()));
     assert_eq!(note.contents, "normal contents");
 }
 
 #[tokio::test]
 async fn read_note_empty_file() {
-    let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
-        .await.expect("successful storage creation");
-    let note = storage.read_note(
-        &UsernameString::from_str("read_note").unwrap(),
-        *READ_NOTE_EMPTY_UUID
-    ).await.expect("successful note read");
-    assert_eq!(note.id, *READ_NOTE_EMPTY_UUID);
+    let note = read_note_successfully(*READ_NOTE_EMPTY_UUID).await;
     assert_eq!(note.name, None);
     assert_eq!(note.contents, "");
 }
 
 #[tokio::test]
 async fn read_note_empty_name() {
-    let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
-        .await.expect("successful storage creation");
-    let note = storage.read_note(
-        &UsernameString::from_str("read_note").unwrap(),
-        *READ_NOTE_EMPTY_NAME_UUID
-    ).await.expect("successful note read");
-    assert_eq!(note.id, *READ_NOTE_EMPTY_NAME_UUID);
+    let note = read_note_successfully(*READ_NOTE_EMPTY_NAME_UUID).await;
     assert_eq!(note.name, None);
     assert_eq!(note.contents, "normal contents");
 }
 
 #[tokio::test]
 async fn read_note_empty_contents() {
+    let note = read_note_successfully(*READ_NOTE_EMPTY_CONTENTS_UUID).await;
+    assert_eq!(note.name, Some("normal title".into()));
+    assert_eq!(note.contents, "");
+}
+
+async fn read_note_successfully(id: Uuid) -> Note {
     let io = TestStorageIo::new();
     let mut storage = NoteStorageImpl::new_internal("/", io)
         .await.expect("successful storage creation");
     let note = storage.read_note(
         &UsernameString::from_str("read_note").unwrap(),
-        *READ_NOTE_EMPTY_CONTENTS_UUID
+        id,
     ).await.expect("successful note read");
-    assert_eq!(note.id, *READ_NOTE_EMPTY_CONTENTS_UUID);
-    assert_eq!(note.name, Some("normal title".into()));
-    assert_eq!(note.contents, "");
+    assert_eq!(note.id, id);
+    note
 }
 
 #[tokio::test]
