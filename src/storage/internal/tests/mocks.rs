@@ -1,22 +1,65 @@
 use std::collections::HashMap;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::task::{Context, Poll};
 
 use tokio::io;
 use tokio::io::{AsyncRead, ReadBuf};
 use tokio::fs::ReadDir;
 use async_trait::async_trait;
-
+use tokio::sync::Mutex;
 use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
 use crate::storage::internal::tests::data::DEFAULT_SPECS;
 
+pub struct VersionedFileSpec {
+    pub current_version: AtomicUsize,
+    pub specs: Vec<Arc<FileSpec>>,
+}
+
+impl VersionedFileSpec {
+    pub fn get(&self) -> &FileSpec {
+        let current_version = self.current_version.load(Ordering::Relaxed);
+        &self.specs[
+            if current_version == usize::MAX {
+                0
+            } else {
+                current_version
+            }
+        ]
+    }
+    
+    pub fn bump(&self) {
+        if self.current_version.load(Ordering::Relaxed) != usize::MAX {
+            self.current_version.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+impl From<FileSpec> for VersionedFileSpec {
+    fn from(spec: FileSpec) -> Self {
+        VersionedFileSpec {
+            current_version: AtomicUsize::new(usize::MAX),
+            specs: vec![Arc::new(spec)],
+        }
+    }
+}
+
+impl Clone for VersionedFileSpec {
+    fn clone(&self) -> Self {
+        VersionedFileSpec {
+            current_version: AtomicUsize::new(self.current_version.load(Ordering::Relaxed)),
+            specs: self.specs.clone(),
+        }
+    }
+}
+
 pub enum FileSpec {
     Dir,
-    MetadataError(Box<dyn Sync + Fn() -> io::Error>),
+    MetadataError(Box<dyn Sync + Send + Fn() -> io::Error>),
     File {
         contents: Vec<u8>,
     },
@@ -24,6 +67,11 @@ pub enum FileSpec {
     OtherOwnerDir,
     CantOpen,
     CantRead,
+    WriteFile,
+    RenameWrittenFile {
+        path: String,
+        rename_to: String,
+    }
 }
 
 impl FileSpec {
@@ -92,30 +140,49 @@ impl AsyncRead for TestFile {
     }
 }
 
-pub struct TestStorageIo<'a> {
-    files: &'a HashMap<String, FileSpec>,
+pub struct TestStorageIo {
+    files: HashMap<String, VersionedFileSpec>,
+    events: Mutex<Vec<StorageWrite>>,
 }
 
-impl TestStorageIo<'_> {
+impl TestStorageIo {
     pub fn new() -> Self {
         TestStorageIo {
-            files: &DEFAULT_SPECS,
+            files: DEFAULT_SPECS.clone(),
+            events: Mutex::new(Vec::new()),
         }
     }
 
     fn get_spec(&self, path: impl AsRef<Path>) -> &FileSpec {
-        self.files.get(path.as_ref().to_str().unwrap()).unwrap().to_owned()
+        self.files.get(path.as_ref().to_str().unwrap()).unwrap().get()
+    }
+    
+    fn get_spec_bumped(&self, path: impl AsRef<Path>) -> &FileSpec {
+        let spec = self.files
+            .get(path.as_ref().to_str().unwrap())
+            .unwrap();
+        let ret = spec.get();
+        spec.bump();
+        ret
+    }
+    
+    fn bump_spec(&self, path: impl AsRef<Path>) {
+        self.files.get(path.as_ref().to_str().unwrap()).unwrap().bump();
+    }
+
+    pub async fn get_events(&self) -> Vec<StorageWrite> {
+        self.events.lock().await.to_vec()
     }
 }
 
-impl Debug for TestStorageIo<'_> {
+impl Debug for TestStorageIo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
        f.write_str("TestStorageIo")
     }
 }
 
 #[async_trait(?Send)]
-impl NoteStorageIo for TestStorageIo<'_> {
+impl NoteStorageIo for TestStorageIo {
     async fn metadata(&self, path: impl AsRef<Path>) -> io::Result<Metadata> {
         match self.get_spec(path) {
             FileSpec::Dir => Ok(Metadata { is_dir: true, uid: 1, mode: 0o700 }),
@@ -127,6 +194,9 @@ impl NoteStorageIo for TestStorageIo<'_> {
                 | FileSpec::CantOpen
                 | FileSpec::CantRead
             => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
+
+            FileSpec::WriteFile => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
+            FileSpec::RenameWrittenFile { .. } => todo!(),
         }
     }
 
@@ -149,7 +219,19 @@ impl NoteStorageIo for TestStorageIo<'_> {
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
     ) -> io::Result<()> {
-        todo!()
+        match self.get_spec_bumped(&path) {
+            FileSpec::WriteFile => {
+                self.events.lock().await
+                    .push(
+                        StorageWrite::Write {
+                            path: path.as_ref().to_owned(),
+                            data: data.as_ref().to_vec(),
+                        }
+                    );
+                Ok(())
+            },
+            _ => unreachable!()
+        }
     }
 
     async fn rename_file(
@@ -157,11 +239,25 @@ impl NoteStorageIo for TestStorageIo<'_> {
         from: impl AsRef<Path>,
         to: impl AsRef<Path>,
     ) -> io::Result<()> {
-        todo!()
+        match self.get_spec(&from) {
+            FileSpec::RenameWrittenFile { path, rename_to } => {
+                let write_event = self.events.lock().await
+                    .iter()
+                    .rfind(|ev|
+                        matches!(ev, StorageWrite::Write { path: from, .. })
+                    )
+                    .expect("file path was written to before renaming");
+                assert_eq!(rename_to, to.as_ref().to_str().unwrap());
+                Ok(())
+            },
+            _ => unreachable!()
+        }
     }
 
     async fn remove_file(&self, path: impl AsRef<Path>) -> io::Result<()> {
-        todo!()
+        match self.get_spec(&path) {
+            _ => unreachable!()
+        }
     }
 
     async fn read_dir(&self, path: impl AsRef<Path>) -> io::Result<ReadDir> {
@@ -171,4 +267,19 @@ impl NoteStorageIo for TestStorageIo<'_> {
     fn getuid(&self) -> u32 {
         1
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StorageWrite {
+    Write {
+        path: PathBuf,
+        data: Vec<u8>,
+    },
+    Rename {
+        from: PathBuf,
+        to: PathBuf,
+    },
+    Remove {
+        path: PathBuf,
+    },
 }

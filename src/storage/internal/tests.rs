@@ -2,6 +2,7 @@
 
 use mocks::TestStorageIo;
 use crate::storage::internal::tests::data::*;
+use crate::storage::internal::tests::mocks::StorageWrite;
 use super::*;
 
 mod data;
@@ -19,10 +20,7 @@ async fn create_storage_metadata_fail() {
     let io = TestStorageIo::new();
     let err = NoteStorageImpl::new_internal("/meta_fail", io)
         .await.expect_err("should fail");
-    match err {
-        StorageError::IoError(_) => (),
-        e => panic!("wrong error type: {e:#?}"),
-    }
+    assert!(matches!(err, StorageError::IoError(_)), "wrong error type: {err:#?}");
 }
 
 #[tokio::test]
@@ -39,10 +37,7 @@ async fn create_storage_dir_does_not_exist_error() {
     let io = TestStorageIo::new();
     let err = NoteStorageImpl::new_internal("/a_file", io)
         .await.expect_err("should fail");
-    match err {
-        StorageError::DoesNotExist => (),
-        e => panic!("wrong error type: {e:#?}"),
-    }
+    assert!(matches!(err, StorageError::DoesNotExist), "wrong error type: {err:#?}");
 }
 
 #[tokio::test]
@@ -50,10 +45,7 @@ async fn create_storage_wrong_permissions() {
     let io = TestStorageIo::new();
     let err = NoteStorageImpl::new_internal("/other_owner_dir", io)
         .await.expect_err("should fail");
-    match err {
-        StorageError::PermissionError => (),
-        e => panic!("wrong error type: {e:#?}"),
-    }
+    assert!(matches!(err, StorageError::PermissionError), "wrong error type: {err:#?}");
 }
 
 #[tokio::test]
@@ -151,6 +143,26 @@ async fn read_note_with_error(error_kind: io::ErrorKind, uuid: Uuid) {
 
 #[tokio::test]
 async fn write_note_normal() {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    storage.write_note(
+        &UsernameString::from_str("write_note").unwrap(),
+        &Note {
+            id: *WRITE_NOTE_NORMAL_UUID,
+            name: Some("normal title".into()),
+            contents: "normal contents".into(),
+        },
+    ).await.expect("successful write");
+    let events = storage.io.get_events().await;
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        events[0],
+        StorageWrite::Write {
+            path: make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).into(),
+            data: "normal title\nnormal contents".into(),
+        },
+    );
     todo!()
 }
 
