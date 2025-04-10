@@ -239,12 +239,15 @@ impl NoteStorageIo for TestStorageIo {
         from: impl AsRef<Path>,
         to: impl AsRef<Path>,
     ) -> io::Result<()> {
-        match self.get_spec(&from) {
-            FileSpec::RenameWrittenFile { path, rename_to } => {
-                let write_event = self.events.lock().await
+        match self.get_spec_bumped(&from) {
+            FileSpec::RenameWrittenFile { rename_to, .. } => {
+                self.events.lock().await
                     .iter()
                     .rfind(|ev|
-                        matches!(ev, StorageWrite::Write { path: from, .. })
+                        matches!(
+                            ev,
+                            StorageWrite::Write { path: ev_from, .. } if ev_from == from.as_ref()
+                        )
                     )
                     .expect("file path was written to before renaming");
                 assert_eq!(rename_to, to.as_ref().to_str().unwrap());

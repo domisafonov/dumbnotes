@@ -1,5 +1,6 @@
 // TODO: remember to test errors being logged
 
+use std::io::Read;
 use mocks::TestStorageIo;
 use crate::storage::internal::tests::data::*;
 use crate::storage::internal::tests::mocks::StorageWrite;
@@ -143,6 +144,20 @@ async fn read_note_with_error(error_kind: io::ErrorKind, uuid: Uuid) {
 
 #[tokio::test]
 async fn write_note_normal() {
+    write_note_normal_impl(Some("normal title"), "normal contents").await;
+}
+
+#[tokio::test]
+async fn write_note_write_empty_name() {
+    write_note_normal_impl(None, "normal contents").await;
+}
+
+#[tokio::test]
+async fn write_note_write_empty_contents() {
+    write_note_normal_impl(Some("normal title"), "").await;
+}
+
+async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
     let io = TestStorageIo::new();
     let mut storage = NoteStorageImpl::new_internal("/", io)
         .await.expect("successful storage creation");
@@ -150,35 +165,50 @@ async fn write_note_normal() {
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
             id: *WRITE_NOTE_NORMAL_UUID,
-            name: Some("normal title".into()),
-            contents: "normal contents".into(),
+            name: title.map(|t| t.into()),
+            contents: contents.into(),
         },
     ).await.expect("successful write");
     let events = storage.io.get_events().await;
     assert_eq!(events.len(), 1);
+    let title = title.map(String::from).unwrap_or("".into()) + "\n";
     assert_eq!(
         events[0],
         StorageWrite::Write {
             path: make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).into(),
-            data: "normal title\nnormal contents".into(),
+            data: format!("{title}{contents}").into(),
         },
     );
-    todo!()
-}
-
-#[tokio::test]
-async fn write_note_write_empty_name() {
-    todo!()
-}
-
-#[tokio::test]
-async fn write_note_write_empty_contents() {
-    todo!()
 }
 
 #[tokio::test]
 async fn write_note_write_empty_name_and_contents() {
-    todo!()
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    storage.write_note(
+        &UsernameString::from_str("write_note").unwrap(),
+        &Note {
+            id: *WRITE_NOTE_NORMAL_UUID,
+            name: None,
+            contents: "".into(),
+        },
+    ).await.expect("successful write");
+    
+    let events = storage.io.get_events().await;
+    assert_eq!(events.len(), 1);
+    
+    let (path, data) = match events[0] {
+        StorageWrite::Write { ref path, ref data } => (path, data),
+        _ => panic!("not a write event: {:?}", events[0]),
+    };
+    assert_eq!(
+        *path,
+        PathBuf::from(
+            make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID)
+        )
+    );
+    assert!(*data == "\n".bytes().collect::<Vec<_>>() || data.is_empty());
 }
 
 #[tokio::test]
