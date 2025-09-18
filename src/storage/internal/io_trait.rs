@@ -1,8 +1,10 @@
 use std::path::Path;
 use std::os::unix::prelude::*;
-
 use async_trait::async_trait;
+use rand::RngCore;
 use tokio::{fs, io};
+use uuid::Uuid;
+use crate::storage::internal::rng::{make_uuid, SyncRng};
 
 #[async_trait(?Send)]
 pub trait NoteStorageIo: Send {
@@ -39,6 +41,8 @@ pub trait NoteStorageIo: Send {
     ) -> io::Result<fs::ReadDir>;
 
     fn getuid(&self) -> u32;
+    
+    fn generate_uuid(&self) -> Uuid;
 }
 
 pub struct Metadata {
@@ -47,7 +51,17 @@ pub struct Metadata {
     pub mode: u32,
 }
 
-pub struct ProductionNoteStorageIo;
+pub struct ProductionNoteStorageIo {
+    rng: SyncRng,
+}
+
+impl ProductionNoteStorageIo {
+    pub fn new<R: RngCore + 'static>(rng: R) -> Self {
+        ProductionNoteStorageIo {
+            rng: SyncRng::new(rng),
+        }
+    }
+}
 
 #[async_trait(?Send)]
 impl NoteStorageIo for ProductionNoteStorageIo {
@@ -101,5 +115,9 @@ impl NoteStorageIo for ProductionNoteStorageIo {
 
     fn getuid(&self) -> u32 {
         unsafe { libc::getuid() }
+    }
+    
+    fn generate_uuid(&self) -> Uuid {
+        make_uuid(&mut self.rng.rng.lock().unwrap())
     }
 }

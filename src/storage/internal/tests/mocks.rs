@@ -3,7 +3,7 @@ use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as SyncMutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::task::{Context, Poll};
 
@@ -11,9 +11,14 @@ use tokio::io;
 use tokio::io::{AsyncRead, ReadBuf};
 use tokio::fs::ReadDir;
 use async_trait::async_trait;
+use rand::Rng;
+use rand::rngs::StdRng;
 use tokio::sync::Mutex;
+use uuid::Uuid;
+
 use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
-use crate::storage::internal::tests::data::DEFAULT_SPECS;
+use crate::storage::internal::rng::make_uuid;
+use crate::storage::internal::tests::data::{DEFAULT_SPECS, RNG};
 
 pub struct VersionedFileSpec {
     pub current_version: AtomicUsize,
@@ -31,7 +36,7 @@ impl VersionedFileSpec {
             }
         ]
     }
-    
+
     pub fn bump(&self) {
         if self.current_version.load(Ordering::Relaxed) != usize::MAX {
             self.current_version.fetch_add(1, Ordering::Relaxed);
@@ -143,6 +148,7 @@ impl AsyncRead for TestFile {
 pub struct TestStorageIo {
     files: HashMap<String, VersionedFileSpec>,
     events: Mutex<Vec<StorageWrite>>,
+    rng: Arc<SyncMutex<StdRng>>,
 }
 
 impl TestStorageIo {
@@ -150,13 +156,14 @@ impl TestStorageIo {
         TestStorageIo {
             files: DEFAULT_SPECS.clone(),
             events: Mutex::new(Vec::new()),
+            rng: RNG.clone(),
         }
     }
 
     fn get_spec(&self, path: impl AsRef<Path>) -> &FileSpec {
         self.files.get(path.as_ref().to_str().unwrap()).unwrap().get()
     }
-    
+
     fn get_spec_bumped(&self, path: impl AsRef<Path>) -> &FileSpec {
         let spec = self.files
             .get(path.as_ref().to_str().unwrap())
@@ -165,7 +172,7 @@ impl TestStorageIo {
         spec.bump();
         ret
     }
-    
+
     fn bump_spec(&self, path: impl AsRef<Path>) {
         self.files.get(path.as_ref().to_str().unwrap()).unwrap().bump();
     }
@@ -269,6 +276,10 @@ impl NoteStorageIo for TestStorageIo {
 
     fn getuid(&self) -> u32 {
         1
+    }
+
+    fn generate_uuid(&self) -> Uuid {
+        make_uuid(&mut self.rng.lock().unwrap())
     }
 }
 

@@ -4,6 +4,8 @@ use std::ops::Add;
 use std::path::PathBuf;
 use std::os::unix::prelude::*;
 use std::str::FromStr;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use rocket::futures::future::join_all;
 use time::UtcDateTime;
 use tokio::io;
@@ -22,6 +24,7 @@ use io_trait::ProductionNoteStorageIo;
 
 mod io_trait;
 #[cfg(test)] mod tests;
+mod rng;
 
 const REQUIRED_UNIX_PERMISSIONS: u32 = 0o700;
 const HYPHENED_UUID_SIZE: usize = 36;
@@ -40,7 +43,10 @@ impl NoteStorage {
     pub async fn new(
         basedir: &str
     ) -> Result<NoteStorage, StorageError> {
-        Self::new_internal(basedir, ProductionNoteStorageIo {}).await
+        Self::new_internal(
+            basedir,
+            ProductionNoteStorageIo::new(StdRng::from_os_rng()),
+        ).await
     }
 }
 
@@ -193,6 +199,8 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         uuid: Uuid,
     ) -> PathBuf {
         // TODO: guarantee uniqueness, deletion, and write locking
+        //  uuid.tmp.<tmp_uuid>
+        //  uuid randomness is taken from a gen in io (normal getrandom for prod)
         self.get_user_dir(username)
             .join(uuid.hyphenated().to_string() + TMP_FILENAME_SUFFIX)
     }
