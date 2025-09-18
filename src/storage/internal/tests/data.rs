@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
 use tokio::io;
 
 use lazy_static::lazy_static;
@@ -9,14 +8,15 @@ use rand::{RngCore, SeedableRng};
 use uuid::Uuid;
 
 use crate::storage::internal::tests::mocks::{FileSpec, VersionedFileSpec};
-use crate::storage::internal::rng::make_uuid;
+use crate::storage::internal::rng::{make_uuid, SyncRng};
 use crate::storage::internal::TMP_FILENAME_SUFFIX;
 
 // TODO: write rng seeds when the tests fail
 lazy_static!(
-    pub static ref RNG: Arc<Mutex<StdRng>> = Arc::new(Mutex::new(StdRng::from_os_rng()));
-    pub static ref SPEC_RNG: Mutex<StdRng> = Mutex::new(StdRng::seed_from_u64(RNG.lock().unwrap().next_u64() + 1));
-    
+    pub static ref RNG: SyncRng<StdRng> = SyncRng::new(StdRng::from_os_rng());
+    pub static ref SPEC_RNG: SyncRng<StdRng> = SyncRng::new(StdRng::seed_from_u64(RNG.lock().unwrap().next_u64() + 1));
+
+    // TODO: make strictly sequential
     pub static ref READ_NOTE_NORMAL_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
     pub static ref READ_NOTE_EMPTY_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
     pub static ref READ_NOTE_EMPTY_NAME_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());

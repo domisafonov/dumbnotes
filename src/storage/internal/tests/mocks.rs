@@ -1,23 +1,22 @@
-use std::collections::HashMap;
 use std::cmp::min;
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::{Arc, Mutex as SyncMutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use async_trait::async_trait;
+use rand::prelude::StdRng;
+use tokio::fs::ReadDir;
 use tokio::io;
 use tokio::io::{AsyncRead, ReadBuf};
-use tokio::fs::ReadDir;
-use async_trait::async_trait;
-use rand::Rng;
-use rand::rngs::StdRng;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
-use crate::storage::internal::rng::make_uuid;
+use crate::storage::internal::rng::{make_uuid, SyncRng};
 use crate::storage::internal::tests::data::{DEFAULT_SPECS, RNG};
 
 pub struct VersionedFileSpec {
@@ -148,7 +147,7 @@ impl AsyncRead for TestFile {
 pub struct TestStorageIo {
     files: HashMap<String, VersionedFileSpec>,
     events: Mutex<Vec<StorageWrite>>,
-    rng: Arc<SyncMutex<StdRng>>,
+    rng: SyncRng<StdRng>,
 }
 
 impl TestStorageIo {

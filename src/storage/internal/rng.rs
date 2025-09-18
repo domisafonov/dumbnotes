@@ -1,5 +1,6 @@
-use std::sync::{Arc, Mutex};
-use rand::{Rng, RngCore};
+use std::ops::Deref;
+use std::sync::{Arc, Mutex, MutexGuard};
+use rand::Rng;
 use uuid::{Uuid, Variant, Version};
 
 pub fn make_uuid(rng: &mut impl Rng) -> Uuid {
@@ -9,16 +10,34 @@ pub fn make_uuid(rng: &mut impl Rng) -> Uuid {
         .into_uuid()
 }
 
-pub struct SyncRng {
-    pub rng: Arc<Mutex<dyn RngCore>>,
+pub struct SyncRng<R: Rng> {
+    rng: Arc<Mutex<R>>,
 }
 
-impl SyncRng {
-    pub fn new(rng: impl RngCore + 'static) -> Self {
+impl<R: Rng> SyncRng<R> {
+    pub fn new(rng: R) -> Self {
         SyncRng {
             rng: Arc::new(Mutex::new(rng)),
         }
     }
+
+    pub fn get_rng(&self) -> MutexGuard<R> {
+        self.rng.lock().unwrap()
+    }
 }
 
-unsafe impl Send for SyncRng {}
+impl<R: Rng> Deref for SyncRng<R> {
+    type Target = Arc<Mutex<R>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.rng
+    }
+}
+
+impl<R: Rng> Clone for SyncRng<R> {
+    fn clone(&self) -> Self {
+        SyncRng {
+            rng: self.rng.clone(),
+        }
+    }
+}
