@@ -10,7 +10,7 @@ use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use rand::prelude::StdRng;
-use tokio::fs::ReadDir;
+use tokio::fs::{read_dir, ReadDir};
 use tokio::io;
 use tokio::io::{AsyncRead, ReadBuf};
 use tokio::sync::Mutex;
@@ -75,6 +75,7 @@ pub enum FileSpec {
     },
     NotEnoughPermsDir,
     OtherOwnerDir,
+    EmptyDir,
     CantOpen,
     CantRead,
     CantWrite,
@@ -265,11 +266,8 @@ impl NoteStorageIo for TestStorageIo {
                     Err(io::Error::from(io::ErrorKind::NotFound))
                 }
             },
-            FileSpec::RenameWrittenTmpFile { .. } => todo!(),
-            FileSpec::CantWrite => todo!(),
-            FileSpec::CantRename { .. } => todo!(),
-            FileSpec::Remove => todo!(),
-            FileSpec::CantRemove => todo!(),
+
+            _ => unreachable!()
         }
     }
 
@@ -354,7 +352,7 @@ impl NoteStorageIo for TestStorageIo {
                     path: path.as_ref().to_owned(),
                 }
             );
-        match self.get_spec(&path) {
+        match self.get_spec_bumped(&path) {
             FileSpec::Remove => {
                 self.find_write(&path)
                     .await
@@ -367,7 +365,11 @@ impl NoteStorageIo for TestStorageIo {
     }
 
     async fn read_dir(&self, path: impl AsRef<Path>) -> io::Result<ReadDir> {
-        todo!()
+        match self.get_spec(path) {
+            FileSpec::EmptyDir => read_dir("/var/empty").await,
+            FileSpec::NotEnoughPermsDir => Err(io::Error::from(io::ErrorKind::PermissionDenied)),
+            _ => unreachable!()
+        }
     }
 
     fn getuid(&self) -> u32 {

@@ -266,4 +266,23 @@ async fn write_note_rename_error_impl() {
     assert!(matches!(events[2], StorageWrite::Remove { .. }));
 }
 
-// TODO: list_notes, get_note_details, delete_note
+#[tokio::test]
+async fn list_notes_empty() {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    let dir = storage.list_notes(&UsernameString::from_str("empty_dir").unwrap())
+        .await.expect("a directory read");
+    assert_eq!(dir.len(), 0);
+}
+
+#[tokio::test]
+async fn list_notes_error_listing() {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    storage.list_notes(&UsernameString::from_str("not_enough_perms_dir").unwrap())
+        .await.expect_err("should fail");
+}
+
+// TODO: get_note_details, delete_note

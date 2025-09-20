@@ -35,6 +35,7 @@ pub trait NoteStorageIo: Send {
         path: impl AsRef<Path>,
     ) -> io::Result<()>;
     
+    // TODO: get ReadDir behind a facade to make it properly testable
     async fn read_dir(
         &self,
         path: impl AsRef<Path>,

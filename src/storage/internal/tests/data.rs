@@ -104,7 +104,7 @@ lazy_static!(
             }
         ),
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID), FileSpec::Remove),
-        
+
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID), FileSpec::WriteTmpFile),
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID),
             FileSpec::CantRename {
@@ -113,6 +113,8 @@ lazy_static!(
             }
         ),
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID), FileSpec::CantRemove),
+        
+        ("/empty_dir".into(), FileSpec::EmptyDir),
     ]
         .into_iter()
         .map(|(DataPath { path, is_tmp },v)|
