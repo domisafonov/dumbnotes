@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::storage::internal::tests::mocks::{FileSpec, VersionedFileSpec};
 use crate::storage::internal::rng::{make_uuid, SyncRng};
-use crate::storage::internal::TMP_FILENAME_SUFFIX;
+use crate::storage::internal::TMP_FILENAME_INFIX;
 
 // TODO: write rng seeds when the tests fail
 lazy_static!(
@@ -83,16 +83,18 @@ lazy_static!(
         (make_path("/read_note", *READ_NOTE_CANT_READ_UUID), FileSpec::CantRead),
 
         ("/write_note".into(), FileSpec::Dir),
-        (make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID), FileSpec::WriteFile),
+        (make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID), FileSpec::WriteTmpFile),
         (make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID),
-            FileSpec::RenameWrittenFile {
-                path: make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID),
-                rename_to: make_path("/write_note", *WRITE_NOTE_NORMAL_UUID),
+            FileSpec::RenameWrittenTmpFile {
+                path: make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).path,
+                rename_to: make_path("/write_note", *WRITE_NOTE_NORMAL_UUID).path
             }
         ),
     ]
         .into_iter()
-        .map(|(k,v)| (k, v.into()))
+        .map(|(DataPath { path, is_tmp },v)|
+            (path, VersionedFileSpec::new(v, is_tmp))
+        )
         .fold(
             Vec::<(String, VersionedFileSpec)>::new(), 
             |mut r, (k, mut v): (_, VersionedFileSpec)| {
@@ -116,11 +118,31 @@ lazy_static!(
 pub const READ_NOTE_INVALID_UTF8_TITLE: &str = "okt(";
 pub const READ_NOTE_INVALID_UTF8_CONTENTS: &str = "(okc";
 
-pub fn make_path(base: &str, uuid: Uuid) -> String {
-    base.to_string() + "/" + &uuid.hyphenated().to_string()
+pub struct DataPath {
+    pub path: String,
+    pub is_tmp: bool,
 }
 
-pub fn make_tmp_path(base: &str, uuid: Uuid) -> String {
-    base.to_string() + "/" + &uuid.hyphenated().to_string() 
-        + TMP_FILENAME_SUFFIX
+impl From<&str> for DataPath {
+    fn from(s: &str) -> DataPath {
+        DataPath {
+            path: s.to_string(),
+            is_tmp: false,
+        }
+    }
+}
+
+pub fn make_path(base: &str, uuid: Uuid) -> DataPath {
+    DataPath { 
+        path: base.to_string() + "/" + &uuid.hyphenated().to_string(),
+        is_tmp: false
+    }
+}
+
+pub fn make_tmp_path(base: &str, uuid: Uuid) -> DataPath {
+    DataPath {
+        path: base.to_string() + "/" + &uuid.hyphenated().to_string() 
+            + TMP_FILENAME_INFIX,
+        is_tmp: true
+    }
 }

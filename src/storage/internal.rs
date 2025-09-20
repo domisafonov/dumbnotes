@@ -28,7 +28,7 @@ mod rng;
 
 const REQUIRED_UNIX_PERMISSIONS: u32 = 0o700;
 const HYPHENED_UUID_SIZE: usize = 36;
-const TMP_FILENAME_SUFFIX: &str = ".tmp";
+const TMP_FILENAME_INFIX: &str = ".tmp.";
 
 pub type NoteStorage = NoteStorageImpl<ProductionNoteStorageIo>;
 
@@ -198,11 +198,14 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         username: &UsernameString,
         uuid: Uuid,
     ) -> PathBuf {
-        // TODO: guarantee uniqueness, deletion, and write locking
-        //  uuid.tmp.<tmp_uuid>
-        //  uuid randomness is taken from a gen in io (normal getrandom for prod)
+        // TODO: maybe, guarantee atomic file creation upstream instead
+        //  of using a uuid suffix
         self.get_user_dir(username)
-            .join(uuid.hyphenated().to_string() + TMP_FILENAME_SUFFIX)
+            .join(
+                uuid.hyphenated().to_string() +
+                    TMP_FILENAME_INFIX
+                    + &self.io.generate_uuid().hyphenated().to_string()
+            )
     }
 
     fn try_extract_uuid(filename: OsString) -> Option<Uuid> {

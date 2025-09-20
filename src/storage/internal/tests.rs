@@ -1,6 +1,5 @@
 // TODO: remember to test errors being logged
 
-use std::io::Read;
 use mocks::TestStorageIo;
 use crate::storage::internal::tests::data::*;
 use crate::storage::internal::tests::mocks::StorageWrite;
@@ -169,13 +168,17 @@ async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
             contents: contents.into(),
         },
     ).await.expect("successful write");
+    let tmp_files = storage.io.get_tmp_files().await;
+    assert_eq!(tmp_files.len(), 1);
+    let (tmp_file_key, tmp_filename) = &tmp_files[0];
+    assert_eq!(*tmp_file_key, make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).path);
     let events = storage.io.get_events().await;
     assert_eq!(events.len(), 1);
     let title = title.map(String::from).unwrap_or("".into()) + "\n";
     assert_eq!(
         events[0],
         StorageWrite::Write {
-            path: make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).into(),
+            path: tmp_filename.into(),
             data: format!("{title}{contents}").into(),
         },
     );
@@ -194,7 +197,11 @@ async fn write_note_write_empty_name_and_contents() {
             contents: "".into(),
         },
     ).await.expect("successful write");
-    
+
+    let tmp_files = storage.io.get_tmp_files().await;
+    assert_eq!(tmp_files.len(), 1);
+    let (tmp_file_key, tmp_filename) = &tmp_files[0];
+    assert_eq!(*tmp_file_key, make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).path);
     let events = storage.io.get_events().await;
     assert_eq!(events.len(), 1);
     
@@ -202,12 +209,7 @@ async fn write_note_write_empty_name_and_contents() {
         StorageWrite::Write { ref path, ref data } => (path, data),
         _ => panic!("not a write event: {:?}", events[0]),
     };
-    assert_eq!(
-        *path,
-        PathBuf::from(
-            make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID)
-        )
-    );
+    assert_eq!(*path, PathBuf::from(tmp_filename));
     assert!(*data == "\n".bytes().collect::<Vec<_>>() || data.is_empty());
 }
 

@@ -18,13 +18,26 @@ use uuid::Uuid;
 use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
 use crate::storage::internal::rng::{make_uuid, SyncRng};
 use crate::storage::internal::tests::data::{DEFAULT_SPECS, RNG};
+use crate::storage::internal::TMP_FILENAME_INFIX;
+
+// TODO: the tests got supercomplicated, rewrite with a full-tree storage
+//  emulation, using injected rng's determinism to hardcode test uuids
 
 pub struct VersionedFileSpec {
     pub current_version: AtomicUsize,
     pub specs: Vec<Arc<FileSpec>>,
+    pub is_tmp: bool,
 }
 
 impl VersionedFileSpec {
+    pub fn new(spec: FileSpec, is_tmp: bool) -> Self {
+        VersionedFileSpec {
+            current_version: AtomicUsize::new(usize::MAX),
+            specs: vec![Arc::new(spec)],
+            is_tmp,
+        }
+    }
+
     pub fn get(&self) -> &FileSpec {
         let current_version = self.current_version.load(Ordering::Relaxed);
         &self.specs[
@@ -43,20 +56,12 @@ impl VersionedFileSpec {
     }
 }
 
-impl From<FileSpec> for VersionedFileSpec {
-    fn from(spec: FileSpec) -> Self {
-        VersionedFileSpec {
-            current_version: AtomicUsize::new(usize::MAX),
-            specs: vec![Arc::new(spec)],
-        }
-    }
-}
-
 impl Clone for VersionedFileSpec {
     fn clone(&self) -> Self {
         VersionedFileSpec {
             current_version: AtomicUsize::new(self.current_version.load(Ordering::Relaxed)),
             specs: self.specs.clone(),
+            is_tmp: self.is_tmp,
         }
     }
 }
@@ -71,8 +76,8 @@ pub enum FileSpec {
     OtherOwnerDir,
     CantOpen,
     CantRead,
-    WriteFile,
-    RenameWrittenFile {
+    WriteTmpFile,
+    RenameWrittenTmpFile {
         path: String,
         rename_to: String,
     }
@@ -148,6 +153,10 @@ pub struct TestStorageIo {
     files: HashMap<String, VersionedFileSpec>,
     events: Mutex<Vec<StorageWrite>>,
     rng: SyncRng<StdRng>,
+
+    // "[uuid].tmp. to [uuid].tmp.[tmp_uuid]
+    // in order of first access
+    tmp_files: Mutex<Vec<(String, String)>>,
 }
 
 impl TestStorageIo {
@@ -156,20 +165,35 @@ impl TestStorageIo {
             files: DEFAULT_SPECS.clone(),
             events: Mutex::new(Vec::new()),
             rng: RNG.clone(),
+            tmp_files: Mutex::new(Vec::new()),
         }
     }
 
     fn get_spec(&self, path: impl AsRef<Path>) -> &FileSpec {
-        self.files.get(path.as_ref().to_str().unwrap()).unwrap().get()
+        self.get_versioned_spec(path).get()
     }
 
     fn get_spec_bumped(&self, path: impl AsRef<Path>) -> &FileSpec {
-        let spec = self.files
-            .get(path.as_ref().to_str().unwrap())
-            .unwrap();
+        let spec = self.get_versioned_spec(path);
         let ret = spec.get();
         spec.bump();
         ret
+    }
+
+    fn get_versioned_spec(&self, path: impl AsRef<Path>) -> &VersionedFileSpec {
+        let path = path.as_ref().to_str().unwrap();
+        let spec = self.files.get(path);
+        if spec.is_some() {
+            spec.unwrap()
+        } else {
+            let last_key_ind = path.len() - 36;
+            assert!(last_key_ind >= TMP_FILENAME_INFIX.len(), "can't find spec for path {path}");
+            let path = path[0..last_key_ind].to_owned();
+            assert!(path.ends_with(TMP_FILENAME_INFIX), "can't find spec for (tmp?) path {path}");
+            let spec = self.files.get(&path).unwrap();
+            assert!(spec.is_tmp);
+            spec
+        }
     }
 
     fn bump_spec(&self, path: impl AsRef<Path>) {
@@ -178,6 +202,10 @@ impl TestStorageIo {
 
     pub async fn get_events(&self) -> Vec<StorageWrite> {
         self.events.lock().await.to_vec()
+    }
+
+    pub async fn get_tmp_files(&self) -> Vec<(String, String)> {
+        self.tmp_files.lock().await.to_vec()
     }
 }
 
@@ -201,8 +229,23 @@ impl NoteStorageIo for TestStorageIo {
                 | FileSpec::CantRead
             => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
 
-            FileSpec::WriteFile => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
-            FileSpec::RenameWrittenFile { .. } => todo!(),
+            FileSpec::WriteTmpFile => {
+                let written_to = self.events.lock().await
+                    .iter()
+                    .rfind(|ev|
+                        matches!(
+                            ev,
+                            StorageWrite::Write { path, .. }
+                        )
+                    )
+                    .is_some();
+                if written_to {
+                    Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 })
+                } else {
+                    Err(io::Error::from(io::ErrorKind::NotFound))
+                }
+            },
+            FileSpec::RenameWrittenTmpFile { .. } => todo!(),
         }
     }
 
@@ -226,7 +269,21 @@ impl NoteStorageIo for TestStorageIo {
         data: impl AsRef<[u8]>,
     ) -> io::Result<()> {
         match self.get_spec_bumped(&path) {
-            FileSpec::WriteFile => {
+            FileSpec::WriteTmpFile => {
+                let mut tmp_files = self.tmp_files.lock().await;
+                let tmp_file = tmp_files
+                    .iter()
+                    .find(|(key, name)|
+                        Path::new(name) == path.as_ref()
+                    )
+                    .map(|(_, name)| name);
+                if tmp_file.is_none() {
+                    tmp_files.push((
+                        path.as_ref().to_str().unwrap()
+                            .rsplit_once('.').unwrap().0.to_owned() + ".",
+                        path.as_ref().to_str().unwrap().to_owned(),
+                    ))
+                }
                 self.events.lock().await
                     .push(
                         StorageWrite::Write {
@@ -246,7 +303,7 @@ impl NoteStorageIo for TestStorageIo {
         to: impl AsRef<Path>,
     ) -> io::Result<()> {
         match self.get_spec_bumped(&from) {
-            FileSpec::RenameWrittenFile { rename_to, .. } => {
+            FileSpec::RenameWrittenTmpFile { rename_to, .. } => {
                 self.events.lock().await
                     .iter()
                     .rfind(|ev|
