@@ -173,7 +173,7 @@ async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
     let (tmp_file_key, tmp_filename) = &tmp_files[0];
     assert_eq!(*tmp_file_key, make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).path);
     let events = storage.io.get_events().await;
-    assert_eq!(events.len(), 1);
+    assert_eq!(events.len(), 2);
     let title = title.map(String::from).unwrap_or("".into()) + "\n";
     assert_eq!(
         events[0],
@@ -203,7 +203,7 @@ async fn write_note_write_empty_name_and_contents() {
     let (tmp_file_key, tmp_filename) = &tmp_files[0];
     assert_eq!(*tmp_file_key, make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID).path);
     let events = storage.io.get_events().await;
-    assert_eq!(events.len(), 1);
+    assert_eq!(events.len(), 2);
     
     let (path, data) = match events[0] {
         StorageWrite::Write { ref path, ref data } => (path, data),
@@ -215,13 +215,55 @@ async fn write_note_write_empty_name_and_contents() {
 
 #[tokio::test]
 async fn write_note_write_error() {
-    todo!()
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    storage.write_note(
+        &UsernameString::from_str("write_note").unwrap(),
+        &Note {
+            id: *WRITE_NOTE_CANT_WRITE_UUID,
+            name: None,
+            contents: "".into(),
+        },
+    ).await.expect_err("should fail");
+
+    let tmp_files = storage.io.get_tmp_files().await;
+    assert_eq!(tmp_files.len(), 0);
+    let events = storage.io.get_events().await;
+    assert_eq!(events.len(), 1);
+    assert!(matches!(events[0], StorageWrite::Write { .. }));
 }
 
 #[tokio::test]
 async fn write_note_rename_error() {
-    // also, error on temporary file removal
-    todo!()
+    write_note_rename_error_impl().await;
+}
+
+#[tokio::test]
+async fn write_note_remove_after_renaming_fail_error() {
+    write_note_rename_error_impl().await;
+}
+
+async fn write_note_rename_error_impl() {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    storage.write_note(
+        &UsernameString::from_str("write_note").unwrap(),
+        &Note {
+            id: *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID,
+            name: None,
+            contents: "".into(),
+        },
+    ).await.expect_err("should fail");
+
+    let tmp_files = storage.io.get_tmp_files().await;
+    assert_eq!(tmp_files.len(), 1);
+    let events = storage.io.get_events().await;
+    assert_eq!(events.len(), 3);
+    assert!(matches!(events[0], StorageWrite::Write { .. }));
+    assert!(matches!(events[1], StorageWrite::Rename { .. }));
+    assert!(matches!(events[2], StorageWrite::Remove { .. }));
 }
 
 // TODO: list_notes, get_note_details, delete_note

@@ -27,6 +27,9 @@ lazy_static!(
     pub static ref READ_NOTE_CANT_READ_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
 
     pub static ref WRITE_NOTE_NORMAL_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
+    pub static ref WRITE_NOTE_CANT_WRITE_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
+    pub static ref WRITE_NOTE_CANT_RENAME_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
+    pub static ref WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
 
     pub static ref DEFAULT_SPECS: HashMap<String, VersionedFileSpec> = HashMap::from_iter([
         ("/".into(), FileSpec::Dir),
@@ -90,13 +93,33 @@ lazy_static!(
                 rename_to: make_path("/write_note", *WRITE_NOTE_NORMAL_UUID).path
             }
         ),
+
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_WRITE_UUID), FileSpec::CantWrite),
+
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID), FileSpec::WriteTmpFile),
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID),
+            FileSpec::CantRename {
+                path: make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID).path,
+                rename_to: make_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID).path
+            }
+        ),
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID), FileSpec::Remove),
+        
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID), FileSpec::WriteTmpFile),
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID),
+            FileSpec::CantRename {
+                path: make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID).path,
+                rename_to: make_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID).path
+            }
+        ),
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID), FileSpec::CantRemove),
     ]
         .into_iter()
         .map(|(DataPath { path, is_tmp },v)|
             (path, VersionedFileSpec::new(v, is_tmp))
         )
         .fold(
-            Vec::<(String, VersionedFileSpec)>::new(), 
+            Vec::<(String, VersionedFileSpec)>::new(),
             |mut r, (k, mut v): (_, VersionedFileSpec)| {
                 match r.last_mut() {
                     Some((last_key, last)) if *last_key == k => {
@@ -133,7 +156,7 @@ impl From<&str> for DataPath {
 }
 
 pub fn make_path(base: &str, uuid: Uuid) -> DataPath {
-    DataPath { 
+    DataPath {
         path: base.to_string() + "/" + &uuid.hyphenated().to_string(),
         is_tmp: false
     }
@@ -141,7 +164,7 @@ pub fn make_path(base: &str, uuid: Uuid) -> DataPath {
 
 pub fn make_tmp_path(base: &str, uuid: Uuid) -> DataPath {
     DataPath {
-        path: base.to_string() + "/" + &uuid.hyphenated().to_string() 
+        path: base.to_string() + "/" + &uuid.hyphenated().to_string()
             + TMP_FILENAME_INFIX,
         is_tmp: true
     }

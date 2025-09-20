@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::io::Error;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -18,8 +19,8 @@ use uuid::Uuid;
 use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
 use crate::storage::internal::rng::{make_uuid, SyncRng};
 use crate::storage::internal::tests::data::{DEFAULT_SPECS, RNG};
-use crate::storage::internal::TMP_FILENAME_INFIX;
-
+use crate::storage::internal::{HYPHENED_UUID_SIZE, TMP_FILENAME_INFIX};
+use crate::storage::internal::tests::mocks::StorageWrite::Rename;
 // TODO: the tests got supercomplicated, rewrite with a full-tree storage
 //  emulation, using injected rng's determinism to hardcode test uuids
 
@@ -76,11 +77,18 @@ pub enum FileSpec {
     OtherOwnerDir,
     CantOpen,
     CantRead,
+    CantWrite,
     WriteTmpFile,
     RenameWrittenTmpFile {
         path: String,
         rename_to: String,
-    }
+    },
+    CantRename {
+        path: String,
+        rename_to: String,
+    },
+    Remove,
+    CantRemove,
 }
 
 impl FileSpec {
@@ -186,7 +194,7 @@ impl TestStorageIo {
         if spec.is_some() {
             spec.unwrap()
         } else {
-            let last_key_ind = path.len() - 36;
+            let last_key_ind = path.len() - HYPHENED_UUID_SIZE;
             assert!(last_key_ind >= TMP_FILENAME_INFIX.len(), "can't find spec for path {path}");
             let path = path[0..last_key_ind].to_owned();
             assert!(path.ends_with(TMP_FILENAME_INFIX), "can't find spec for (tmp?) path {path}");
@@ -206,6 +214,18 @@ impl TestStorageIo {
 
     pub async fn get_tmp_files(&self) -> Vec<(String, String)> {
         self.tmp_files.lock().await.to_vec()
+    }
+
+    async fn find_write(&self, path: impl AsRef<Path>) -> Option<StorageWrite> {
+        self.events.lock().await
+            .iter()
+            .rfind(|ev|
+                matches!(
+                    ev,
+                    StorageWrite::Write { path: ev_name, .. } if ev_name == path.as_ref()
+                )
+            )
+            .cloned()
     }
 }
 
@@ -246,6 +266,10 @@ impl NoteStorageIo for TestStorageIo {
                 }
             },
             FileSpec::RenameWrittenTmpFile { .. } => todo!(),
+            FileSpec::CantWrite => todo!(),
+            FileSpec::CantRename { .. } => todo!(),
+            FileSpec::Remove => todo!(),
+            FileSpec::CantRemove => todo!(),
         }
     }
 
@@ -268,6 +292,13 @@ impl NoteStorageIo for TestStorageIo {
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
     ) -> io::Result<()> {
+        self.events.lock().await
+            .push(
+                StorageWrite::Write {
+                    path: path.as_ref().to_owned(),
+                    data: data.as_ref().to_vec(),
+                }
+            );
         match self.get_spec_bumped(&path) {
             FileSpec::WriteTmpFile => {
                 let mut tmp_files = self.tmp_files.lock().await;
@@ -284,15 +315,9 @@ impl NoteStorageIo for TestStorageIo {
                         path.as_ref().to_str().unwrap().to_owned(),
                     ))
                 }
-                self.events.lock().await
-                    .push(
-                        StorageWrite::Write {
-                            path: path.as_ref().to_owned(),
-                            data: data.as_ref().to_vec(),
-                        }
-                    );
                 Ok(())
             },
+            FileSpec::CantWrite => Err(Error::from(io::ErrorKind::StorageFull)),
             _ => unreachable!()
         }
     }
@@ -302,26 +327,41 @@ impl NoteStorageIo for TestStorageIo {
         from: impl AsRef<Path>,
         to: impl AsRef<Path>,
     ) -> io::Result<()> {
+        self.events.lock().await
+            .push(
+                Rename {
+                    from: from.as_ref().to_owned(),
+                    to: to.as_ref().to_owned(),
+                }
+            );
         match self.get_spec_bumped(&from) {
             FileSpec::RenameWrittenTmpFile { rename_to, .. } => {
-                self.events.lock().await
-                    .iter()
-                    .rfind(|ev|
-                        matches!(
-                            ev,
-                            StorageWrite::Write { path: ev_from, .. } if ev_from == from.as_ref()
-                        )
-                    )
+                self.find_write(&from)
+                    .await
                     .expect("file path was written to before renaming");
                 assert_eq!(rename_to, to.as_ref().to_str().unwrap());
                 Ok(())
             },
+            FileSpec::CantRename { .. } => Err(Error::from(io::ErrorKind::Other)),
             _ => unreachable!()
         }
     }
 
     async fn remove_file(&self, path: impl AsRef<Path>) -> io::Result<()> {
+        self.events.lock().await
+            .push(
+                StorageWrite::Remove {
+                    path: path.as_ref().to_owned(),
+                }
+            );
         match self.get_spec(&path) {
+            FileSpec::Remove => {
+                self.find_write(&path)
+                    .await
+                    .expect("file path was written to before removing");
+                Ok(())
+            }
+            FileSpec::CantRemove => Err(io::Error::from(io::ErrorKind::Other)),
             _ => unreachable!()
         }
     }
