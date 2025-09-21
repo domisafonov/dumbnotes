@@ -285,4 +285,138 @@ async fn list_notes_error_listing() {
         .await.expect_err("should fail");
 }
 
-// TODO: get_note_details, delete_note
+#[tokio::test]
+async fn get_note_details_normal() {
+    let note = get_single_note_details_successfully(*READ_NOTE_NORMAL_UUID).await;
+    assert_eq!(note.name, Some("normal title".into()));
+}
+
+#[tokio::test]
+async fn get_note_details_empty_file() {
+    let note = get_single_note_details_successfully(*READ_NOTE_EMPTY_UUID).await;
+    assert_eq!(note.name, None);
+}
+
+#[tokio::test]
+async fn get_note_details_empty_name() {
+    let note = get_single_note_details_successfully(*READ_NOTE_EMPTY_NAME_UUID).await;
+    assert_eq!(note.name, None);
+}
+
+#[tokio::test]
+async fn get_note_details_empty_contents() {
+    let note = get_single_note_details_successfully(*READ_NOTE_EMPTY_CONTENTS_UUID).await;
+    assert_eq!(note.name, Some("normal title".into()));
+}
+
+#[tokio::test]
+async fn get_note_details_cant_open() {
+    get_single_note_details_with_error(io::ErrorKind::Other, *READ_NOTE_CANT_OPEN_UUID).await
+}
+
+#[tokio::test]
+async fn get_note_details_cant_read() {
+    get_single_note_details_with_error(io::ErrorKind::BrokenPipe, *READ_NOTE_CANT_READ_UUID).await
+}
+
+#[tokio::test]
+async fn get_note_details_invalid_utf8() {
+    let note = get_single_note_details_successfully(*READ_NOTE_INVALID_UTF8_UUID).await;
+    assert_eq!(note.name, Some(READ_NOTE_INVALID_UTF8_TITLE.into()));
+}
+
+#[tokio::test]
+async fn get_note_details_file_too_big() {
+    todo!("implement the test after the config is done")
+}
+
+#[tokio::test]
+async fn get_note_details_name_too_big() {
+    todo!("implement the test after the config is done")
+}
+
+#[tokio::test]
+async fn get_note_details_name_not_terminated_with_newline() {
+    let note = get_single_note_details_successfully(*READ_NOTE_NO_NEWLINE_UUID).await;
+    assert_eq!(note.name, Some("normal title".into()));
+}
+
+#[tokio::test]
+async fn get_note_details_file_became_too_big_after_metadata_read() {
+    todo!("implement the test after the config is done")
+}
+
+async fn get_single_note_details_successfully(id: Uuid) -> NoteInfo {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    let mut res = storage.get_note_details(
+        &UsernameString::from_str("read_note").unwrap(),
+        vec![
+            NoteMetadata {
+                id,
+                mtime: UtcDateTime::from_unix_timestamp(42).unwrap()
+            }
+        ],
+    ).await.expect("successful note read");
+    assert_eq!(res.len(), 1);
+    assert!(res[0].is_some());
+    let note = res.remove(0).unwrap();
+    assert_eq!(note.metadata.id, id);
+    assert_eq!(note.metadata.mtime, UtcDateTime::from_unix_timestamp(42).unwrap());
+    note
+}
+
+async fn get_single_note_details_with_error(error_kind: io::ErrorKind, id: Uuid) {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    let res = storage.get_note_details(
+        &UsernameString::from_str("read_note").unwrap(),
+        vec![
+            NoteMetadata {
+                id,
+                mtime: UtcDateTime::from_unix_timestamp(42).unwrap()
+            }
+        ],
+    ).await.expect("should succeed");
+    assert_eq!(res.len(), 1);
+    assert!(res[0].is_none());
+}
+
+#[tokio::test]
+async fn get_note_details_multiple() {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    let ids = [
+        *READ_NOTE_NORMAL_UUID,
+        *READ_NOTE_EMPTY_UUID,
+        *READ_NOTE_EMPTY_NAME_UUID,
+        *READ_NOTE_EMPTY_CONTENTS_UUID,
+        *READ_NOTE_CANT_OPEN_UUID,
+        *READ_NOTE_CANT_READ_UUID,
+        *READ_NOTE_INVALID_UTF8_UUID,
+        *READ_NOTE_NO_NEWLINE_UUID,
+    ];
+    let res = storage.get_note_details(
+        &UsernameString::from_str("read_note").unwrap(),
+        ids.iter()
+            .map(|id| NoteMetadata {
+                id: *id,
+                mtime: UtcDateTime::from_unix_timestamp(42).unwrap(),
+            })
+            .collect::<Vec<_>>(),
+    ).await.expect("should succeed");
+    assert_eq!(res.len(), ids.len());
+    assert!(res[0].is_some());
+    assert!(res[1].is_some());
+    assert!(res[2].is_some());
+    assert!(res[3].is_some());
+    assert!(res[4].is_none());
+    assert!(res[5].is_none());
+    assert!(res[6].is_some());
+    assert!(res[7].is_some());
+}
+
+// TODO: delete_note
