@@ -419,4 +419,24 @@ async fn get_note_details_multiple() {
     assert!(res[7].is_some());
 }
 
-// TODO: delete_note
+#[tokio::test]
+async fn delete_note_successfully() {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    storage.delete_note(
+        &UsernameString::from_str("delete_note").unwrap(),
+        *DELETE_NOTE_SUCCESS
+    ).await.expect("should succeed");
+}
+
+#[tokio::test]
+async fn delete_note_error() {
+    let io = TestStorageIo::new();
+    let mut storage = NoteStorageImpl::new_internal("/", io)
+        .await.expect("successful storage creation");
+    storage.delete_note(
+        &UsernameString::from_str("delete_note").unwrap(),
+        *DELETE_NOTE_ERROR
+    ).await.expect_err("should fail");
+}

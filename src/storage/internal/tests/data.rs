@@ -31,6 +31,9 @@ lazy_static!(
     pub static ref WRITE_NOTE_CANT_RENAME_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
     pub static ref WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
 
+    pub static ref DELETE_NOTE_SUCCESS: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
+    pub static ref DELETE_NOTE_ERROR: Uuid = make_uuid(&mut SPEC_RNG.lock().unwrap());
+    
     pub static ref DEFAULT_SPECS: HashMap<String, VersionedFileSpec> = HashMap::from_iter([
         ("/".into(), FileSpec::Dir),
         ("/meta_fail".into(),
@@ -103,7 +106,9 @@ lazy_static!(
                 rename_to: make_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID).path
             }
         ),
-        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID), FileSpec::Remove),
+        (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_UUID),
+            FileSpec::Remove { should_be_written: true }
+        ),
 
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID), FileSpec::WriteTmpFile),
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID),
@@ -115,6 +120,12 @@ lazy_static!(
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID), FileSpec::CantRemove),
         
         ("/empty_dir".into(), FileSpec::EmptyDir),
+        
+        ("/delete_note".into(), FileSpec::Dir),
+        (make_path("/delete_note", *DELETE_NOTE_SUCCESS),
+            FileSpec::Remove { should_be_written: false }
+        ),
+        (make_path("/delete_note", *DELETE_NOTE_ERROR), FileSpec::CantRemove),
     ]
         .into_iter()
         .map(|(DataPath { path, is_tmp },v)|

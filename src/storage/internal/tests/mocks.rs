@@ -88,7 +88,9 @@ pub enum FileSpec {
         path: String,
         rename_to: String,
     },
-    Remove,
+    Remove {
+        should_be_written: bool,
+    },
     CantRemove,
 }
 
@@ -353,10 +355,12 @@ impl NoteStorageIo for TestStorageIo {
                 }
             );
         match self.get_spec_bumped(&path) {
-            FileSpec::Remove => {
-                self.find_write(&path)
-                    .await
-                    .expect("file path was written to before removing");
+            FileSpec::Remove { should_be_written } => {
+                if *should_be_written {
+                    self.find_write(&path)
+                        .await
+                        .expect("file path was written to before removing");
+                }
                 Ok(())
             }
             FileSpec::CantRemove => Err(io::Error::from(io::ErrorKind::Other)),
