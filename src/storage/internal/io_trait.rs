@@ -6,39 +6,39 @@ use tokio::{fs, io};
 use uuid::Uuid;
 use crate::storage::internal::rng::{make_uuid, SyncRng};
 
-#[async_trait(?Send)]
+#[async_trait]
 pub trait NoteStorageIo: Send {
     async fn metadata(
         &self,
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<Metadata>;
 
     async fn open_file(
         &self,
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<(impl io::AsyncRead + Unpin, u64)>;
 
     async fn write_file(
         &self,
-        path: impl AsRef<Path>,
-        data: impl AsRef<[u8]>,
+        path: impl AsRef<Path> + Send,
+        data: impl AsRef<[u8]> + Send,
     ) -> io::Result<()>;
 
     async fn rename_file(
         &self,
-        from: impl AsRef<Path>,
-        to: impl AsRef<Path>,
+        from: impl AsRef<Path> + Send,
+        to: impl AsRef<Path> + Send,
     ) -> io::Result<()>;
 
     async fn remove_file(
         &self,
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<()>;
     
     // TODO: get ReadDir behind a facade to make it properly testable
     async fn read_dir(
         &self,
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<fs::ReadDir>;
 
     fn getuid(&self) -> u32;
@@ -64,11 +64,11 @@ impl ProductionNoteStorageIo {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl NoteStorageIo for ProductionNoteStorageIo {
     async fn metadata(
         &self, 
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<Metadata> {
         let meta = fs::metadata(path).await?;
         Ok(Metadata {
@@ -80,7 +80,7 @@ impl NoteStorageIo for ProductionNoteStorageIo {
 
     async fn open_file(
         &self,
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<(impl io::AsyncRead + Unpin, u64)> {
         let file = fs::File::open(path).await?;
         let metadata = file.metadata().await?;
@@ -89,27 +89,30 @@ impl NoteStorageIo for ProductionNoteStorageIo {
 
     async fn write_file(
         &self,
-        path: impl AsRef<Path>,
-        data: impl AsRef<[u8]>,
+        path: impl AsRef<Path> + Send,
+        data: impl AsRef<[u8]> + Send,
     ) -> io::Result<()> {
         fs::write(path, data).await
     }
 
     async fn rename_file(
         &self,
-        from: impl AsRef<Path>,
-        to: impl AsRef<Path>,
+        from: impl AsRef<Path> + Send,
+        to: impl AsRef<Path> + Send,
     ) -> io::Result<()> {
         fs::rename(from, to).await
     }
 
-    async fn remove_file(&self, path: impl AsRef<Path>) -> io::Result<()> {
+    async fn remove_file(
+        &self,
+        path: impl AsRef<Path> + Send,
+    ) -> io::Result<()> {
         fs::remove_file(path).await
     }
     
     async fn read_dir(
         &self,
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<fs::ReadDir> {
         fs::read_dir(path).await
     }

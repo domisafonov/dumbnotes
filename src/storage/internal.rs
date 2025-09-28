@@ -63,7 +63,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
             return Err(StorageError::DoesNotExist);
         }
         validate_note_root_permissions(&io, &meta)?;
-        Ok(NoteStorageImpl { 
+        Ok(NoteStorageImpl {
             io,
             basedir: app_config.data_directory.clone(),
             max_note_len: app_config.max_note_size,

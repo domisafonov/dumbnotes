@@ -170,6 +170,8 @@ pub struct TestStorageIo {
     tmp_files: Mutex<Vec<(String, String)>>,
 }
 
+unsafe impl Send for TestStorageIo {}
+
 impl TestStorageIo {
     pub fn new() -> Self {
         TestStorageIo {
@@ -219,7 +221,10 @@ impl TestStorageIo {
         self.tmp_files.lock().await.to_vec()
     }
 
-    async fn find_write(&self, path: impl AsRef<Path>) -> Option<StorageWrite> {
+    async fn find_write(
+        &self,
+        path: impl AsRef<Path> + Send,
+    ) -> Option<StorageWrite> {
         self.events.lock().await
             .iter()
             .rfind(|ev|
@@ -238,9 +243,12 @@ impl Debug for TestStorageIo {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl NoteStorageIo for TestStorageIo {
-    async fn metadata(&self, path: impl AsRef<Path>) -> io::Result<Metadata> {
+    async fn metadata(
+        &self,
+        path: impl AsRef<Path> + Send,
+    ) -> io::Result<Metadata> {
         match self.get_spec(path) {
             FileSpec::Dir => Ok(Metadata { is_dir: true, uid: 1, mode: 0o700 }),
             FileSpec::MetadataError(err) => Err(err()),
@@ -275,7 +283,7 @@ impl NoteStorageIo for TestStorageIo {
 
     async fn open_file(
         &self,
-        path: impl AsRef<Path>,
+        path: impl AsRef<Path> + Send,
     ) -> io::Result<(impl AsyncRead + Unpin, u64)> {
         match self.get_spec(path) {
             FileSpec::File { contents } => Ok(
@@ -289,8 +297,8 @@ impl NoteStorageIo for TestStorageIo {
 
     async fn write_file(
         &self,
-        path: impl AsRef<Path>,
-        data: impl AsRef<[u8]>,
+        path: impl AsRef<Path> + Send,
+        data: impl AsRef<[u8]> + Send,
     ) -> io::Result<()> {
         self.events.lock().await
             .push(
@@ -324,8 +332,8 @@ impl NoteStorageIo for TestStorageIo {
 
     async fn rename_file(
         &self,
-        from: impl AsRef<Path>,
-        to: impl AsRef<Path>,
+        from: impl AsRef<Path> + Send,
+        to: impl AsRef<Path> + Send,
     ) -> io::Result<()> {
         self.events.lock().await
             .push(
@@ -336,7 +344,7 @@ impl NoteStorageIo for TestStorageIo {
             );
         match self.get_spec_bumped(&from) {
             FileSpec::RenameWrittenTmpFile { rename_to, .. } => {
-                self.find_write(&from)
+                self.find_write(from.as_ref())
                     .await
                     .expect("file path was written to before renaming");
                 assert_eq!(rename_to, to.as_ref().to_str().unwrap());
@@ -347,7 +355,10 @@ impl NoteStorageIo for TestStorageIo {
         }
     }
 
-    async fn remove_file(&self, path: impl AsRef<Path>) -> io::Result<()> {
+    async fn remove_file(
+        &self,
+        path: impl AsRef<Path> + Send,
+    ) -> io::Result<()> {
         self.events.lock().await
             .push(
                 StorageWrite::Remove {
@@ -357,7 +368,7 @@ impl NoteStorageIo for TestStorageIo {
         match self.get_spec_bumped(&path) {
             FileSpec::Remove { should_be_written } => {
                 if *should_be_written {
-                    self.find_write(&path)
+                    self.find_write(path.as_ref())
                         .await
                         .expect("file path was written to before removing");
                 }
@@ -368,7 +379,10 @@ impl NoteStorageIo for TestStorageIo {
         }
     }
 
-    async fn read_dir(&self, path: impl AsRef<Path>) -> io::Result<ReadDir> {
+    async fn read_dir(
+        &self,
+        path: impl AsRef<Path> + Send,
+    ) -> io::Result<ReadDir> {
         match self.get_spec(path) {
             FileSpec::EmptyDir => read_dir("/var/empty").await,
             FileSpec::NotEnoughPermsDir => Err(io::Error::from(io::ErrorKind::PermissionDenied)),
