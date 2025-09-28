@@ -1,14 +1,31 @@
-use std::error::Error;
-use std::str::FromStr;
-use uuid::Uuid;
+pub mod app_constants;
+mod cli;
 
-use dumbnotes::config::UsernameString;
-use dumbnotes::storage::NoteStorage;
+use clap::Parser;
+use rocket::fairing::AdHoc;
+use rocket::figment::Figment;
+use rocket::figment::providers::{Env, Format, Serialized, Toml};
+use rocket::{launch, Build, Rocket};
+use dumbnotes::config::AppConfig;
+use crate::app_constants::APP_CONFIG_ENV_PREFIX;
+use crate::cli::CliConfig;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let mut storage = NoteStorage::new("/Users/").await?;
-    storage.read_note(&UsernameString::from_str("abc").unwrap(), Uuid::new_v4()).await?;
-    println!("Hello, world!");
-    Ok(())
+#[launch]
+async fn rocket() -> Rocket<Build> {
+    let cli_config = CliConfig::parse();
+
+    if !cli_config.config_file.exists() {
+        panic!(
+            "Configuration file at {} does not exist",
+            cli_config.config_file.display()
+        )
+    }
+
+    let figment = Figment::from(rocket::Config::default())
+        .merge(Serialized::defaults(AppConfig::default()))
+        .merge(Toml::file_exact(cli_config.config_file))
+        .merge(Env::prefixed(APP_CONFIG_ENV_PREFIX).global());
+
+    rocket::custom(figment)
+        .attach(AdHoc::config::<AppConfig>())
 }

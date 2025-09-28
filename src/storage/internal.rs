@@ -13,7 +13,7 @@ use tokio::io::AsyncReadExt;
 use uuid::fmt::Hyphenated;
 use uuid::Uuid;
 
-use crate::config::{UsernameString, MAX_NOTE_LEN, MAX_NOTE_NAME_LEN};
+use crate::config::{AppConfig, UsernameString};
 use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
 use crate::util::StrExt;
@@ -37,14 +37,16 @@ pub type NoteStorage = NoteStorageImpl<ProductionNoteStorageIo>;
 pub struct NoteStorageImpl<Io: NoteStorageIo> {
     io: Io,
     basedir: PathBuf,
+    max_note_len: u64,
+    max_note_name_len: u64,
 }
 
 impl NoteStorage {
     pub async fn new(
-        basedir: &str
+        app_config: &AppConfig,
     ) -> Result<NoteStorage, StorageError> {
         Self::new_internal(
-            basedir,
+            app_config,
             ProductionNoteStorageIo::new(StdRng::from_os_rng()),
         ).await
     }
@@ -53,16 +55,20 @@ impl NoteStorage {
 #[allow(private_bounds)]
 impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     async fn new_internal(
-        basedir: &str,
+        app_config: &AppConfig,
         io: Io,
     ) -> Result<NoteStorageImpl<Io>, StorageError> {
-        let path = PathBuf::from(basedir);
-        let meta = io.metadata(&path).await?;
+        let meta = io.metadata(&app_config.data_directory).await?;
         if !meta.is_dir {
             return Err(StorageError::DoesNotExist);
         }
         validate_note_root_permissions(&io, &meta)?;
-        Ok(NoteStorageImpl { io, basedir: path })
+        Ok(NoteStorageImpl { 
+            io,
+            basedir: app_config.data_directory.clone(),
+            max_note_len: app_config.max_note_size,
+            max_note_name_len: app_config.max_note_name_size,
+        })
     }
 
     pub async fn read_note(
@@ -72,13 +78,13 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     ) -> Result<Note, StorageError> {
         let path = self.get_note_path(username, note_id);
         let (file, file_size) = self.io.open_file(&path).await?;
-        if file_size > MAX_NOTE_LEN {
+        if file_size > self.max_note_len {
             return Err(StorageError::TooBigError);
         }
-        let contents = read_limited_utf8_lossy(MAX_NOTE_LEN, file).await?;
+        let contents = read_limited_utf8_lossy(self.max_note_len, file).await?;
         let (name, contents) = contents.split_once('\n')
             .unwrap_or((&contents, ""));
-        if name.len() > MAX_NOTE_NAME_LEN as usize {
+        if name.len() > self.max_note_len as usize {
             return Err(StorageError::TooBigError);
         }
         Ok(
@@ -152,7 +158,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                                 // TODO: log
                                 None
                             )?;
-                        let buf = read_limited_utf8_lossy(MAX_NOTE_NAME_LEN, file)
+                        let buf = read_limited_utf8_lossy(self.max_note_name_len, file)
                             .await
                             .map(Some)
                             .unwrap_or_else(|e|

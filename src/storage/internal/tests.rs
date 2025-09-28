@@ -11,14 +11,14 @@ mod mocks;
 #[tokio::test]
 async fn create_storage_ok() {
     let io = TestStorageIo::new();
-    NoteStorageImpl::new_internal("/", io).await
+    make_default_limits_storage("/", io).await
         .expect("successful storage creation");
 }
 
 #[tokio::test]
 async fn create_storage_metadata_fail() {
     let io = TestStorageIo::new();
-    let err = NoteStorageImpl::new_internal("/meta_fail", io)
+    let err = make_default_limits_storage("/meta_fail", io)
         .await.expect_err("should fail");
     assert!(matches!(err, StorageError::IoError(_)), "wrong error type: {err:#?}");
 }
@@ -35,7 +35,7 @@ async fn create_storage_dir_does_not_exist() {
 
 async fn create_storage_dir_does_not_exist_error() {
     let io = TestStorageIo::new();
-    let err = NoteStorageImpl::new_internal("/a_file", io)
+    let err = make_default_limits_storage("/a_file", io)
         .await.expect_err("should fail");
     assert!(matches!(err, StorageError::DoesNotExist), "wrong error type: {err:#?}");
 }
@@ -43,7 +43,7 @@ async fn create_storage_dir_does_not_exist_error() {
 #[tokio::test]
 async fn create_storage_wrong_permissions() {
     let io = TestStorageIo::new();
-    let err = NoteStorageImpl::new_internal("/other_owner_dir", io)
+    let err = make_default_limits_storage("/other_owner_dir", io)
         .await.expect_err("should fail");
     assert!(matches!(err, StorageError::PermissionError), "wrong error type: {err:#?}");
 }
@@ -117,7 +117,7 @@ async fn read_note_file_became_too_big_after_metadata_read() {
 
 async fn read_note_successfully(id: Uuid) -> Note {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     let note = storage.read_note(
         &UsernameString::from_str("read_note").unwrap(),
@@ -129,7 +129,7 @@ async fn read_note_successfully(id: Uuid) -> Note {
 
 async fn read_note_with_error(error_kind: io::ErrorKind, uuid: Uuid) {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     let err = storage.read_note(
         &UsernameString::from_str("read_note").unwrap(),
@@ -158,7 +158,7 @@ async fn write_note_write_empty_contents() {
 
 async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
@@ -187,7 +187,7 @@ async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
 #[tokio::test]
 async fn write_note_write_empty_name_and_contents() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
@@ -216,7 +216,7 @@ async fn write_note_write_empty_name_and_contents() {
 #[tokio::test]
 async fn write_note_write_error() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
@@ -246,7 +246,7 @@ async fn write_note_remove_after_renaming_fail_error() {
 
 async fn write_note_rename_error_impl() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
@@ -269,7 +269,7 @@ async fn write_note_rename_error_impl() {
 #[tokio::test]
 async fn list_notes_empty() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     let dir = storage.list_notes(&UsernameString::from_str("empty_dir").unwrap())
         .await.expect("a directory read");
@@ -279,7 +279,7 @@ async fn list_notes_empty() {
 #[tokio::test]
 async fn list_notes_error_listing() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     storage.list_notes(&UsernameString::from_str("not_enough_perms_dir").unwrap())
         .await.expect_err("should fail");
@@ -311,12 +311,12 @@ async fn get_note_details_empty_contents() {
 
 #[tokio::test]
 async fn get_note_details_cant_open() {
-    get_single_note_details_with_error(io::ErrorKind::Other, *READ_NOTE_CANT_OPEN_UUID).await
+    get_single_note_details_with_error(*READ_NOTE_CANT_OPEN_UUID).await
 }
 
 #[tokio::test]
 async fn get_note_details_cant_read() {
-    get_single_note_details_with_error(io::ErrorKind::BrokenPipe, *READ_NOTE_CANT_READ_UUID).await
+    get_single_note_details_with_error(*READ_NOTE_CANT_READ_UUID).await
 }
 
 #[tokio::test]
@@ -348,7 +348,7 @@ async fn get_note_details_file_became_too_big_after_metadata_read() {
 
 async fn get_single_note_details_successfully(id: Uuid) -> NoteInfo {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     let mut res = storage.get_note_details(
         &UsernameString::from_str("read_note").unwrap(),
@@ -367,9 +367,9 @@ async fn get_single_note_details_successfully(id: Uuid) -> NoteInfo {
     note
 }
 
-async fn get_single_note_details_with_error(error_kind: io::ErrorKind, id: Uuid) {
+async fn get_single_note_details_with_error(id: Uuid) {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     let res = storage.get_note_details(
         &UsernameString::from_str("read_note").unwrap(),
@@ -387,7 +387,7 @@ async fn get_single_note_details_with_error(error_kind: io::ErrorKind, id: Uuid)
 #[tokio::test]
 async fn get_note_details_multiple() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     let ids = [
         *READ_NOTE_NORMAL_UUID,
@@ -422,7 +422,7 @@ async fn get_note_details_multiple() {
 #[tokio::test]
 async fn delete_note_successfully() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     storage.delete_note(
         &UsernameString::from_str("delete_note").unwrap(),
@@ -433,10 +433,22 @@ async fn delete_note_successfully() {
 #[tokio::test]
 async fn delete_note_error() {
     let io = TestStorageIo::new();
-    let mut storage = NoteStorageImpl::new_internal("/", io)
+    let mut storage = make_default_limits_storage("/", io)
         .await.expect("successful storage creation");
     storage.delete_note(
         &UsernameString::from_str("delete_note").unwrap(),
         *DELETE_NOTE_ERROR
     ).await.expect_err("should fail");
+}
+
+async fn make_default_limits_storage<S: NoteStorageIo>(
+    basedir: &str,
+    io: S,
+) -> Result<NoteStorageImpl<S>, StorageError> {
+    NoteStorageImpl::new_internal(
+        &serde_json::from_str::<AppConfig>(
+            &format!("{{\"data_directory\": \"{basedir}\"}}")
+        ).unwrap(),
+        io
+    ).await
 }

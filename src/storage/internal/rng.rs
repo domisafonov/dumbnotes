@@ -21,7 +21,7 @@ impl<R: Rng> SyncRng<R> {
         }
     }
 
-    pub fn get_rng(&self) -> MutexGuard<R> {
+    pub fn get_rng(&self) -> MutexGuard<'_, R> {
         self.rng.lock().unwrap()
     }
 }
