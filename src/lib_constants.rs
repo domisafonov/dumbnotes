@@ -1,4 +1,4 @@
-pub const DEFAULT_USER_DB_DIR: &str = "/etc/dumbnotes/users";
+pub const DEFAULT_USER_DB: &str = "/etc/dumbnotes/users";
 pub const DEFAULT_DATA_DIR: &str = "/var/dumbnotes";
 
 // TODO: validate to fit both in u64 and usize

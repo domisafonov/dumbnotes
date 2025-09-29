@@ -7,6 +7,7 @@ use rocket::figment::providers::{Env, Format, Serialized, Toml};
 use rocket::{launch, Build, Rocket};
 use dumbnotes::config::AppConfig;
 use dumbnotes::storage::NoteStorage;
+use dumbnotes::user_db::{ProductionUserDb, UserDb};
 use crate::app_constants::APP_CONFIG_ENV_PREFIX;
 use crate::cli::CliConfig;
 
@@ -41,7 +42,16 @@ async fn rocket() -> Rocket<Build> {
             panic!("Initialization error");
         });
 
+    let user_db: Box<dyn UserDb> = Box::new(
+        ProductionUserDb::new(&config).await
+            .unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                panic!("Initialization error");
+            })
+    );
+
     rocket::custom(figment)
         .manage(storage)
         .manage(config)
+        .manage(user_db)
 }
