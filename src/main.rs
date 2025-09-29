@@ -10,7 +10,6 @@ use dumbnotes::storage::NoteStorage;
 use crate::app_constants::APP_CONFIG_ENV_PREFIX;
 use crate::cli::CliConfig;
 
-// TODO: error messages
 #[launch]
 async fn rocket() -> Rocket<Build> {
     let cli_config = CliConfig::parse();
@@ -22,16 +21,25 @@ async fn rocket() -> Rocket<Build> {
         )
     }
 
+    // TODO: panic if unknown keys are in the config file
     let figment = Figment::from(rocket::Config::default())
         .merge(Serialized::defaults(AppConfig::default()))
         .merge(Toml::file_exact(cli_config.config_file))
         .merge(Env::prefixed(APP_CONFIG_ENV_PREFIX).global());
 
     let config: AppConfig = figment.extract::<AppConfig>()
-        .expect("Can't parse configuration");
+        .unwrap_or_else(|e| {
+            for e in e {
+                eprintln!("error: {e}");
+            }
+            panic!("Configuration error");
+        });
 
     let storage: NoteStorage = NoteStorage::new(&config).await
-        .expect("Can't create note storage");
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            panic!("Initialization error");
+        });
 
     rocket::custom(figment)
         .manage(storage)
