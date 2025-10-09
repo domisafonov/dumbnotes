@@ -12,7 +12,7 @@ mod mocks;
 async fn create_storage_ok() {
     let io = TestStorageIo::new();
     make_default_limits_storage("/", io).await
-        .expect("successful storage creation");
+        .expect("storage creation failed");
 }
 
 #[tokio::test]
@@ -118,11 +118,11 @@ async fn read_note_file_became_too_big_after_metadata_read() {
 async fn read_note_successfully(id: Uuid) -> Note {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     let note = storage.read_note(
         &UsernameString::from_str("read_note").unwrap(),
         id,
-    ).await.expect("successful note read");
+    ).await.expect("note read failed");
     assert_eq!(note.id, id);
     note
 }
@@ -130,7 +130,7 @@ async fn read_note_successfully(id: Uuid) -> Note {
 async fn read_note_with_error(error_kind: io::ErrorKind, uuid: Uuid) {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     let err = storage.read_note(
         &UsernameString::from_str("read_note").unwrap(),
         uuid,
@@ -159,7 +159,7 @@ async fn write_note_write_empty_contents() {
 async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
@@ -167,7 +167,7 @@ async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
             name: title.map(|t| t.into()),
             contents: contents.into(),
         },
-    ).await.expect("successful write");
+    ).await.expect("write failed");
     let tmp_files = storage.io.get_tmp_files().await;
     assert_eq!(tmp_files.len(), 1);
     let (tmp_file_key, tmp_filename) = &tmp_files[0];
@@ -188,7 +188,7 @@ async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
 async fn write_note_write_empty_name_and_contents() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
@@ -196,7 +196,7 @@ async fn write_note_write_empty_name_and_contents() {
             name: None,
             contents: "".into(),
         },
-    ).await.expect("successful write");
+    ).await.expect("write failed");
 
     let tmp_files = storage.io.get_tmp_files().await;
     assert_eq!(tmp_files.len(), 1);
@@ -217,7 +217,7 @@ async fn write_note_write_empty_name_and_contents() {
 async fn write_note_write_error() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
@@ -247,7 +247,7 @@ async fn write_note_remove_after_renaming_fail_error() {
 async fn write_note_rename_error_impl() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
@@ -270,9 +270,9 @@ async fn write_note_rename_error_impl() {
 async fn list_notes_empty() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     let dir = storage.list_notes(&UsernameString::from_str("empty_dir").unwrap())
-        .await.expect("a directory read");
+        .await.expect("directory read failed");
     assert_eq!(dir.len(), 0);
 }
 
@@ -280,7 +280,7 @@ async fn list_notes_empty() {
 async fn list_notes_error_listing() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     storage.list_notes(&UsernameString::from_str("not_enough_perms_dir").unwrap())
         .await.expect_err("should fail");
 }
@@ -349,7 +349,7 @@ async fn get_note_details_file_became_too_big_after_metadata_read() {
 async fn get_single_note_details_successfully(id: Uuid) -> NoteInfo {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     let mut res = storage.get_note_details(
         &UsernameString::from_str("read_note").unwrap(),
         vec![
@@ -358,7 +358,7 @@ async fn get_single_note_details_successfully(id: Uuid) -> NoteInfo {
                 mtime: UtcDateTime::from_unix_timestamp(42).unwrap()
             }
         ],
-    ).await.expect("successful note read");
+    ).await.expect("note read failed");
     assert_eq!(res.len(), 1);
     assert!(res[0].is_some());
     let note = res.remove(0).unwrap();
@@ -370,7 +370,7 @@ async fn get_single_note_details_successfully(id: Uuid) -> NoteInfo {
 async fn get_single_note_details_with_error(id: Uuid) {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     let res = storage.get_note_details(
         &UsernameString::from_str("read_note").unwrap(),
         vec![
@@ -379,7 +379,7 @@ async fn get_single_note_details_with_error(id: Uuid) {
                 mtime: UtcDateTime::from_unix_timestamp(42).unwrap()
             }
         ],
-    ).await.expect("should succeed");
+    ).await.expect("getting note details failed");
     assert_eq!(res.len(), 1);
     assert!(res[0].is_none());
 }
@@ -388,7 +388,7 @@ async fn get_single_note_details_with_error(id: Uuid) {
 async fn get_note_details_multiple() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     let ids = [
         *READ_NOTE_NORMAL_UUID,
         *READ_NOTE_EMPTY_UUID,
@@ -407,7 +407,7 @@ async fn get_note_details_multiple() {
                 mtime: UtcDateTime::from_unix_timestamp(42).unwrap(),
             })
             .collect::<Vec<_>>(),
-    ).await.expect("should succeed");
+    ).await.expect("getting note details failed");
     assert_eq!(res.len(), ids.len());
     assert!(res[0].is_some());
     assert!(res[1].is_some());
@@ -423,18 +423,18 @@ async fn get_note_details_multiple() {
 async fn delete_note_successfully() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     storage.delete_note(
         &UsernameString::from_str("delete_note").unwrap(),
         *DELETE_NOTE_SUCCESS
-    ).await.expect("should succeed");
+    ).await.expect("deleting note failed");
 }
 
 #[tokio::test]
 async fn delete_note_error() {
     let io = TestStorageIo::new();
     let mut storage = make_default_limits_storage("/", io)
-        .await.expect("successful storage creation");
+        .await.expect("storage creation failed");
     storage.delete_note(
         &UsernameString::from_str("delete_note").unwrap(),
         *DELETE_NOTE_ERROR

@@ -17,7 +17,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
-use crate::storage::internal::rng::{make_uuid, SyncRng};
+use crate::rng::{make_uuid, SyncRng};
 use crate::storage::internal::tests::data::{DEFAULT_SPECS, RNG};
 use crate::storage::internal::{HYPHENED_UUID_SIZE, TMP_FILENAME_INFIX};
 use crate::storage::internal::tests::mocks::StorageWrite::Rename;

@@ -21,10 +21,10 @@ use crate::util::StrExt;
 use io_trait::Metadata;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
+use crate::rng::SyncRng;
 
 mod io_trait;
 #[cfg(test)] mod tests;
-mod rng;
 
 const REQUIRED_UNIX_PERMISSIONS: u32 = 0o700;
 const HYPHENED_UUID_SIZE: usize = 36;
@@ -44,10 +44,11 @@ pub struct NoteStorageImpl<Io: NoteStorageIo> {
 impl NoteStorage {
     pub async fn new(
         app_config: &AppConfig,
+        rng: SyncRng<StdRng>,
     ) -> Result<NoteStorage, StorageError> {
         Self::new_internal(
             app_config,
-            ProductionNoteStorageIo::new(StdRng::from_os_rng()),
+            ProductionNoteStorageIo::new(rng),
         ).await
     }
 }

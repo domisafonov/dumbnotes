@@ -3,7 +3,8 @@ use std::path::Path;
 use async_trait::async_trait;
 use tokio::fs;
 use crate::config::UsernameString;
-use crate::user_db::internal::data::{User, UsersData};
+use crate::user_db::internal::data::UsersData;
+use crate::user_db::internal::user::User;
 use crate::user_db::UserDbError;
 
 #[async_trait]
@@ -26,11 +27,12 @@ impl ProductionUserDbIo {
         let mut parsed = toml::from_str::<UsersData>(&db_str)?;
         Ok(
             ProductionUserDbIo {
-                users:
-                HashMap::from_iter(
-                    parsed.users
-                        .drain(..)
-                        .map(|u| (u.username.clone(), u))
+                users: HashMap::from_iter(
+                parsed.users
+                    .drain(..)
+                    .map(|u|
+                        (u.username.clone(), u.into())
+                    )
                 ),
             }
         )

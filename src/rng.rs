@@ -3,18 +3,18 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use rand::Rng;
 use uuid::{Uuid, Variant, Version};
 
-pub fn make_uuid(rng: &mut impl Rng) -> Uuid {
+pub fn make_uuid<R: Rng>(rng: &mut R) -> Uuid {
     uuid::Builder::from_u128(rng.random::<u128>())
         .with_variant(Variant::RFC4122)
         .with_version(Version::Random)
         .into_uuid()
 }
 
-pub struct SyncRng<R: Rng> {
+pub struct SyncRng<R: Rng + Send + Sync> {
     rng: Arc<Mutex<R>>,
 }
 
-impl<R: Rng> SyncRng<R> {
+impl<R: Rng + Send + Sync> SyncRng<R> {
     pub fn new(rng: R) -> Self {
         SyncRng {
             rng: Arc::new(Mutex::new(rng)),
@@ -26,7 +26,7 @@ impl<R: Rng> SyncRng<R> {
     }
 }
 
-impl<R: Rng> Deref for SyncRng<R> {
+impl<R: Rng + Send + Sync> Deref for SyncRng<R> {
     type Target = Arc<Mutex<R>>;
 
     fn deref(&self) -> &Self::Target {
@@ -34,7 +34,7 @@ impl<R: Rng> Deref for SyncRng<R> {
     }
 }
 
-impl<R: Rng> Clone for SyncRng<R> {
+impl<R: Rng + Send + Sync> Clone for SyncRng<R> {
     fn clone(&self) -> Self {
         SyncRng {
             rng: self.rng.clone(),

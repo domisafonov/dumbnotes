@@ -8,7 +8,7 @@ use rand::{RngCore, SeedableRng};
 use uuid::Uuid;
 
 use crate::storage::internal::tests::mocks::{FileSpec, VersionedFileSpec};
-use crate::storage::internal::rng::{make_uuid, SyncRng};
+use crate::rng::{make_uuid, SyncRng};
 use crate::storage::internal::TMP_FILENAME_INFIX;
 
 // TODO: write rng seeds when the tests fail

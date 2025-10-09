@@ -2,10 +2,13 @@ pub mod app_constants;
 mod cli;
 
 use clap::Parser;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use rocket::figment::Figment;
 use rocket::figment::providers::{Env, Format, Serialized, Toml};
 use rocket::{launch, Build, Rocket};
 use dumbnotes::config::AppConfig;
+use dumbnotes::rng::SyncRng;
 use dumbnotes::storage::NoteStorage;
 use dumbnotes::user_db::{ProductionUserDb, UserDb};
 use crate::app_constants::APP_CONFIG_ENV_PREFIX;
@@ -36,14 +39,22 @@ async fn rocket() -> Rocket<Build> {
             panic!("Configuration error");
         });
 
-    let storage: NoteStorage = NoteStorage::new(&config).await
+    let rng = SyncRng::new(StdRng::from_os_rng());
+
+    let storage: NoteStorage = NoteStorage::new(
+        &config,
+        rng.clone(),
+    ).await
         .unwrap_or_else(|e| {
             eprintln!("error: {e}");
             panic!("Initialization error");
         });
 
     let user_db: Box<dyn UserDb> = Box::new(
-        ProductionUserDb::new(&config).await
+        ProductionUserDb::new(
+            &config,
+            rng
+        ).await
             .unwrap_or_else(|e| {
                 eprintln!("error: {e}");
                 panic!("Initialization error");

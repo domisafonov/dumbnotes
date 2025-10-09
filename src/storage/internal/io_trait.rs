@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use rand::rngs::StdRng;
 use tokio::{fs, io};
 use uuid::Uuid;
-use crate::storage::internal::rng::{make_uuid, SyncRng};
+use crate::rng::{make_uuid, SyncRng};
 
 #[async_trait]
 pub trait NoteStorageIo: Send {
@@ -57,9 +57,9 @@ pub struct ProductionNoteStorageIo {
 }
 
 impl ProductionNoteStorageIo {
-    pub fn new(rng: StdRng) -> Self {
+    pub fn new(rng: SyncRng<StdRng>) -> Self {
         ProductionNoteStorageIo {
-            rng: SyncRng::new(rng),
+            rng,
         }
     }
 }

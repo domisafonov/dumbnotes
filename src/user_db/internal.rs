@@ -1,11 +1,16 @@
 use async_trait::async_trait;
+use rand::rngs::StdRng;
 use crate::config::{AppConfig, UsernameString};
+use crate::rng::SyncRng;
+use crate::user_db::internal::hasher::{Hasher, ProductionHasher};
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
 use crate::user_db::UserDbError;
 
 mod io_trait;
 #[cfg(test)] mod tests;
 mod data;
+mod hasher;
+mod user;
 
 #[async_trait]
 pub trait UserDb: Send + Sync {
@@ -22,17 +27,23 @@ pub trait UserDb: Send + Sync {
 }
 
 #[allow(private_bounds)]
-pub struct UserDbImpl<Io: UserDbIo> {
+pub struct UserDbImpl<H: Hasher, Io: UserDbIo> {
+    hasher: H,
     io: Io,
 }
 
 #[async_trait]
-impl<Io: UserDbIo> UserDb for UserDbImpl<Io> {
+impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
     async fn does_user_exist(
         &self,
         username: &UsernameString,
     ) -> Result<bool, UserDbError> {
-        todo!()
+        Ok(
+            self.io
+                .get_user(username)
+                .await?
+                .is_some()
+        )
     }
 
     async fn check_user_credentials(
@@ -40,18 +51,35 @@ impl<Io: UserDbIo> UserDb for UserDbImpl<Io> {
         username: &UsernameString,
         password: &str,
     ) -> Result<bool, UserDbError> {
-        todo!()
+        let user = self.io
+            .get_user(username)
+            .await?;
+
+        match user {
+            None => Ok(false),
+            Some(user) => {
+                Ok(
+                    self.hasher
+                        .check_hash(
+                            user.hash.password_hash(),
+                            password
+                        )
+                )
+            }
+        }
     }
 }
 
-pub type ProductionUserDb = UserDbImpl<ProductionUserDbIo>;
+pub type ProductionUserDb = UserDbImpl<ProductionHasher, ProductionUserDbIo>;
 
 impl ProductionUserDb {
     pub async fn new(
         app_config: &AppConfig,
+        rng: SyncRng<StdRng>,
     ) -> Result<ProductionUserDb, UserDbError> {
         Ok(
             UserDbImpl {
+                hasher: ProductionHasher::new(rng),
                 io: ProductionUserDbIo::new(&app_config.user_db).await?,
             }
         )
