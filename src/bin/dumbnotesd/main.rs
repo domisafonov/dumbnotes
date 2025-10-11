@@ -1,4 +1,3 @@
-pub mod app_constants;
 mod cli;
 
 use clap::Parser;
@@ -11,9 +10,10 @@ use dumbnotes::config::AppConfig;
 use dumbnotes::rng::SyncRng;
 use dumbnotes::storage::NoteStorage;
 use dumbnotes::user_db::{ProductionUserDb, UserDb};
-use crate::app_constants::APP_CONFIG_ENV_PREFIX;
+use dumbnotes::app_constants::APP_CONFIG_ENV_PREFIX;
 use crate::cli::CliConfig;
 
+// TODO: print the errors prettier
 #[launch]
 async fn rocket() -> Rocket<Build> {
     let cli_config = CliConfig::parse();

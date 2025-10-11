@@ -2,14 +2,13 @@ use async_trait::async_trait;
 use rand::rngs::StdRng;
 use crate::config::{AppConfig, UsernameString};
 use crate::rng::SyncRng;
-use crate::user_db::internal::hasher::{Hasher, ProductionHasher};
+use crate::hasher::{Hasher, ProductionHasher};
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
 use crate::user_db::UserDbError;
 
 mod io_trait;
 #[cfg(test)] mod tests;
 mod data;
-mod hasher;
 mod user;
 
 #[async_trait]
