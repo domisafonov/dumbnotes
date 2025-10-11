@@ -1,19 +1,18 @@
 use clap::Args;
+use crate::app_constants::{DEFAULT_ARGON2_M_COST, DEFAULT_ARGON2_OUTPUT_LEN, DEFAULT_ARGON2_P_COST, DEFAULT_ARGON2_T_COST};
 
-// the defaults are taken from the argon2 crate itself
-// TODO: check that the defaults are sane
 #[derive(Args, Clone, Debug, Eq, PartialEq)]
 pub struct ProductionHasherConfig {
-    #[arg(long, default_value_t = 19 * 1024)]
+    #[arg(long, default_value_t = DEFAULT_ARGON2_M_COST)]
     pub argon2_m_cost: u32,
 
-    #[arg(long, default_value_t = 2)]
+    #[arg(long, default_value_t = DEFAULT_ARGON2_T_COST)]
     pub argon2_t_cost: u32,
 
-    #[arg(long, default_value_t = 1)]
+    #[arg(long, default_value_t = DEFAULT_ARGON2_P_COST)]
     pub argon2_p_cost: u32,
 
-    #[arg(long, default_value = "32")]
+    #[arg(long, default_value = DEFAULT_ARGON2_OUTPUT_LEN)]
     pub argon2_output_len: Option<usize>,
 }
 

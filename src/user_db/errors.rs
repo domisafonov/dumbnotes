@@ -12,7 +12,7 @@ pub enum UserDbError {
 impl fmt::Display for UserDbError { // TODO: prettier strings
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            UserDbError::IoError(e) => std::fmt::Debug::fmt(&self, f),
+            UserDbError::IoError(_) => std::fmt::Debug::fmt(&self, f),
             UserDbError::ParsingError { message } =>
                 f.write_fmt(format_args!("User db parsing error: {}", message))
         }

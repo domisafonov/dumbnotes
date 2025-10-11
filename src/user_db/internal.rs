@@ -1,8 +1,5 @@
-use std::ptr::hash;
 use async_trait::async_trait;
-use rand::rngs::StdRng;
 use crate::config::{AppConfig, UsernameString};
-use crate::rng::SyncRng;
 use crate::hasher::{Hasher, ProductionHasher};
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
 use crate::user_db::UserDbError;

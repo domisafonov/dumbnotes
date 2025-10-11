@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::os::unix::prelude::*;
 use std::str::FromStr;
 use rand::rngs::StdRng;
-use rand::SeedableRng;
 use rocket::futures::future::join_all;
 use time::UtcDateTime;
 use tokio::io;
