@@ -1,3 +1,4 @@
+use std::ptr::hash;
 use async_trait::async_trait;
 use rand::rngs::StdRng;
 use crate::config::{AppConfig, UsernameString};
@@ -74,11 +75,11 @@ pub type ProductionUserDb = UserDbImpl<ProductionHasher, ProductionUserDbIo>;
 impl ProductionUserDb {
     pub async fn new(
         app_config: &AppConfig,
-        rng: SyncRng<StdRng>,
+        hasher: ProductionHasher,
     ) -> Result<ProductionUserDb, UserDbError> {
         Ok(
             UserDbImpl {
-                hasher: ProductionHasher::new(rng),
+                hasher,
                 io: ProductionUserDbIo::new(&app_config.user_db).await?,
             }
         )

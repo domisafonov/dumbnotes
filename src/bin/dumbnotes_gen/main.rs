@@ -1,17 +1,17 @@
-use std::io;
+use std::error::Error;
 use std::process::exit;
 use clap::Parser;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rpassword::prompt_password;
-use dumbnotes::hasher::{Hasher, ProductionHasher};
+use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
 use dumbnotes::rng::SyncRng;
 use crate::cli::CliConfig;
 
 mod cli;
 
 // TODO: print the errors prettier
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli_config = CliConfig::parse();
 
     if !cli_config.config_file.exists() {
@@ -22,6 +22,7 @@ fn main() -> Result<(), io::Error> {
     }
 
     let hasher = ProductionHasher::new(
+        ProductionHasherConfig::new(cli_config.hasher_config.try_into()?),
         SyncRng::new(StdRng::from_os_rng())
     );
 

@@ -11,6 +11,7 @@ use dumbnotes::rng::SyncRng;
 use dumbnotes::storage::NoteStorage;
 use dumbnotes::user_db::{ProductionUserDb, UserDb};
 use dumbnotes::app_constants::APP_CONFIG_ENV_PREFIX;
+use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use crate::cli::CliConfig;
 
 // TODO: print the errors prettier
@@ -50,10 +51,18 @@ async fn rocket() -> Rocket<Build> {
             panic!("Initialization error");
         });
 
+    let hasher_config = cli_config.hasher_config.try_into().unwrap_or_else(|e| {
+        panic!("error: {e}");
+    });
+    let hasher = ProductionHasher::new(
+        ProductionHasherConfig::new(hasher_config),
+        rng,
+    );
+
     let user_db: Box<dyn UserDb> = Box::new(
         ProductionUserDb::new(
             &config,
-            rng
+            hasher,
         ).await
             .unwrap_or_else(|e| {
                 eprintln!("error: {e}");

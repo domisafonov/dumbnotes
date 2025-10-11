@@ -1,7 +1,7 @@
 #[cfg(test)] mod tests;
 
 use std::ops::DerefMut;
-use argon2::{Algorithm, Params, PasswordHash, PasswordHasher, Version};
+use argon2::{Algorithm, PasswordHash, PasswordHasher, Version};
 use argon2::Argon2;
 use argon2::password_hash::SaltString;
 use rand::rngs::StdRng;
@@ -16,15 +16,31 @@ pub trait Hasher: Send + Sync {
     fn check_hash(&self, hash: PasswordHash<'_>, password: &str) -> bool;
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProductionHasherConfig {
+    pub argon2_params: argon2::Params,
+}
+
+impl ProductionHasherConfig {
+    pub fn new(argon2_params: argon2::Params) -> Self {
+        ProductionHasherConfig { 
+            argon2_params 
+        }
+    }
+}
+
 pub struct ProductionHasher {
+    config: ProductionHasherConfig,
     rng: SyncRng<StdRng>,
 }
 
 impl ProductionHasher {
     pub fn new(
+        config: ProductionHasherConfig,
         rng: SyncRng<StdRng>,
     ) -> Self {
         ProductionHasher {
+            config,
             rng,
         }
     }
@@ -35,12 +51,7 @@ impl ProductionHasher {
         Argon2::new(
             Algorithm::Argon2id,
             Version::V0x13,
-            Params::new(
-                19 * 1024,
-                2,
-                1,
-                Some(32),
-            ).unwrap(),
+            self.config.argon2_params.clone(),
         )
     }
 

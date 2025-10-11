@@ -10,3 +10,4 @@ pub mod user_db;
 pub mod rng;
 pub mod app_constants;
 pub mod hasher;
+pub mod cli;
