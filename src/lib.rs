@@ -10,6 +10,5 @@ pub mod user_db;
 pub mod rng;
 pub mod bin_constants;
 pub mod hasher;
-pub mod cli;
 pub mod serde;
 pub mod username_string;

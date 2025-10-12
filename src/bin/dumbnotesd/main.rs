@@ -3,19 +3,18 @@ pub mod app_constants;
 mod session_storage;
 mod errors;
 
+use crate::cli::CliConfig;
 use clap::Parser;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use rocket::figment::Figment;
-use rocket::figment::providers::{Env, Format, Serialized, Toml};
-use rocket::{launch, Build, Rocket};
-use dumbnotes::config::AppConfig;
+use dumbnotes::config::app_config::AppConfig;
+use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::rng::SyncRng;
 use dumbnotes::storage::NoteStorage;
 use dumbnotes::user_db::{ProductionUserDb, UserDb};
-use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
-use crate::app_constants::APP_CONFIG_ENV_PREFIX;
-use crate::cli::CliConfig;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+use rocket::figment::Figment;
+use rocket::{launch, Build, Rocket};
+use dumbnotes::config::figment::FigmentExt;
 
 // TODO: print the errors prettier
 #[launch]
@@ -29,13 +28,9 @@ async fn rocket() -> Rocket<Build> {
         )
     }
 
-    // TODO: panic if unknown keys are in the config file
     let figment = Figment::from(rocket::Config::default())
-        .merge(Serialized::defaults(AppConfig::default()))
-        .merge(Toml::file_exact(cli_config.config_file))
-        .merge(Env::prefixed(APP_CONFIG_ENV_PREFIX).global());
-
-    let config: AppConfig = figment.extract::<AppConfig>()
+        .setup_app_config(cli_config.config_file);
+    let config: AppConfig = figment.extract()
         .unwrap_or_else(|e| {
             for e in e {
                 eprintln!("error: {e}");
@@ -54,7 +49,7 @@ async fn rocket() -> Rocket<Build> {
             panic!("Initialization error");
         });
 
-    let hasher_config = cli_config.hasher_config.try_into().unwrap_or_else(|e| {
+    let hasher_config = config.hasher_config.clone().try_into().unwrap_or_else(|e| {
         panic!("error: {e}");
     });
     let hasher = ProductionHasher::new(

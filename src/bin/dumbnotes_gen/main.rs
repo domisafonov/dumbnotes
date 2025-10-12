@@ -3,7 +3,10 @@ use std::process::exit;
 use clap::Parser;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
+use rocket::figment::Figment;
 use rpassword::prompt_password;
+use dumbnotes::config::figment::FigmentExt;
+use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
 use dumbnotes::rng::SyncRng;
 use crate::cli::CliConfig;
@@ -21,8 +24,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     }
 
+    let config: ProductionHasherConfigData = Figment::new()
+        .setup_app_config(cli_config.config_file)
+        .extract()
+        .unwrap_or_else(|e| {
+            for e in e {
+                eprintln!("error: {e}");
+            }
+            panic!("Configuration error");
+        });
+
     let hasher = ProductionHasher::new(
-        ProductionHasherConfig::new(cli_config.hasher_config.try_into()?),
+        ProductionHasherConfig {
+            argon2_params: config.try_into()?,
+        },
         SyncRng::new(StdRng::from_os_rng())
     );
 

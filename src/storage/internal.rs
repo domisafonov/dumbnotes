@@ -12,7 +12,7 @@ use tokio::io::AsyncReadExt;
 use uuid::fmt::Hyphenated;
 use uuid::Uuid;
 
-use crate::config::AppConfig;
+use crate::config::app_config::AppConfig;
 use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
 use crate::util::StrExt;
