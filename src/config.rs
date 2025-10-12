@@ -1,9 +1,6 @@
-use std::borrow::Borrow;
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use crate::lib_constants::{DEFAULT_DATA_DIR, DEFAULT_MAX_NOTE_LEN, DEFAULT_MAX_NOTE_NAME_LEN, DEFAULT_USER_DB};
-
-pub struct UsernameString(String);
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AppConfig {
@@ -57,29 +54,5 @@ mod tests {
             serde_json::from_str::<AppConfig>("{}").unwrap(),
             AppConfig::default()
         );
-    }
-}
-
-#[derive(Debug)]
-pub struct UsernameParseError;
-
-impl std::str::FromStr for UsernameString {
-    type Err = UsernameParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(UsernameString(s.to_string())) // TODO: the validation
-    }
-}
-
-impl std::ops::Deref for UsernameString {
-    type Target = str;
-    fn deref(&self) -> &str {
-        &self.0[..]
-    }
-}
-
-impl Borrow<str> for UsernameString {
-    fn borrow(&self) -> &str {
-        &self.0[..]
     }
 }

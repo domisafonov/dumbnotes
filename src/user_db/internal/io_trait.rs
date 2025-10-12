@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use async_trait::async_trait;
 use tokio::fs;
-use crate::config::UsernameString;
+use crate::username_string::UsernameString;
 use crate::user_db::internal::data::UsersData;
 use crate::user_db::internal::user::User;
 use crate::user_db::UserDbError;

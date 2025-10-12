@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use clap::Parser;
-use dumbnotes::app_constants::DEFAULT_CONFIG_FILE;
+use dumbnotes::bin_constants::DEFAULT_CONFIG_FILE;
 use dumbnotes::cli::ProductionHasherConfig;
 
 #[derive(Clone, Debug, Eq, Parser, PartialEq)]

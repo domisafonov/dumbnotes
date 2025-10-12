@@ -1,4 +1,7 @@
 mod cli;
+pub mod app_constants;
+mod session_storage;
+mod errors;
 
 use clap::Parser;
 use rand::rngs::StdRng;
@@ -10,8 +13,8 @@ use dumbnotes::config::AppConfig;
 use dumbnotes::rng::SyncRng;
 use dumbnotes::storage::NoteStorage;
 use dumbnotes::user_db::{ProductionUserDb, UserDb};
-use dumbnotes::app_constants::APP_CONFIG_ENV_PREFIX;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
+use crate::app_constants::APP_CONFIG_ENV_PREFIX;
 use crate::cli::CliConfig;
 
 // TODO: print the errors prettier

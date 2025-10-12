@@ -1,5 +1,5 @@
 use clap::Args;
-use crate::app_constants::{DEFAULT_ARGON2_M_COST, DEFAULT_ARGON2_OUTPUT_LEN, DEFAULT_ARGON2_P_COST, DEFAULT_ARGON2_T_COST};
+use crate::bin_constants::{DEFAULT_ARGON2_M_COST, DEFAULT_ARGON2_OUTPUT_LEN, DEFAULT_ARGON2_P_COST, DEFAULT_ARGON2_T_COST};
 
 #[derive(Args, Clone, Debug, Eq, PartialEq)]
 pub struct ProductionHasherConfig {

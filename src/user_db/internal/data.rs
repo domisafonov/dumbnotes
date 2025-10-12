@@ -43,12 +43,9 @@ impl<'de: 'a, 'a> Deserialize<'de> for PasswordHashWrapper<'a> {
             where
                 E: Error,
             {
-                Ok(
-                    PasswordHashWrapper(
-                        PasswordHash::parse(v, Encoding::B64)
-                            .map_err(|_| Error::invalid_value(Str(v), &self))?
-                    )
-                )
+                PasswordHash::parse(v, Encoding::B64)
+                    .map(PasswordHashWrapper)
+                    .map_err(|_| Error::invalid_value(Str(v), &self))
             }
         }
 

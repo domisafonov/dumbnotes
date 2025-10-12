@@ -12,7 +12,7 @@ use tokio::io::AsyncReadExt;
 use uuid::fmt::Hyphenated;
 use uuid::Uuid;
 
-use crate::config::{AppConfig, UsernameString};
+use crate::config::AppConfig;
 use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
 use crate::util::StrExt;
@@ -21,6 +21,7 @@ use io_trait::Metadata;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
 use crate::rng::SyncRng;
+use crate::username_string::UsernameString;
 
 mod io_trait;
 #[cfg(test)] mod tests;

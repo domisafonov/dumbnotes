@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 argon2 = "0.6.0-rc.1" # using rc to get rid of the old rand_core 0.6.x dep
 async-trait = "0.1.89"
+base64ct = { version = "1.8.0", features = ["alloc", "std"] }
 clap = { version = "4.5.48", features = ["derive"] }
 libc = "0.2.176"
 log = "0.4.28"
@@ -15,7 +16,7 @@ rocket = { version = "0.5.1", default-features = false }
 rpassword = "7.4.0"
 serde = { version = "1.0.225", features = ["derive"] }
 syslog = "7.0.0"
-time = { version = "0.3.43", features = ["std", "alloc", "formatting"] }
+time = { version = "0.3.43", features = ["std", "alloc", "formatting", "serde-human-readable"] }
 tokio = { version = "1.47.1", features = ["fs", "io-util"] }
 toml = "0.9.7"
 uuid = { version = "1.18.1", features = ["v4", "fast-rng"] }
