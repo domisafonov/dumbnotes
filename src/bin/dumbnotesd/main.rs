@@ -1,7 +1,6 @@
 mod cli;
 pub mod app_constants;
 mod session_storage;
-mod errors;
 
 use crate::cli::CliConfig;
 use clap::Parser;

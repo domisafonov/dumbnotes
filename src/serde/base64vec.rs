@@ -20,7 +20,7 @@ pub fn deserialize<'de, D: Deserializer<'de>>(
 
     impl<'de> serde::de::Visitor<'de> for Base64Visitor {
         type Value = Vec<u8>;
-        fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
             formatter.write_str("a base64 encoded string")
         }
 

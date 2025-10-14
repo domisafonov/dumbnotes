@@ -35,7 +35,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for PasswordHashWrapper<'a> {
         impl<'de> Visitor<'de> for PasswordHashWrapperVisitor {
             type Value = PasswordHashWrapper<'de>;
 
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
                 formatter.write_str("a PHC hash string")
             }
 

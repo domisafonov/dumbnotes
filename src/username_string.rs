@@ -5,8 +5,17 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
 use serde::de::Unexpected::Str;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct UsernameString(String);
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct UsernameStr<'a>(&'a str);
+
+impl UsernameString {
+    fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl FromStr for UsernameString {
     type Err = UsernameParseError;
@@ -23,15 +32,31 @@ impl Deref for UsernameString {
     }
 }
 
+impl Deref for UsernameStr<'_> {
+    type Target = str;
+    fn deref(&self) -> &str {
+        self.0
+    }
+}
+
 #[derive(Debug)]
 pub struct UsernameParseError;
+
+impl Serialize for UsernameStr<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.0)
+    }
+}
 
 impl Serialize for UsernameString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.0)
+        self.as_str().serialize(serializer)
     }
 }
 
@@ -44,7 +69,7 @@ impl<'de> Deserialize<'de> for UsernameString {
         impl<'de> serde::de::Visitor<'de> for Visitor {
             type Value = UsernameString;
 
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
                 formatter.write_str("string containing a valid username")
             }
 
