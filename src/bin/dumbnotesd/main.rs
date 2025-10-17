@@ -2,6 +2,7 @@ mod cli;
 pub mod app_constants;
 mod session_storage;
 pub mod user_db;
+mod routes;
 
 use crate::cli::CliConfig;
 use clap::Parser;
@@ -14,6 +15,8 @@ use rand::SeedableRng;
 use figment::Figment;
 use rocket::{launch, Build, Rocket};
 use dumbnotes::config::figment::FigmentExt;
+use crate::app_constants::{API_PREFIX, WEB_PREFIX};
+use crate::routes::{api_routes, web_routes};
 use crate::session_storage::ProductionSessionStorage;
 use crate::user_db::{ProductionUserDb, UserDb};
 
@@ -82,4 +85,6 @@ async fn rocket() -> Rocket<Build> {
         .manage(storage)
         .manage(config)
         .manage(user_db)
+        .mount(API_PREFIX, api_routes())
+        .mount(WEB_PREFIX, web_routes())
 }

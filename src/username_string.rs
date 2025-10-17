@@ -51,7 +51,7 @@ impl Borrow<UsernameStr> for UsernameString {
 
 impl ToOwned for UsernameStr {
     type Owned = UsernameString;
-    
+
     fn to_owned(&self) -> Self::Owned {
         UsernameString(self.0.to_owned())
     }
@@ -96,7 +96,7 @@ impl<'de> Deserialize<'de> for UsernameString {
                 E: Error
             {
                 UsernameString::from_str(v)
-                    .map_err(|e| Error::invalid_value(Str(v), &self))
+                    .map_err(|_| Error::invalid_value(Str(v), &self))
             }
         }
 

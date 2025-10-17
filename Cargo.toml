@@ -13,6 +13,7 @@ figment = { version = "0.10.19", features = ["toml", "env"] }
 futures-util = { version = "0.3.31", default-features = false }
 libc = "0.2.176"
 log = "0.4.28"
+prost = "0.14.1"
 rand = { version = "0.9.2", features = ["thread_rng", "std_rng", "os_rng"] }
 rocket = { version = "0.5.1", default-features = false }
 rpassword = "7.4.0"
@@ -26,3 +27,6 @@ uuid = { version = "1.18.1", features = ["v4", "fast-rng"] }
 [dev-dependencies]
 lazy_static = "1.5.0"
 serde_json = "1.0.145"
+
+[build-dependencies]
+prost-build = "0.14.1"
