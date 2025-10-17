@@ -1,11 +1,10 @@
-use std::borrow::Cow;
 use std::ffi::OsString;
 use std::ops::Add;
 use std::path::PathBuf;
 use std::os::unix::prelude::*;
 use std::str::FromStr;
+use futures_util::future::join_all;
 use rand::rngs::StdRng;
-use rocket::futures::future::join_all;
 use time::UtcDateTime;
 use tokio::io;
 use tokio::io::AsyncReadExt;
@@ -248,10 +247,8 @@ async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin>(
     let mut buf = Vec::with_capacity(limit as usize);
     io::BufReader::new(reader).take(limit).read_to_end(&mut buf).await?;
     Ok(
-        match String::from_utf8_lossy(&buf) {
-            Cow::Borrowed(_) => unsafe { String::from_utf8_unchecked(buf) },
-            owned@Cow::Owned(_) => owned.replace(std::char::REPLACEMENT_CHARACTER, ""),
-        }
+        String::from_utf8_lossy(&buf)
+            .replace(std::char::REPLACEMENT_CHARACTER, "")
     )
 }
 

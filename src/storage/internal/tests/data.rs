@@ -138,7 +138,7 @@ lazy_static!(
                     Some((last_key, last)) if *last_key == k => {
                         last.specs.push(
                             v.specs
-                                .drain(..)
+                                .into_iter()
                                 .next().expect("the singular element of the spec list")
                         );
                         last.current_version.store(0, Ordering::Relaxed);

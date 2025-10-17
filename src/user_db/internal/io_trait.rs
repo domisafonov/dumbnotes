@@ -29,7 +29,7 @@ impl ProductionUserDbIo {
             ProductionUserDbIo {
                 users: HashMap::from_iter(
                 parsed.users
-                    .drain(..)
+                    .into_iter()
                     .map(|u|
                         (u.username.clone(), u.into())
                     )

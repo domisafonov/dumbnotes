@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -9,7 +10,8 @@ use serde::de::Unexpected::Str;
 pub struct UsernameString(String);
 
 #[derive(Debug, Eq, Hash, PartialEq)]
-pub struct UsernameStr<'a>(&'a str);
+#[repr(transparent)]
+pub struct UsernameStr(str);
 
 impl UsernameString {
     fn as_str(&self) -> &str {
@@ -32,22 +34,38 @@ impl Deref for UsernameString {
     }
 }
 
-impl Deref for UsernameStr<'_> {
+impl Deref for UsernameStr {
     type Target = str;
     fn deref(&self) -> &str {
-        self.0
+        &self.0
+    }
+}
+
+impl Borrow<UsernameStr> for UsernameString {
+    fn borrow(&self) -> &UsernameStr {
+        // SAFETY: relies on UsernameStr being repr(transparent),
+        // holding a single string slice
+        unsafe { std::mem::transmute(&self.0[..]) }
+    }
+}
+
+impl ToOwned for UsernameStr {
+    type Owned = UsernameString;
+    
+    fn to_owned(&self) -> Self::Owned {
+        UsernameString(self.0.to_owned())
     }
 }
 
 #[derive(Debug)]
 pub struct UsernameParseError;
 
-impl Serialize for UsernameStr<'_> {
+impl Serialize for UsernameStr {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.0)
+        serializer.serialize_str(&self.0)
     }
 }
 

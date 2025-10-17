@@ -14,6 +14,7 @@ use rand::SeedableRng;
 use rocket::figment::Figment;
 use rocket::{launch, Build, Rocket};
 use dumbnotes::config::figment::FigmentExt;
+use crate::session_storage::ProductionSessionStorage;
 
 // TODO: print the errors prettier
 #[launch]
@@ -53,7 +54,7 @@ async fn rocket() -> Rocket<Build> {
     });
     let hasher = ProductionHasher::new(
         ProductionHasherConfig::new(hasher_config),
-        rng,
+        rng.clone(),
     );
 
     let user_db: Box<dyn UserDb> = Box::new(
@@ -66,6 +67,15 @@ async fn rocket() -> Rocket<Build> {
                 panic!("Initialization error");
             })
     );
+
+    let session_storage = ProductionSessionStorage::new(
+        &config,
+        rng,
+    ).await
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            panic!("Initialization error");
+        });
 
     rocket::custom(figment)
         .manage(storage)

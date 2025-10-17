@@ -118,6 +118,7 @@ impl NoteStorageIo for ProductionNoteStorageIo {
     }
 
     fn getuid(&self) -> u32 {
+        // SAFETY: a libc call
         unsafe { libc::getuid() }
     }
     

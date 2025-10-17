@@ -1,8 +1,12 @@
-use crate::app_constants::SESSION_STORAGE_READ_BUF_SIZE;
+use crate::app_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
 use crate::session_storage::internal::data::SessionsData;
 use crate::session_storage::SessionStorageError;
 use async_trait::async_trait;
+use dumbnotes::rng::SyncRng;
+use rand::rngs::StdRng;
+use rand::RngCore;
 use std::path::Path;
+use time::OffsetDateTime;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
@@ -17,21 +21,28 @@ pub(super) trait SessionStorageIo: Send + Sync {
         &self,
         sessions_data: SessionsData,
     ) -> Result<(), SessionStorageError>;
+
+    fn gen_refresh_token(&self) -> Vec<u8>;
+
+    fn get_time(&self) -> OffsetDateTime;
 }
 
 pub struct ProductionSessionStorageIo {
     db_file: Mutex<File>, // holds a file lock
+    rng: SyncRng<StdRng>,
 }
 
 impl ProductionSessionStorageIo {
     pub async fn new(
         session_file_path: impl AsRef<Path> + Send,
+        rng: SyncRng<StdRng>,
     ) -> Result<Self, SessionStorageError> {
         let std_file = std::fs::File::open(session_file_path)?;
         std_file.lock().map_err(SessionStorageError::LockingFailed)?;
         Ok(
             ProductionSessionStorageIo {
                 db_file: Mutex::new(File::from_std(std_file)),
+                rng,
             }
         )
     }
@@ -59,5 +70,15 @@ impl SessionStorageIo for ProductionSessionStorageIo {
             toml::to_string(&sessions_data)?.as_bytes(),
         ).await?;
         Ok(())
+    }
+
+    fn gen_refresh_token(&self) -> Vec<u8> {
+        let mut token = vec![0; REFRESH_TOKEN_SIZE];
+        self.rng.lock().unwrap().fill_bytes(token.as_mut_slice());
+        token
+    }
+
+    fn get_time(&self) -> OffsetDateTime {
+        OffsetDateTime::now_utc()
     }
 }
