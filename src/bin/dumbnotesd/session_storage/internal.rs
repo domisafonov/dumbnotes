@@ -20,7 +20,7 @@ mod session;
 mod io_trait;
 
 #[async_trait]
-trait SessionStorage: Send + Sync {
+pub trait SessionStorage: Send + Sync {
     async fn create_session(
         &self,
         username: &UsernameStr,
@@ -195,7 +195,7 @@ impl ProductionSessionStorage {
         app_config: &AppConfig,
         rng: SyncRng<StdRng>,
     ) -> Result<ProductionSessionStorage, SessionStorageError> {
-        let mut path = app_config.user_db.to_path_buf();
+        let mut path = app_config.data_directory.to_path_buf();
         path.push(SESSION_STORAGE_PATH);
         let io = ProductionSessionStorageIo::new(
             &path,

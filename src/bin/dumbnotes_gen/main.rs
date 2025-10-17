@@ -3,7 +3,7 @@ use std::process::exit;
 use clap::Parser;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
-use rocket::figment::Figment;
+use figment::Figment;
 use rpassword::prompt_password;
 use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;

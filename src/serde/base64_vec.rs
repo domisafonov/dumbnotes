@@ -1,6 +1,6 @@
 use std::fmt::Formatter;
 use base64ct::{Base64, Encoding};
-use rocket::serde::de::Error;
+use serde::de::Error;
 use serde::{Deserializer, Serializer};
 use serde::de::Unexpected::Str;
 

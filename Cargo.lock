@@ -328,6 +328,7 @@ dependencies = [
  "async-trait",
  "base64ct",
  "clap",
+ "figment",
  "futures-util",
  "lazy_static",
  "libc",

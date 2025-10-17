@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use rocket::serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use crate::config::hasher_config::ProductionHasherConfigData;
 use crate::lib_constants::{DEFAULT_DATA_DIR, DEFAULT_MAX_NOTE_LEN, DEFAULT_MAX_NOTE_NAME_LEN, DEFAULT_USER_DB};
 

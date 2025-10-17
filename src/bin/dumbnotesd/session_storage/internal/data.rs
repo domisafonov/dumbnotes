@@ -5,7 +5,7 @@ use dumbnotes::username_string::UsernameString;
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SessionsData {
-    #[serde(rename = "user")]
+    #[serde(default, rename = "user")]
     pub users: Vec<UserSessionsData>,
 }
 
@@ -14,13 +14,13 @@ pub(super) struct SessionsData {
 pub(super) struct UserSessionsData {
     pub username: UsernameString,
 
-    #[serde(rename = "session")]
+    #[serde(default, rename = "session")]
     pub sessions: Vec<UserSessionData>,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct UserSessionData {
-    #[serde(with = "dumbnotes::serde::base64vec")]
+    #[serde(with = "dumbnotes::serde::base64_vec")]
     pub refresh_token: Vec<u8>,
 
     #[serde(with = "time::serde::rfc3339")]

@@ -37,7 +37,12 @@ impl ProductionSessionStorageIo {
         session_file_path: impl AsRef<Path> + Send,
         rng: SyncRng<StdRng>,
     ) -> Result<Self, SessionStorageError> {
-        let std_file = std::fs::File::open(session_file_path)?;
+        let std_file = std::fs::File::options()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(session_file_path)?;
         std_file.lock().map_err(SessionStorageError::LockingFailed)?;
         Ok(
             ProductionSessionStorageIo {

@@ -1,6 +1,7 @@
 mod cli;
 pub mod app_constants;
 mod session_storage;
+pub mod user_db;
 
 use crate::cli::CliConfig;
 use clap::Parser;
@@ -8,13 +9,13 @@ use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::rng::SyncRng;
 use dumbnotes::storage::NoteStorage;
-use dumbnotes::user_db::{ProductionUserDb, UserDb};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use rocket::figment::Figment;
+use figment::Figment;
 use rocket::{launch, Build, Rocket};
 use dumbnotes::config::figment::FigmentExt;
 use crate::session_storage::ProductionSessionStorage;
+use crate::user_db::{ProductionUserDb, UserDb};
 
 // TODO: print the errors prettier
 #[launch]

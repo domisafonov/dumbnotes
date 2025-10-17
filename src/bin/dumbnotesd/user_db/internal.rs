@@ -1,9 +1,9 @@
 use async_trait::async_trait;
-use crate::config::app_config::AppConfig;
-use crate::hasher::{Hasher, ProductionHasher};
+use dumbnotes::config::app_config::AppConfig;
+use dumbnotes::hasher::{Hasher, ProductionHasher};
+use dumbnotes::username_string::UsernameString;
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
 use crate::user_db::UserDbError;
-use crate::username_string::UsernameString;
 
 mod io_trait;
 #[cfg(test)] mod tests;

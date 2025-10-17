@@ -1,6 +1,6 @@
 use std::path::Path;
-use rocket::figment::Figment;
-use rocket::figment::providers::{Env, Format, Serialized, Toml};
+use figment::Figment;
+use figment::providers::{Env, Format, Serialized, Toml};
 use crate::bin_constants::APP_CONFIG_ENV_PREFIX;
 use crate::config::app_config::AppConfig;
 
