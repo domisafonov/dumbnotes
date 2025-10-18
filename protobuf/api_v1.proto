@@ -11,6 +11,6 @@ message LoginRequest {
 }
 
 message LoginResponse {
-    optional string refresh_token = 1;
+    string refresh_token = 1;
     string token = 2;
 }

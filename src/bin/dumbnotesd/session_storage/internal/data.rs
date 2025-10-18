@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use uuid::Uuid;
 use dumbnotes::username_string::UsernameString;
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -20,6 +21,8 @@ pub(super) struct UserSessionsData {
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct UserSessionData {
+    pub session_id: Uuid,
+
     #[serde(with = "dumbnotes::serde::base64_vec")]
     pub refresh_token: Vec<u8>,
 

@@ -2,7 +2,7 @@ use crate::app_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
 use crate::session_storage::internal::data::SessionsData;
 use crate::session_storage::SessionStorageError;
 use async_trait::async_trait;
-use dumbnotes::rng::SyncRng;
+use dumbnotes::rng::{make_uuid, SyncRng};
 use rand::rngs::StdRng;
 use rand::RngCore;
 use std::path::Path;
@@ -10,6 +10,7 @@ use time::OffsetDateTime;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 #[async_trait]
 pub(super) trait SessionStorageIo: Send + Sync {
@@ -25,6 +26,8 @@ pub(super) trait SessionStorageIo: Send + Sync {
     fn gen_refresh_token(&self) -> Vec<u8>;
 
     fn get_time(&self) -> OffsetDateTime;
+    
+    fn generate_uuid(&self) -> Uuid;
 }
 
 pub struct ProductionSessionStorageIo {
@@ -85,5 +88,9 @@ impl SessionStorageIo for ProductionSessionStorageIo {
 
     fn get_time(&self) -> OffsetDateTime {
         OffsetDateTime::now_utc()
+    }
+    
+    fn generate_uuid(&self) -> Uuid {
+        make_uuid(&mut self.rng.lock().unwrap())
     }
 }

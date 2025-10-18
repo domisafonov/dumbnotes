@@ -12,6 +12,7 @@ use std::sync::Arc;
 use rand::rngs::StdRng;
 use time::OffsetDateTime;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 use dumbnotes::rng::SyncRng;
 
 #[cfg(test)] mod tests;
@@ -29,10 +30,15 @@ pub trait SessionStorage: Send + Sync {
 
     async fn delete_session(
         &self,
-        refresh_token: &[u8],
+        session_id: Uuid,
     ) -> Result<bool, SessionStorageError>;
 
-    async fn get_session(
+    async fn get_session_by_id(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Option<Arc<Session>>, SessionStorageError>;
+
+    async fn get_session_by_token(
         &self,
         refresh_token: &[u8],
     ) -> Result<Option<Arc<Session>>, SessionStorageError>;
@@ -44,13 +50,16 @@ pub struct SessionStorageImpl<Io: SessionStorageIo> {
     io: Io,
 }
 
+// TODO: too annoying, just write to the file and observe its changes
 struct State {
+    id_to_session: HashMap<Uuid, Arc<Session>>,
     name_to_sessions: HashMap<UsernameString, Vec<Arc<Session>>>,
     token_to_session: HashMap<Vec<u8>, Arc<Session>>,
 }
 
 impl From<SessionsData> for State {
     fn from(value: SessionsData) -> Self {
+        let mut id_to_session = HashMap::new();
         let mut name_to_sessions: HashMap<_, Vec<Arc<Session>>> = HashMap::new();
         let mut token_to_session = HashMap::new();
         value.users
@@ -61,6 +70,7 @@ impl From<SessionsData> for State {
                         .into_iter()
                         .map(|session_data| {
                             Session {
+                                session_id: session_data.session_id,
                                 username: user_data.username.clone(),
                                 refresh_token: session_data.refresh_token,
                                 expires_at: session_data.expires_at,
@@ -73,11 +83,13 @@ impl From<SessionsData> for State {
             })
             .for_each(|(sessions, username)| {
                 sessions.iter().for_each(|session| {
+                    id_to_session.insert(session.session_id, session.clone());
                     token_to_session.insert(session.refresh_token.clone(), session.clone());
                 });
                 name_to_sessions.insert(username, sessions);
             });
         State {
+            id_to_session,
             name_to_sessions,
             token_to_session,
         }
@@ -103,6 +115,7 @@ impl<Io: SessionStorageIo> SessionStorageImpl<Io> {
                             } else {
                                 Some(
                                     UserSessionData {
+                                        session_id: session.session_id,
                                         refresh_token: session.refresh_token.clone(),
                                         expires_at: session.expires_at,
                                     }
@@ -136,6 +149,7 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
         let token = self.io.gen_refresh_token();
         let mut state = self.state.write().await;
         let new_session = Session {
+            session_id: self.io.generate_uuid(),
             username: username.to_owned(),
             refresh_token: token.clone(),
             expires_at,
@@ -150,6 +164,7 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
                 );
             },
         };
+        state.id_to_session.insert(new_session.session_id, new_session_arc.clone());
         state.token_to_session.insert(token, new_session_arc);
         self.write_state(state).await?;
         Ok(new_session)
@@ -157,15 +172,21 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
 
     async fn delete_session(
         &self,
-        refresh_token: &[u8],
+        session_id: Uuid,
     ) -> Result<bool, SessionStorageError> {
         let mut state = self.state.write().await;
-        match state.token_to_session.remove(refresh_token) {
+        match state.id_to_session.remove(&session_id) {
             Some(session) => {
                 let was_removed = state.name_to_sessions
                     .remove(&session.username)
                     .is_some();
                 assert!(was_removed);
+
+                let was_removed = state.token_to_session
+                    .remove(&session.refresh_token)
+                    .is_some();
+                assert!(was_removed);
+
                 self.write_state(state).await?;
                 Ok(true)
             },
@@ -173,7 +194,21 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
         }
     }
 
-    async fn get_session(
+    async fn get_session_by_id(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Option<Arc<Session>>, SessionStorageError> {
+        Ok(
+            self.state
+                .read()
+                .await
+                .id_to_session
+                .get(&session_id)
+                .cloned(),
+        )
+    }
+
+    async fn get_session_by_token(
         &self,
         refresh_token: &[u8],
     ) -> Result<Option<Arc<Session>>, SessionStorageError> {

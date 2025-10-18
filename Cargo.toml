@@ -11,6 +11,7 @@ base64ct = { version = "1.8.0", features = ["alloc", "std"] }
 clap = { version = "4.5.48", features = ["derive"] }
 figment = { version = "0.10.19", features = ["toml", "env"] }
 futures-util = { version = "0.3.31", default-features = false }
+josekit = { version = "0.10.3", features = ["vendored"] }
 libc = "0.2.176"
 log = "0.4.28"
 prost = "0.14.1"
@@ -22,7 +23,7 @@ syslog = "7.0.0"
 time = { version = "0.3.43", features = ["std", "alloc", "formatting", "serde-human-readable"] }
 tokio = { version = "1.47.1", features = ["fs", "io-util"] }
 toml = "0.9.7"
-uuid = { version = "1.18.1", features = ["v4", "fast-rng"] }
+uuid = { version = "1.18.1", features = ["v4", "fast-rng", "serde"] }
 
 [dev-dependencies]
 lazy_static = "1.5.0"
