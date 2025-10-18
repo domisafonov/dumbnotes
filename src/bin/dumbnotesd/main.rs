@@ -16,9 +16,9 @@ use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::storage::NoteStorage;
 use figment::Figment;
+use josekit::jwk::Jwk;
 use rocket::{launch, Build, Rocket};
-
-// TODO: check hmac_key file permissions on start
+use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator};
 
 // TODO: print the errors prettier
 #[launch]
@@ -69,6 +69,28 @@ async fn rocket() -> Rocket<Build> {
 
     let session_storage = ProductionSessionStorage::new(&config)
         .await
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            panic!("Initialization error");
+        });
+
+    // TODO: check file permissions on start
+    let hmac_key = std::fs::read(&config.hmac_key)
+        .map(Jwk::from_bytes)
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            panic!("Initialization error");
+        })
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            panic!("Initialization error");
+        });
+    let access_token_generator = AccessTokenGenerator::from_jwk(&hmac_key)
+        .unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            panic!("Initialization error");
+        });
+    let access_token_decoder = AccessTokenDecoder::from_jwk(&hmac_key)
         .unwrap_or_else(|e| {
             eprintln!("error: {e}");
             panic!("Initialization error");

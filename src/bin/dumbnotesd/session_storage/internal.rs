@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 #[cfg(test)] mod tests;
 mod data;
-mod session;
+pub(super) mod session;
 mod io_trait;
 
 #[async_trait]
