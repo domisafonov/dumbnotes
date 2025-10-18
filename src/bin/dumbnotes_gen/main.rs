@@ -1,17 +1,19 @@
+use crate::cli::CliConfig;
+use clap::Parser;
+use dumbnotes::config::app_config::AppConfig;
+use dumbnotes::config::figment::FigmentExt;
+use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
+use dumbnotes::hmac_key_generator::make_hmac_key;
+use dumbnotes::rng::SyncRng;
+use figment::Figment;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+use rpassword::prompt_password;
 use std::error::Error;
 use std::process::exit;
-use clap::Parser;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
-use figment::Figment;
-use rpassword::prompt_password;
-use dumbnotes::config::figment::FigmentExt;
-use dumbnotes::config::hasher_config::ProductionHasherConfigData;
-use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
-use dumbnotes::rng::SyncRng;
-use crate::cli::CliConfig;
 
 mod cli;
+mod config;
 
 // TODO: print the errors prettier
 fn main() -> Result<(), Box<dyn Error>> {
@@ -24,8 +26,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     }
 
-    let config: ProductionHasherConfigData = Figment::new()
-        .setup_app_config(cli_config.config_file)
+    let app_config: AppConfig = Figment::new()
+        .setup_app_config(&cli_config.config_file)
         .extract()
         .unwrap_or_else(|e| {
             for e in e {
@@ -33,12 +35,26 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             panic!("Configuration error");
         });
+    
+    let rng = SyncRng::new(StdRng::from_os_rng());
+    
+    if cli_config.generate_hmac_key {
+        generate_hmac_key(app_config, rng)
+    } else {
+        generate_hash(cli_config, app_config, rng)
+    }
+}
 
+fn generate_hash(
+    cli_config: CliConfig,
+    app_config: AppConfig,
+    rng: SyncRng<StdRng>,
+) -> Result<(), Box<dyn Error>> {
     let hasher = ProductionHasher::new(
         ProductionHasherConfig {
-            argon2_params: config.try_into()?,
+            argon2_params: app_config.hasher_config.try_into()?,
         },
-        SyncRng::new(StdRng::from_os_rng())
+        rng,
     );
 
     let read_value = prompt_password("Enter the password: ")?;
@@ -61,5 +77,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("{}", hasher.generate_hash(&read_value));
 
+    Ok(())
+}
+
+fn generate_hmac_key(
+    app_config: AppConfig,
+    rng: SyncRng<StdRng>,
+) -> Result<(), Box<dyn Error>> {
+    make_hmac_key(&app_config, rng)?;
     Ok(())
 }

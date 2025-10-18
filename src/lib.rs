@@ -11,3 +11,4 @@ pub mod bin_constants;
 pub mod hasher;
 pub mod serde;
 pub mod username_string;
+pub mod hmac_key_generator;

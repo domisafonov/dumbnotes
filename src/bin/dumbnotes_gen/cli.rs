@@ -10,4 +10,7 @@ pub struct CliConfig {
 
     #[arg(long, short = 'y', default_value_t = false)]
     pub no_repeat: bool,
+    
+    #[arg(long, default_value_t = false)]
+    pub generate_hmac_key: bool,
 }

@@ -1,4 +1,7 @@
 pub const DEFAULT_CONFIG_FILE: &str = "/etc/dumbnotes/dumbnotes.toml";
+pub const DEFAULT_USER_DB: &str = "/etc/dumbnotes/users.toml";
+pub const DEFAULT_DATA_DIR: &str = "/var/dumbnotes";
+pub const DEFAULT_HMAC_KEY: &str = "/etc/dumbnotes/hmac_key.json";
 pub const APP_CONFIG_ENV_PREFIX: &str = "DUMBNOTES_";
 
 // the defaults are taken from the argon2 crate itself

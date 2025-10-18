@@ -1,6 +1,3 @@
-pub const DEFAULT_USER_DB: &str = "/etc/dumbnotes/users";
-pub const DEFAULT_DATA_DIR: &str = "/var/dumbnotes";
-
 // TODO: validate to fit both in u64 and usize
 // TODO: use static-assertions crate for the defaults?
 // TODO: validate the limits to match each other on startup

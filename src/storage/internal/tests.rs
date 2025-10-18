@@ -94,11 +94,13 @@ async fn read_note_invalid_utf8() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn read_note_file_too_big() {
     todo!("implement the test after the config is done")
 }
 
 #[tokio::test]
+#[ignore]
 async fn read_note_name_too_big() {
     todo!("implement the test after the config is done")
 }
@@ -111,6 +113,7 @@ async fn read_note_name_not_terminated_with_newline() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn read_note_file_became_too_big_after_metadata_read() {
     todo!("implement the test after the config is done")
 }
@@ -326,11 +329,13 @@ async fn get_note_details_invalid_utf8() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn get_note_details_file_too_big() {
     todo!("implement the test after the config is done")
 }
 
 #[tokio::test]
+#[ignore]
 async fn get_note_details_name_too_big() {
     todo!("implement the test after the config is done")
 }
@@ -342,6 +347,7 @@ async fn get_note_details_name_not_terminated_with_newline() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn get_note_details_file_became_too_big_after_metadata_read() {
     todo!("implement the test after the config is done")
 }
