@@ -1,10 +1,9 @@
-use std::path::Path;
-use std::os::unix::prelude::*;
+use crate::rng::make_uuid;
 use async_trait::async_trait;
-use rand::rngs::StdRng;
+use std::os::unix::prelude::*;
+use std::path::Path;
 use tokio::{fs, io};
 use uuid::Uuid;
-use crate::rng::{make_uuid, SyncRng};
 
 #[async_trait]
 pub trait NoteStorageIo: Send {
@@ -52,15 +51,11 @@ pub struct Metadata {
     pub mode: u32,
 }
 
-pub struct ProductionNoteStorageIo {
-    rng: SyncRng<StdRng>,
-}
+pub struct ProductionNoteStorageIo;
 
 impl ProductionNoteStorageIo {
-    pub fn new(rng: SyncRng<StdRng>) -> Self {
-        ProductionNoteStorageIo {
-            rng,
-        }
+    pub fn new() -> Self {
+        ProductionNoteStorageIo
     }
 }
 
@@ -123,6 +118,6 @@ impl NoteStorageIo for ProductionNoteStorageIo {
     }
     
     fn generate_uuid(&self) -> Uuid {
-        make_uuid(&mut self.rng.get_rng())
+        make_uuid(&mut rand::rng())
     }
 }

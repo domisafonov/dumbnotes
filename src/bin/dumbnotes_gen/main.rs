@@ -4,10 +4,8 @@ use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
 use dumbnotes::hmac_key_generator::make_hmac_key;
-use dumbnotes::rng::SyncRng;
 use figment::Figment;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
+use rand::rngs::OsRng;
 use rpassword::prompt_password;
 use std::error::Error;
 use std::process::exit;
@@ -36,25 +34,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             panic!("Configuration error");
         });
     
-    let rng = SyncRng::new(StdRng::from_os_rng());
-    
     if cli_config.generate_hmac_key {
-        generate_hmac_key(app_config, rng)
+        generate_hmac_key(app_config)
     } else {
-        generate_hash(cli_config, app_config, rng)
+        generate_hash(cli_config, app_config)
     }
 }
 
 fn generate_hash(
     cli_config: CliConfig,
     app_config: AppConfig,
-    rng: SyncRng<StdRng>,
 ) -> Result<(), Box<dyn Error>> {
     let hasher = ProductionHasher::new(
         ProductionHasherConfig {
             argon2_params: app_config.hasher_config.try_into()?,
         },
-        rng,
     );
 
     let read_value = prompt_password("Enter the password: ")?;
@@ -75,15 +69,14 @@ fn generate_hash(
         eprintln!("warning: the password has leading or trailing whitespace characters");
     }
 
-    println!("{}", hasher.generate_hash(&read_value));
+    println!("{}", hasher.generate_hash(&read_value)?);
 
     Ok(())
 }
 
 fn generate_hmac_key(
     app_config: AppConfig,
-    rng: SyncRng<StdRng>,
 ) -> Result<(), Box<dyn Error>> {
-    make_hmac_key(&app_config, rng)?;
+    make_hmac_key(&app_config, &mut OsRng)?;
     Ok(())
 }

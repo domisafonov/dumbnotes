@@ -2,8 +2,7 @@ use crate::app_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
 use crate::session_storage::internal::data::SessionsData;
 use crate::session_storage::SessionStorageError;
 use async_trait::async_trait;
-use dumbnotes::rng::{make_uuid, SyncRng};
-use rand::rngs::StdRng;
+use dumbnotes::rng::make_uuid;
 use rand::RngCore;
 use std::path::Path;
 use time::OffsetDateTime;
@@ -32,13 +31,11 @@ pub(super) trait SessionStorageIo: Send + Sync {
 
 pub struct ProductionSessionStorageIo {
     db_file: Mutex<File>, // holds a file lock
-    rng: SyncRng<StdRng>,
 }
 
 impl ProductionSessionStorageIo {
     pub async fn new(
         session_file_path: impl AsRef<Path> + Send,
-        rng: SyncRng<StdRng>,
     ) -> Result<Self, SessionStorageError> {
         let std_file = std::fs::File::options()
             .create(true)
@@ -50,7 +47,6 @@ impl ProductionSessionStorageIo {
         Ok(
             ProductionSessionStorageIo {
                 db_file: Mutex::new(File::from_std(std_file)),
-                rng,
             }
         )
     }
@@ -82,7 +78,7 @@ impl SessionStorageIo for ProductionSessionStorageIo {
 
     fn gen_refresh_token(&self) -> Vec<u8> {
         let mut token = vec![0; REFRESH_TOKEN_SIZE];
-        self.rng.lock().unwrap().fill_bytes(token.as_mut_slice());
+        rand::rng().fill_bytes(token.as_mut_slice());
         token
     }
 
@@ -91,6 +87,6 @@ impl SessionStorageIo for ProductionSessionStorageIo {
     }
     
     fn generate_uuid(&self) -> Uuid {
-        make_uuid(&mut self.rng.lock().unwrap())
+        make_uuid(&mut rand::rng())
     }
 }

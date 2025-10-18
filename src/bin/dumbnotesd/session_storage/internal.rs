@@ -9,11 +9,9 @@ use dumbnotes::username_string::{UsernameStr, UsernameString};
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
-use rand::rngs::StdRng;
 use time::OffsetDateTime;
 use tokio::sync::RwLock;
 use uuid::Uuid;
-use dumbnotes::rng::SyncRng;
 
 #[cfg(test)] mod tests;
 mod data;
@@ -228,14 +226,10 @@ pub type ProductionSessionStorage = SessionStorageImpl<ProductionSessionStorageI
 impl ProductionSessionStorage {
     pub async fn new(
         app_config: &AppConfig,
-        rng: SyncRng<StdRng>,
     ) -> Result<ProductionSessionStorage, SessionStorageError> {
         let mut path = app_config.data_directory.to_path_buf();
         path.push(SESSION_STORAGE_PATH);
-        let io = ProductionSessionStorageIo::new(
-            &path,
-            rng,
-        ).await?;
+        let io = ProductionSessionStorageIo::new(&path).await?;
         let state: State = io.read_session_file()
             .await?
             .into();

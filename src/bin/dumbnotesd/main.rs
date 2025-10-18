@@ -5,21 +5,18 @@ pub mod user_db;
 mod routes;
 mod access_token;
 
-use crate::cli::CliConfig;
-use clap::Parser;
-use dumbnotes::config::app_config::AppConfig;
-use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
-use dumbnotes::rng::SyncRng;
-use dumbnotes::storage::NoteStorage;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use figment::Figment;
-use rocket::{launch, Build, Rocket};
-use dumbnotes::config::figment::FigmentExt;
 use crate::app_constants::{API_PREFIX, WEB_PREFIX};
+use crate::cli::CliConfig;
 use crate::routes::{api_routes, web_routes};
 use crate::session_storage::ProductionSessionStorage;
 use crate::user_db::{ProductionUserDb, UserDb};
+use clap::Parser;
+use dumbnotes::config::app_config::AppConfig;
+use dumbnotes::config::figment::FigmentExt;
+use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
+use dumbnotes::storage::NoteStorage;
+use figment::Figment;
+use rocket::{launch, Build, Rocket};
 
 // TODO: check hmac_key file permissions on start
 
@@ -45,12 +42,8 @@ async fn rocket() -> Rocket<Build> {
             panic!("Configuration error");
         });
 
-    let rng = SyncRng::new(StdRng::from_os_rng());
-
-    let storage: NoteStorage = NoteStorage::new(
-        &config,
-        rng.clone(),
-    ).await
+    let storage: NoteStorage = NoteStorage::new(&config)
+        .await
         .unwrap_or_else(|e| {
             eprintln!("error: {e}");
             panic!("Initialization error");
@@ -61,7 +54,6 @@ async fn rocket() -> Rocket<Build> {
     });
     let hasher = ProductionHasher::new(
         ProductionHasherConfig::new(hasher_config),
-        rng.clone(),
     );
 
     let user_db: Box<dyn UserDb> = Box::new(
@@ -75,10 +67,8 @@ async fn rocket() -> Rocket<Build> {
             })
     );
 
-    let session_storage = ProductionSessionStorage::new(
-        &config,
-        rng,
-    ).await
+    let session_storage = ProductionSessionStorage::new(&config)
+        .await
         .unwrap_or_else(|e| {
             eprintln!("error: {e}");
             panic!("Initialization error");

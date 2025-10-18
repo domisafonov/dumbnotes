@@ -1,10 +1,9 @@
+use futures_util::future::join_all;
 use std::ffi::OsString;
 use std::ops::Add;
-use std::path::PathBuf;
 use std::os::unix::prelude::*;
+use std::path::PathBuf;
 use std::str::FromStr;
-use futures_util::future::join_all;
-use rand::rngs::StdRng;
 use time::UtcDateTime;
 use tokio::io;
 use tokio::io::AsyncReadExt;
@@ -16,11 +15,10 @@ use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
 use crate::util::StrExt;
 
+use crate::username_string::UsernameString;
 use io_trait::Metadata;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
-use crate::rng::SyncRng;
-use crate::username_string::UsernameString;
 
 mod io_trait;
 #[cfg(test)] mod tests;
@@ -43,11 +41,10 @@ pub struct NoteStorageImpl<Io: NoteStorageIo> {
 impl NoteStorage {
     pub async fn new(
         app_config: &AppConfig,
-        rng: SyncRng<StdRng>,
     ) -> Result<NoteStorage, StorageError> {
         Self::new_internal(
             app_config,
-            ProductionNoteStorageIo::new(rng),
+            ProductionNoteStorageIo::new(),
         ).await
     }
 }

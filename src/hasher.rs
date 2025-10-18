@@ -1,18 +1,17 @@
 #[cfg(test)] mod tests;
 
-use std::ops::DerefMut;
-use argon2::{Algorithm, PasswordHash, PasswordHasher, Version};
-use argon2::Argon2;
 use argon2::password_hash::SaltString;
-use rand::rngs::StdRng;
-use crate::rng::SyncRng;
+use argon2::Argon2;
+use argon2::{Algorithm, PasswordHash, PasswordHasher, Version};
+use rand::rand_core::OsError;
+use rand::rngs::OsRng;
 
 // TODO: test
 // TODO: process isolation
 //  this is why making the hasher async is disregarded
 
 pub trait Hasher: Send + Sync {
-    fn generate_hash(&self, password: &str) -> String;
+    fn generate_hash(&self, password: &str) -> Result<String, OsError>;
     fn check_hash(&self, hash: PasswordHash<'_>, password: &str) -> bool;
 }
 
@@ -31,17 +30,14 @@ impl ProductionHasherConfig {
 
 pub struct ProductionHasher {
     config: ProductionHasherConfig,
-    rng: SyncRng<StdRng>,
 }
 
 impl ProductionHasher {
     pub fn new(
         config: ProductionHasherConfig,
-        rng: SyncRng<StdRng>,
     ) -> Self {
         ProductionHasher {
             config,
-            rng,
         }
     }
 
@@ -55,19 +51,21 @@ impl ProductionHasher {
         )
     }
 
-    fn make_salt(&self) -> SaltString {
-        SaltString::from_rng(self.rng.get_rng().deref_mut())
+    fn make_salt(&self) -> Result<SaltString, OsError> {
+        SaltString::try_from_rng(&mut OsRng)
     }
 }
 
 impl Hasher for ProductionHasher {
-    fn generate_hash(&self, password: &str) -> String {
-        let salt = self.make_salt();
+    fn generate_hash(&self, password: &str) -> Result<String, OsError> {
+        let salt = self.make_salt()?;
         let hasher = self.get_hasher();
-        hasher.hash_password(password.as_bytes(), &salt)
-            .expect("password hashing failed")
-            .serialize()
-            .to_string()
+        Ok(
+            hasher.hash_password(password.as_bytes(), &salt)
+                .expect("password hashing failed")
+                .serialize()
+                .to_string()
+        )
     }
 
     fn check_hash(&self, hash: PasswordHash<'_>, password: &str) -> bool {
