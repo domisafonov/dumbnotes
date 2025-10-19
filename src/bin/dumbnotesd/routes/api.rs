@@ -5,7 +5,7 @@ mod model;
 use rocket::response::content::{RawJson, RawText};
 use rocket::{get, post, routes, Route};
 use rocket::http::Status;
-use crate::routes::api::protobuf::bindings::{LoginRequest, LoginResponse};
+use crate::routes::api::model::{LoginRequest, LoginResponse};
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -16,7 +16,7 @@ fn version() -> RawText<&'static str> {
 fn login(request: LoginRequest) -> Result<LoginResponse, Status> {
     Ok(
         LoginResponse {
-            refresh_token: "aaa".to_string(),
+            refresh_token: "aaa".into(),
             token: "bbb".to_string(),
         }
     )

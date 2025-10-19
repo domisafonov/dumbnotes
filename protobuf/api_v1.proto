@@ -6,11 +6,11 @@ message LoginRequest {
     string username = 1;
     oneof secret {
         string password = 2;
-        string refresh_token = 3;
+        bytes refresh_token = 3;
     }
 }
 
 message LoginResponse {
-    string refresh_token = 1;
-    string token = 2;
+    bytes refresh_token = 1;
+    string token = 2; // jwt
 }

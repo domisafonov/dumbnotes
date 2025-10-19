@@ -1,16 +1,19 @@
-use dumbnotes::username_string::UsernameStr;
+use dumbnotes::username_string::UsernameString;
 
-struct LoginRequest<'a> {
-    username: &'a UsernameStr,
-    secret: LoginRequestSecret,
+#[derive(Clone, Eq, PartialEq)]
+pub struct LoginRequest {
+    pub username: UsernameString,
+    pub secret: LoginRequestSecret,
 }
 
-enum LoginRequestSecret {
+#[derive(Clone, Eq, PartialEq)]
+pub enum LoginRequestSecret {
     Password(String),
     RefreshToken(Vec<u8>),
 }
 
-struct LoginResponse {
-    refresh_token: Vec<u8>,
-    token: Vec<u8>,
+#[derive(Clone, Eq, PartialEq)]
+pub struct LoginResponse {
+    pub refresh_token: Vec<u8>,
+    pub token: String,
 }

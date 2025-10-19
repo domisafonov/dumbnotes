@@ -1,12 +1,18 @@
+use rocket::outcome::Outcome;
+
+mod login;
+pub mod errors;
+
 pub mod bindings {
     include!(concat!(env!("OUT_DIR"), "/dumbnotes.protobuf.rs"));
 }
 
+#[macro_export]
 macro_rules! protobuf_request {
-    ($request_type:ty) => {
+    ($request_type:ty, $model_type:ty) => {
         #[async_trait::async_trait]
         impl<'r> rocket::data::FromData<'r> for $request_type {
-            type Error = crate::routes::api::errors::ProtobufRequestError;
+            type Error = $crate::routes::api::errors::ProtobufRequestError;
 
             async fn from_data(
                 req: &'r rocket::Request<'_>,
@@ -22,7 +28,7 @@ macro_rules! protobuf_request {
                 }
                 let limit = req.limits()
                     .get("protobuf")
-                    .unwrap_or(crate::app_constants::DEFAULT_PROTOBUF_READ_LIMIT.bytes());
+                    .unwrap_or($crate::app_constants::DEFAULT_PROTOBUF_READ_LIMIT.bytes());
                 let result = data.open(limit).into_bytes().await;
                 match result {
                     Ok(bytes) if bytes.is_complete() => match <$request_type>::decode(bytes.as_ref()) {
@@ -31,17 +37,40 @@ macro_rules! protobuf_request {
                     }
                     Ok(_) => Outcome::Error((
                         Status::PayloadTooLarge,
-                        crate::routes::api::errors::ProtobufRequestError::TooLarge
+                        $crate::routes::api::errors::ProtobufRequestError::TooLarge
                     )),
                     Err(e) => Outcome::Error((Status::BadRequest, e.into())),
+                }
+            }
+        }
+
+        #[async_trait::async_trait]
+        impl<'r> rocket::data::FromData<'r> for $model_type {
+            type Error = $crate::routes::api::errors::ProtobufRequestError;
+
+            async fn from_data(
+                req: &'r rocket::Request<'_>,
+                data: rocket::Data<'r>,
+            ) -> rocket::data::Outcome<'r, Self> {
+                use rocket::data::Outcome;
+                use rocket::http::Status;
+
+                match <$request_type>::from_data(req, data).await {
+                    Outcome::Success(pb) => match pb.try_into() {
+                        Ok(mapped) => Outcome::Success(mapped),
+                        Err(e) => Outcome::Error((Status::BadRequest, e.into())),
+                    },
+                    Outcome::Error(e) => Outcome::Error(e),
+                    Outcome::Forward(f) => Outcome::Forward(f),
                 }
             }
         }
     };
 }
 
+#[macro_export]
 macro_rules! protobuf_response {
-    ($response_type:ty) => {
+    ($response_type:ty, $model_type:ty) => {
         #[async_trait::async_trait]
         impl<'r> rocket::response::Responder<'r, 'static> for $response_type {
             fn respond_to(
@@ -57,8 +86,16 @@ macro_rules! protobuf_response {
                     .ok()
             }
         }
+
+
+        #[async_trait::async_trait]
+        impl<'r> rocket::response::Responder<'r, 'static> for $model_type {
+            fn respond_to(
+                self,
+                request: &'r rocket::Request<'_>,
+            ) -> rocket::response::Result<'static> {
+                <$response_type>::respond_to(self.into(), request)
+            }
+        }
     };
 }
-
-protobuf_request!(bindings::LoginRequest);
-protobuf_response!(bindings::LoginResponse);
