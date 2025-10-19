@@ -1,14 +1,17 @@
-use std::fmt::{Display, Formatter};
-use std::{fs, io};
+use std::fmt::Display;
+use std::fs;
 use std::ops::Add;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
-use josekit::{jwt, JoseError};
+use josekit::jwt;
 use josekit::jwk::Jwk;
 use josekit::jws::alg::hmac::{HmacJwsAlgorithm, HmacJwsSigner};
 use josekit::jws::JwsHeader;
 use josekit::jwt::JwtPayload;
+use errors::AccessTokenGeneratorError;
 use crate::session_storage::Session;
+
+pub(super) mod errors;
 
 pub struct AccessTokenGenerator {
     signer: HmacJwsSigner,
@@ -29,7 +32,6 @@ impl AccessTokenGenerator {
         Self::from_jwk(&Jwk::from_bytes(fs::read(path)?)?)
     }
 
-    // TODO: setup the context
     pub fn generate_token(
         &self,
         session: &Session,
@@ -48,44 +50,5 @@ impl AccessTokenGenerator {
                 &self.signer,
             )?
         )
-    }
-}
-
-#[derive(Debug)]
-pub enum AccessTokenGeneratorError {
-    CryptoError(JoseError),
-    IoError(io::Error),
-    SerializationError,
-}
-
-impl Display for AccessTokenGeneratorError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AccessTokenGeneratorError::CryptoError(e) =>
-                f.write_fmt(format_args!("{e}")),
-            AccessTokenGeneratorError::IoError(e) =>
-                f.write_fmt(format_args!("{e}")),
-            AccessTokenGeneratorError::SerializationError =>
-                f.write_str("Error serializing JWT claims"),
-        }
-    }
-}
-impl std::error::Error for AccessTokenGeneratorError {}
-
-impl From<JoseError> for AccessTokenGeneratorError {
-    fn from(e: JoseError) -> AccessTokenGeneratorError {
-        AccessTokenGeneratorError::CryptoError(e)
-    }
-}
-
-impl From<io::Error> for AccessTokenGeneratorError {
-    fn from(e: io::Error) -> AccessTokenGeneratorError {
-        AccessTokenGeneratorError::IoError(e)
-    }
-}
-
-impl From<serde_json::Error> for AccessTokenGeneratorError {
-    fn from(_: serde_json::Error) -> AccessTokenGeneratorError {
-        AccessTokenGeneratorError::SerializationError
     }
 }
