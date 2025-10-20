@@ -43,7 +43,7 @@ impl ProductionSessionStorageIo {
             .write(true)
             .truncate(false)
             .open(session_file_path)?;
-        std_file.lock().map_err(SessionStorageError::LockingFailed)?;
+        std_file.try_lock().map_err(SessionStorageError::LockingFailed)?;
         Ok(
             ProductionSessionStorageIo {
                 db_file: Mutex::new(File::from_std(std_file)),

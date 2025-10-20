@@ -5,7 +5,7 @@ use std::io::Error as IoError;
 #[derive(Debug)]
 pub enum SessionStorageError {
     IoError(IoError),
-    LockingFailed(IoError),
+    LockingFailed(std::fs::TryLockError),
     ParsingError {
         message: String,
     },
@@ -49,6 +49,15 @@ impl From<toml::ser::Error> for SessionStorageError {
     fn from(e: toml::ser::Error) -> Self {
         SessionStorageError::SerializationError {
             message: format!("{e}"),
+        }
+    }
+}
+
+impl From<std::fs::TryLockError> for SessionStorageError {
+    fn from(e: std::fs::TryLockError) -> Self {
+        match e {
+            std::fs::TryLockError::WouldBlock => SessionStorageError::LockingFailed(e),
+            std::fs::TryLockError::Error(e) => SessionStorageError::IoError(e),
         }
     }
 }
