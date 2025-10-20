@@ -19,7 +19,7 @@ pub(super) trait SessionStorageIo: Send + Sync {
 
     async fn write_session_file(
         &self,
-        sessions_data: SessionsData,
+        sessions_data: &SessionsData,
     ) -> Result<(), SessionStorageError>;
 
     fn gen_refresh_token(&self) -> Vec<u8>;
@@ -66,7 +66,7 @@ impl SessionStorageIo for ProductionSessionStorageIo {
 
     async fn write_session_file(
         &self,
-        sessions_data: SessionsData,
+        sessions_data: &SessionsData,
     ) -> Result<(), SessionStorageError> {
         let mut db_file = self.db_file.lock().await;
         db_file.set_len(0).await?;

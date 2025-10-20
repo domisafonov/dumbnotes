@@ -11,7 +11,8 @@ pub enum SessionStorageError {
     },
     SerializationError {
         message: String,
-    }
+    },
+    SessionNotFound,
 }
 
 impl fmt::Display for SessionStorageError { // TODO: prettier strings
@@ -23,6 +24,8 @@ impl fmt::Display for SessionStorageError { // TODO: prettier strings
                 f.write_fmt(format_args!("Session db parsing error: {}", message)),
             SessionStorageError::SerializationError { message } =>
                 f.write_fmt(format_args!("Session db serialization error: {}", message)),
+            SessionStorageError::SessionNotFound =>
+                f.write_str("Session not found"),
         }
     }
 }

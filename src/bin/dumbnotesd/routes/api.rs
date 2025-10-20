@@ -3,15 +3,12 @@ mod protobuf;
 mod model;
 pub mod authentication_guard;
 
+use crate::access_granter::{AccessGranter, AccessGranterError, LoginResult};
+use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
+use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse};
+use rocket::http::Status;
 use rocket::response::content::{RawJson, RawText};
 use rocket::{get, post, routes, Route, State};
-use rocket::http::Status;
-use crate::access_granter::{AccessGranter, AccessGranterError, LoginResult};
-use crate::access_token::AccessTokenGeneratorError;
-use crate::routes::api::authentication_guard::{Authenticated, MaybeAuthenticated, Unauthenticated};
-use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse};
-use crate::session_storage::SessionStorageError;
-use crate::user_db::UserDbError;
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -36,25 +33,37 @@ async fn login(
                         access_token,
                     }
                 ),
-                Err(e) => Err(
-                    match e { // TODO: headers
-                        AccessGranterError::HeaderFormatError |
-                        AccessGranterError::InvalidToken |
-                        AccessGranterError::InvalidCredentials
-                        => Status::Unauthorized,
-
-                        AccessGranterError::SessionStorageError(_) |
-                        AccessGranterError::UserDbError(_) |
-                        AccessGranterError::AccessTokenGeneratorError(_)
-                        => Status::InternalServerError,
-                    }
-                )
+                Err(e) => Err(map_login_error(e))
             }
         }
         LoginRequestSecret::RefreshToken(token) => {
-            access_granter.refresh_user_token(&token).await;
-            todo!()
+            match access_granter
+                .refresh_user_token(&request.username, &token)
+                .await
+            {
+                Ok(LoginResult { refresh_token, access_token }) => Ok(
+                    LoginResponse {
+                        refresh_token,
+                        access_token,
+                    }
+                ),
+                Err(e) => Err(map_login_error(e))
+            }
         }
+    }
+}
+
+fn map_login_error(e: AccessGranterError) -> Status {
+    match e { // TODO: headers
+        AccessGranterError::HeaderFormatError |
+        AccessGranterError::InvalidToken |
+        AccessGranterError::InvalidCredentials
+        => Status::Unauthorized,
+
+        AccessGranterError::SessionStorageError(_) |
+        AccessGranterError::UserDbError(_) |
+        AccessGranterError::AccessTokenGeneratorError(_)
+        => Status::InternalServerError,
     }
 }
 

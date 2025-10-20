@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::username_string::{UsernameStr, UsernameString};
 use std::collections::HashMap;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use time::OffsetDateTime;
 use tokio::sync::RwLock;
@@ -24,6 +24,12 @@ pub trait SessionStorage: Send + Sync {
         &self,
         username: &UsernameStr,
         created_at: OffsetDateTime,
+        expires_at: OffsetDateTime,
+    ) -> Result<Session, SessionStorageError>;
+
+    async fn refresh_session(
+        &self,
+        refresh_token: &[u8],
         expires_at: OffsetDateTime,
     ) -> Result<Session, SessionStorageError>;
 
@@ -100,7 +106,7 @@ impl From<SessionsData> for State {
 impl<Io: SessionStorageIo> SessionStorageImpl<Io> {
     async fn write_state(
         &self,
-        state: impl Deref<Target=State>,
+        mut state: impl DerefMut<Target=State>,
     ) -> Result<(), SessionStorageError> {
         let now = self.io.get_time();
         let mapped = SessionsData {
@@ -113,17 +119,19 @@ impl<Io: SessionStorageIo> SessionStorageImpl<Io> {
                             if session.expires_at <= now {
                                 None
                             } else {
-                                Some(
-                                    UserSessionData {
-                                        session_id: session.session_id,
-                                        refresh_token: session.refresh_token.clone(),
-                                        created_at: session.created_at,
-                                        expires_at: session.expires_at,
-                                    }
-                                )
+                                Some(Self::session_to_session_data(session))
                             }
                         })
                         .collect();
+                    let user_sessions = if user_sessions.is_empty() {
+                        vec![
+                            sessions.iter().max_by_key(|v| v.expires_at)
+                                .map(|s| Self::session_to_session_data(s))
+                                .expect("No user session"),
+                        ]
+                    } else {
+                        user_sessions
+                    };
 
                     Some(user_sessions)
                         .filter(|v| !v.is_empty())
@@ -136,7 +144,25 @@ impl<Io: SessionStorageIo> SessionStorageImpl<Io> {
                 })
                 .collect()
         };
-        self.io.write_session_file(mapped).await
+        self.io.write_session_file(&mapped).await?;
+
+        // not really optimized, will be deleted by moving to observing
+        // the session file
+        let new_state = State::from(mapped);
+        state.id_to_session = new_state.id_to_session;
+        state.token_to_session = new_state.token_to_session;
+        state.name_to_sessions = new_state.name_to_sessions;
+
+        Ok(())
+    }
+
+    fn session_to_session_data(session: &Session) -> UserSessionData {
+        UserSessionData {
+            session_id: session.session_id,
+            refresh_token: session.refresh_token.clone(),
+            created_at: session.created_at,
+            expires_at: session.expires_at,
+        }
     }
 }
 
@@ -169,6 +195,39 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
         };
         state.id_to_session.insert(new_session.session_id, new_session_arc.clone());
         state.token_to_session.insert(token, new_session_arc);
+        self.write_state(state).await?;
+        Ok(new_session)
+    }
+
+    async fn refresh_session(
+        &self,
+        refresh_token: &[u8],
+        expires_at: OffsetDateTime,
+    ) -> Result<Session, SessionStorageError> {
+        let new_refresh_token = self.io.gen_refresh_token();
+        let mut state = self.state.write().await;
+        let session = state.token_to_session
+            .get(refresh_token)
+            .ok_or(SessionStorageError::SessionNotFound)?;
+        let new_session = Session {
+            session_id: session.session_id,
+            username: session.username.clone(),
+            refresh_token: new_refresh_token.clone(),
+            created_at: session.created_at,
+            expires_at,
+        };
+        let new_session_arc = Arc::new(new_session.clone());
+        state.id_to_session.insert(new_session.session_id, new_session_arc.clone());
+        let name_to_sessions = state.name_to_sessions
+            .get_mut(&new_session.username)
+            .expect("Session cache incoherent");
+        let session_index = name_to_sessions
+            .iter()
+            .position(|s| s.refresh_token == refresh_token)
+            .expect("Session cache incoherent");
+        name_to_sessions[session_index] = new_session_arc.clone();
+        state.token_to_session.remove(refresh_token);
+        state.token_to_session.insert(new_refresh_token, new_session_arc);
         self.write_state(state).await?;
         Ok(new_session)
     }

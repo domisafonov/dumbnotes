@@ -14,8 +14,8 @@ pub struct UsernameString(String);
 pub struct UsernameStr(str);
 
 impl UsernameString {
-    fn as_str(&self) -> &str {
-        &self.0
+    pub fn as_str(&self) -> &UsernameStr {
+        self
     }
 }
 

@@ -75,7 +75,7 @@ impl AccessGranter {
         username: &UsernameStr,
         password: &str,
     ) -> Result<LoginResult, AccessGranterError> {
-        if self.user_db.check_user_credentials(&username, password).await? {
+        if self.user_db.check_user_credentials(username, password).await? {
             let now = OffsetDateTime::now_utc();
             let session = self.session_storage
                 .create_session(
@@ -99,9 +99,31 @@ impl AccessGranter {
 
     pub async fn refresh_user_token(
         &self,
+        username: &UsernameStr,
         refresh_token: &[u8],
     ) -> Result<LoginResult, AccessGranterError> {
-        todo!()
+        let session = self.session_storage
+            .get_session_by_token(refresh_token)
+            .await?;
+        if let Some(session) = session {
+            if session.username.as_str() != username {
+                return Err(AccessGranterError::InvalidCredentials);
+            }
+        }
+        let session = self.session_storage
+            .refresh_session(
+                refresh_token,
+                OffsetDateTime::now_utc() + Duration::minutes(15)
+            )
+            .await?;
+        let access_token = self.access_token_generator
+            .generate_token(&session, session.expires_at.into())?;
+        Ok(
+            LoginResult {
+                refresh_token: session.refresh_token,
+                access_token,
+            }
+        )
     }
 
     pub async fn logout_user(
@@ -143,7 +165,10 @@ impl Error for AccessGranterError {}
 
 impl From<SessionStorageError> for AccessGranterError {
     fn from(e: SessionStorageError) -> Self {
-        AccessGranterError::SessionStorageError(e)
+        match e {
+            SessionStorageError::SessionNotFound => AccessGranterError::InvalidCredentials,
+            _ => AccessGranterError::SessionStorageError(e),
+        }
     }
 }
 
