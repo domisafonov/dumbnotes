@@ -9,7 +9,7 @@ use dumbnotes::username_string::{UsernameStr, UsernameString};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -116,22 +116,13 @@ impl<Io: SessionStorageIo> SessionStorageImpl<Io> {
                     let user_sessions: Vec<_> = sessions
                         .iter()
                         .filter_map(|session| {
-                            if session.expires_at <= now {
+                            if session.expires_at + Duration::weeks(5) <= now { // TODO: find and order/properly delegate all time-related stuff
                                 None
                             } else {
                                 Some(Self::session_to_session_data(session))
                             }
                         })
                         .collect();
-                    let user_sessions = if user_sessions.is_empty() {
-                        vec![
-                            sessions.iter().max_by_key(|v| v.expires_at)
-                                .map(|s| Self::session_to_session_data(s))
-                                .expect("No user session"),
-                        ]
-                    } else {
-                        user_sessions
-                    };
 
                     Some(user_sessions)
                         .filter(|v| !v.is_empty())
@@ -185,16 +176,14 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
         };
         let new_session_arc = Arc::new(new_session.clone());
         match state.name_to_sessions.get_mut(username) {
-            Some(sessions) => sessions.push(new_session_arc.clone()),
+            Some(sessions) => sessions.push(new_session_arc),
             None => {
                 state.name_to_sessions.insert(
                     username.to_owned(),
-                    vec![new_session_arc.clone()],
+                    vec![new_session_arc],
                 );
             },
         };
-        state.id_to_session.insert(new_session.session_id, new_session_arc.clone());
-        state.token_to_session.insert(token, new_session_arc);
         self.write_state(state).await?;
         Ok(new_session)
     }
@@ -217,7 +206,6 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
             expires_at,
         };
         let new_session_arc = Arc::new(new_session.clone());
-        state.id_to_session.insert(new_session.session_id, new_session_arc.clone());
         let name_to_sessions = state.name_to_sessions
             .get_mut(&new_session.username)
             .expect("Session cache incoherent");
@@ -226,8 +214,6 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
             .position(|s| s.refresh_token == refresh_token)
             .expect("Session cache incoherent");
         name_to_sessions[session_index] = new_session_arc.clone();
-        state.token_to_session.remove(refresh_token);
-        state.token_to_session.insert(new_refresh_token, new_session_arc);
         self.write_state(state).await?;
         Ok(new_session)
     }
@@ -237,17 +223,21 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
         session_id: Uuid,
     ) -> Result<bool, SessionStorageError> {
         let mut state = self.state.write().await;
-        match state.id_to_session.remove(&session_id) {
-            Some(session) => {
-                let was_removed = state.name_to_sessions
-                    .remove(&session.username)
-                    .is_some();
-                assert!(was_removed);
-
-                let was_removed = state.token_to_session
-                    .remove(&session.refresh_token)
-                    .is_some();
-                assert!(was_removed);
+        let found_username = state.id_to_session
+            .get(&session_id)
+            .map(|s| s.username.clone());
+        match found_username {
+            Some(found_username) => {
+                let (_, users_sessions) = state.name_to_sessions
+                    .iter_mut()
+                    .find(|(username, _)| **username == found_username)
+                    .expect("Session cache incoherent");
+                users_sessions
+                    .remove(
+                        users_sessions.iter()
+                            .position(|s| s.session_id == session_id)
+                            .expect("Session cache incoherent")
+                    );
 
                 self.write_state(state).await?;
                 Ok(true)

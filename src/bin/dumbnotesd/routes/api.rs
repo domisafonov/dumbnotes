@@ -68,10 +68,14 @@ fn map_login_error(e: AccessGranterError) -> Status {
 }
 
 #[post("/logout")]
-fn logout(
+async fn logout(
     authenticated: Authenticated,
-) -> RawJson<&'static str> {
-    RawJson("{}")
+    access_granter: &State<AccessGranter>,
+) -> Result<(), Status> {
+    match access_granter.logout_user(authenticated.0.session_id).await {
+        Ok(_) => Ok(()),
+        Err(_) => Err(Status::InternalServerError)
+    }
 }
 
 pub fn api_routes() -> Vec<Route> {

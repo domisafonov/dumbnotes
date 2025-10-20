@@ -51,7 +51,7 @@ impl AccessGranter {
         &self,
         auth_header_value: &str,
     ) -> Result<SessionInfo, AccessGranterError> {
-        let token = auth_header_value.strip_prefix("Bearer:")
+        let token = auth_header_value.strip_prefix("Bearer")
             .ok_or(AccessGranterError::HeaderFormatError)?
             .trim_ascii_start();
         let token = self.access_token_decoder.decode_token(token)
@@ -62,7 +62,7 @@ impl AccessGranter {
         };
         let now = SystemTime::now();
         Ok(
-            if token.not_before > now || now <= token.expires_at {
+            if token.not_before > now || now >= token.expires_at {
                 SessionInfo::Expired(known_session)
             } else {
                 SessionInfo::Valid(known_session)
@@ -85,7 +85,7 @@ impl AccessGranter {
                 )
                 .await?;
             let access_token = self.access_token_generator
-                .generate_token(&session, session.expires_at.into())?;
+                .generate_token(&session, now.into())?;
             Ok(
                 LoginResult {
                     refresh_token: session.refresh_token,
@@ -110,14 +110,15 @@ impl AccessGranter {
                 return Err(AccessGranterError::InvalidCredentials);
             }
         }
+        let now = OffsetDateTime::now_utc();
         let session = self.session_storage
             .refresh_session(
                 refresh_token,
-                OffsetDateTime::now_utc() + Duration::minutes(15)
+                now + Duration::minutes(15)
             )
             .await?;
         let access_token = self.access_token_generator
-            .generate_token(&session, session.expires_at.into())?;
+            .generate_token(&session, now.into())?;
         Ok(
             LoginResult {
                 refresh_token: session.refresh_token,
@@ -130,7 +131,8 @@ impl AccessGranter {
         &self,
         session_id: Uuid,
     ) -> Result<(), AccessGranterError> {
-        todo!()
+        self.session_storage.delete_session(session_id).await?;
+        Ok(())
     }
 }
 

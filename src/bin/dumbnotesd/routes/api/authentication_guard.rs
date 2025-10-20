@@ -10,7 +10,7 @@ use crate::access_granter::{AccessGranter, AccessGranterError, SessionInfo, Know
 pub struct Unauthenticated;
 
 #[derive(Debug)]
-pub struct Authenticated(KnownSession);
+pub struct Authenticated(pub KnownSession);
 
 #[derive(Debug)]
 pub enum MaybeAuthenticated {
