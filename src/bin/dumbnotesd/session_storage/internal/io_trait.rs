@@ -70,6 +70,7 @@ impl SessionStorageIo for ProductionSessionStorageIo {
     ) -> Result<(), SessionStorageError> {
         let mut db_file = self.db_file.lock().await;
         db_file.set_len(0).await?;
+        db_file.rewind().await?;
         db_file.write_all(
             toml::to_string(&sessions_data)?.as_bytes(),
         ).await?;

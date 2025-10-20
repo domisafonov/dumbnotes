@@ -28,9 +28,9 @@ impl FromStr for UsernameString {
 }
 
 impl Deref for UsernameString {
-    type Target = str;
-    fn deref(&self) -> &str {
-        &self.0[..]
+    type Target = UsernameStr;
+    fn deref(&self) -> &UsernameStr {
+        self.borrow()
     }
 }
 

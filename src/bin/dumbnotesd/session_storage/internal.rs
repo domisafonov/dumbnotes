@@ -23,6 +23,7 @@ pub trait SessionStorage: Send + Sync {
     async fn create_session(
         &self,
         username: &UsernameStr,
+        created_at: OffsetDateTime,
         expires_at: OffsetDateTime,
     ) -> Result<Session, SessionStorageError>;
 
@@ -71,6 +72,7 @@ impl From<SessionsData> for State {
                                 session_id: session_data.session_id,
                                 username: user_data.username.clone(),
                                 refresh_token: session_data.refresh_token,
+                                created_at: session_data.created_at,
                                 expires_at: session_data.expires_at,
                             }
                         })
@@ -108,13 +110,14 @@ impl<Io: SessionStorageIo> SessionStorageImpl<Io> {
                     let user_sessions: Vec<_> = sessions
                         .iter()
                         .filter_map(|session| {
-                            if session.expires_at >= now {
+                            if session.expires_at <= now {
                                 None
                             } else {
                                 Some(
                                     UserSessionData {
                                         session_id: session.session_id,
                                         refresh_token: session.refresh_token.clone(),
+                                        created_at: session.created_at,
                                         expires_at: session.expires_at,
                                     }
                                 )
@@ -142,6 +145,7 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
     async fn create_session(
         &self,
         username: &UsernameStr,
+        created_at: OffsetDateTime,
         expires_at: OffsetDateTime,
     ) -> Result<Session, SessionStorageError> {
         let token = self.io.gen_refresh_token();
@@ -150,6 +154,7 @@ impl<Io: SessionStorageIo> SessionStorage for SessionStorageImpl<Io> {
             session_id: self.io.generate_uuid(),
             username: username.to_owned(),
             refresh_token: token.clone(),
+            created_at,
             expires_at,
         };
         let new_session_arc = Arc::new(new_session.clone());

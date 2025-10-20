@@ -15,5 +15,5 @@ pub enum LoginRequestSecret {
 #[derive(Clone, Eq, PartialEq)]
 pub struct LoginResponse {
     pub refresh_token: Vec<u8>,
-    pub token: String,
+    pub access_token: String,
 }

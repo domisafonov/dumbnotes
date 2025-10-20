@@ -1,9 +1,9 @@
+use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
+use crate::user_db::UserDbError;
 use async_trait::async_trait;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::hasher::{Hasher, ProductionHasher};
-use dumbnotes::username_string::UsernameString;
-use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
-use crate::user_db::UserDbError;
+use dumbnotes::username_string::UsernameStr;
 
 mod io_trait;
 #[cfg(test)] mod tests;
@@ -14,12 +14,12 @@ mod user;
 pub trait UserDb: Send + Sync {
     async fn does_user_exist(
         &self,
-        username: &UsernameString,
+        username: &UsernameStr,
     ) -> Result<bool, UserDbError>;
 
     async fn check_user_credentials(
         &self,
-        username: &UsernameString,
+        username: &UsernameStr,
         password: &str,
     ) -> Result<bool, UserDbError>;
 }
@@ -34,7 +34,7 @@ pub struct UserDbImpl<H: Hasher, Io: UserDbIo> {
 impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
     async fn does_user_exist(
         &self,
-        username: &UsernameString,
+        username: &UsernameStr,
     ) -> Result<bool, UserDbError> {
         Ok(
             self.io
@@ -46,7 +46,7 @@ impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
 
     async fn check_user_credentials(
         &self,
-        username: &UsernameString,
+        username: &UsernameStr,
         password: &str,
     ) -> Result<bool, UserDbError> {
         let user = self.io

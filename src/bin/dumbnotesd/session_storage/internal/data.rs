@@ -27,5 +27,8 @@ pub(super) struct UserSessionData {
     pub refresh_token: Vec<u8>,
 
     #[serde(with = "time::serde::rfc3339")]
+    pub created_at: OffsetDateTime,
+
+    #[serde(with = "time::serde::rfc3339")]
     pub expires_at: OffsetDateTime,
 }

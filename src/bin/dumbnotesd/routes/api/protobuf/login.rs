@@ -32,7 +32,7 @@ impl From<LoginResponse> for bindings::LoginResponse {
     fn from(value: LoginResponse) -> Self {
         bindings::LoginResponse {
             refresh_token: value.refresh_token,
-            token: value.token,
+            token: value.access_token,
         }
     }
 }

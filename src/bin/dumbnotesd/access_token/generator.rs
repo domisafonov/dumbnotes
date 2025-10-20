@@ -1,5 +1,5 @@
 use std::ops::Add;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use josekit::jwt;
 use josekit::jwk::Jwk;
 use josekit::jws::alg::hmac::{HmacJwsAlgorithm, HmacJwsSigner};
@@ -32,7 +32,7 @@ impl AccessTokenGenerator {
         payload.set_subject(session.username.to_string());
         payload.set_claim("session_id", Some(serde_json::to_value(session.session_id)?))?;
         payload.set_not_before(&now);
-        payload.set_expires_at(&now.add(Duration::new(15 * 60, 0)));
+        payload.set_expires_at(&session.expires_at.into());
 
         Ok(
             jwt::encode_with_signer(

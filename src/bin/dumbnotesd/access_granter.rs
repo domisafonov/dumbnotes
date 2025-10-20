@@ -1,11 +1,12 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::time::SystemTime;
+use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
-use dumbnotes::username_string::UsernameString;
-use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator};
-use crate::session_storage::SessionStorage;
-use crate::user_db::UserDb;
+use dumbnotes::username_string::{UsernameStr, UsernameString};
+use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator, AccessTokenGeneratorError};
+use crate::session_storage::{SessionStorage, SessionStorageError};
+use crate::user_db::{UserDb, UserDbError};
 
 pub struct AccessGranter {
     session_storage: Box<dyn SessionStorage>,
@@ -21,14 +22,14 @@ pub struct LoginResult {
 
 #[derive(Debug)]
 pub enum SessionInfo {
-    Valid(ValidSession),
-    Expired,
+    Valid(KnownSession),
+    Expired(KnownSession),
 }
 
 #[derive(Debug)]
-pub struct ValidSession {
-    session_id: Uuid,
-    username: UsernameString,
+pub struct KnownSession {
+    pub session_id: Uuid,
+    pub username: UsernameString,
 }
 
 impl AccessGranter {
@@ -55,26 +56,45 @@ impl AccessGranter {
             .trim_ascii_start();
         let token = self.access_token_decoder.decode_token(token)
             .map_err(|_| AccessGranterError::InvalidToken)?;
+        let known_session = KnownSession {
+            session_id: token.session_id,
+            username: token.username,
+        };
         let now = SystemTime::now();
-        if token.not_before > now || now <= token.expires_at {
-            Ok(SessionInfo::Expired)
-        } else {
-            Ok(
-                SessionInfo::Valid(
-                    ValidSession {
-                        session_id: token.session_id,
-                        username: token.username,
-                    }
-                )
-            )
-        }
+        Ok(
+            if token.not_before > now || now <= token.expires_at {
+                SessionInfo::Expired(known_session)
+            } else {
+                SessionInfo::Valid(known_session)
+            }
+        )
     }
 
     pub async fn login_user(
         &self,
+        username: &UsernameStr,
         password: &str,
     ) -> Result<LoginResult, AccessGranterError> {
-        todo!()
+        if self.user_db.check_user_credentials(&username, password).await? {
+            let now = OffsetDateTime::now_utc();
+            let session = self.session_storage
+                .create_session(
+                    username,
+                    now,
+                    now + Duration::minutes(15),
+                )
+                .await?;
+            let access_token = self.access_token_generator
+                .generate_token(&session, session.expires_at.into())?;
+            Ok(
+                LoginResult {
+                    refresh_token: session.refresh_token,
+                    access_token,
+                }
+            )
+        } else {
+            Err(AccessGranterError::InvalidCredentials)
+        }
     }
 
     pub async fn refresh_user_token(
@@ -96,14 +116,45 @@ impl AccessGranter {
 pub enum AccessGranterError {
     HeaderFormatError,
     InvalidToken,
+    InvalidCredentials,
+    SessionStorageError(SessionStorageError),
+    UserDbError(UserDbError),
+    AccessTokenGeneratorError(AccessTokenGeneratorError),
 }
 
 impl Display for AccessGranterError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            AccessGranterError::HeaderFormatError => f.write_str("Token format error"),
+            AccessGranterError::HeaderFormatError =>
+                f.write_str("Token format error"),
             AccessGranterError::InvalidToken => f.write_str("Invalid token"),
+            AccessGranterError::InvalidCredentials =>
+                f.write_str("Invalid credentials"),
+            AccessGranterError::SessionStorageError(e) =>
+                f.write_fmt(format_args!("{e}")),
+            AccessGranterError::UserDbError(e) =>
+                f.write_fmt(format_args!("{e}")),
+            AccessGranterError::AccessTokenGeneratorError(e) =>
+                f.write_fmt(format_args!("{e}")),
         }
     }
 }
 impl Error for AccessGranterError {}
+
+impl From<SessionStorageError> for AccessGranterError {
+    fn from(e: SessionStorageError) -> Self {
+        AccessGranterError::SessionStorageError(e)
+    }
+}
+
+impl From<UserDbError> for AccessGranterError {
+    fn from(e: UserDbError) -> Self {
+        AccessGranterError::UserDbError(e)
+    }
+}
+
+impl From<AccessTokenGeneratorError> for AccessGranterError {
+    fn from(e: AccessTokenGeneratorError) -> Self {
+        AccessGranterError::AccessTokenGeneratorError(e)
+    }
+}

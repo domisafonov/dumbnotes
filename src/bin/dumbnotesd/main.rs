@@ -4,7 +4,7 @@ mod session_storage;
 pub mod user_db;
 mod routes;
 mod access_token;
-mod access_granter;
+pub mod access_granter;
 
 use crate::app_constants::{API_PREFIX, WEB_PREFIX};
 use crate::cli::CliConfig;
