@@ -1,5 +1,3 @@
-use rocket::outcome::Outcome;
-
 mod login;
 pub mod errors;
 
@@ -55,13 +53,9 @@ macro_rules! protobuf_request {
                 use rocket::data::Outcome;
                 use rocket::http::Status;
 
-                match <$request_type>::from_data(req, data).await {
-                    Outcome::Success(pb) => match pb.try_into() {
-                        Ok(mapped) => Outcome::Success(mapped),
-                        Err(e) => Outcome::Error((Status::BadRequest, e.into())),
-                    },
-                    Outcome::Error(e) => Outcome::Error(e),
-                    Outcome::Forward(f) => Outcome::Forward(f),
+                match rocket::outcome::try_outcome!(<$request_type>::from_data(req, data).await).try_into() {
+                    Ok(mapped) => Outcome::Success(mapped),
+                    Err(e) => Outcome::Error((Status::BadRequest, e.into()))
                 }
             }
         }

@@ -1,7 +1,4 @@
-use std::fmt::Display;
-use std::fs;
 use std::ops::Add;
-use std::path::Path;
 use std::time::{Duration, SystemTime};
 use josekit::jwt;
 use josekit::jwk::Jwk;
@@ -24,12 +21,6 @@ impl AccessTokenGenerator {
                 signer: HmacJwsAlgorithm::Hs512.signer_from_jwk(key)?,
             }
         )
-    }
-
-    pub fn from_file(
-        path: impl AsRef<Path>,
-    ) -> Result<Self, AccessTokenGeneratorError> {
-        Self::from_jwk(&Jwk::from_bytes(fs::read(path)?)?)
     }
 
     pub fn generate_token(

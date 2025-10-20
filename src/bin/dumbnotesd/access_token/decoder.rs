@@ -1,6 +1,3 @@
-use std::fmt::Display;
-use std::fs;
-use std::path::Path;
 use std::str::FromStr;
 use josekit::jwt;
 use josekit::jwk::Jwk;
@@ -24,12 +21,6 @@ impl AccessTokenDecoder {
                 verifier: HmacJwsAlgorithm::Hs512.verifier_from_jwk(jwk)?,
             }
         )
-    }
-
-    pub fn from_file(
-        path: impl AsRef<Path>,
-    ) -> Result<Self, AccessTokenDecoderError> {
-        Self::from_jwk(&Jwk::from_bytes(fs::read(path)?)?)
     }
 
     pub fn decode_token(

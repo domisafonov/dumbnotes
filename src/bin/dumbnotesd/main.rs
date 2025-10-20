@@ -4,6 +4,7 @@ mod session_storage;
 pub mod user_db;
 mod routes;
 mod access_token;
+mod access_granter;
 
 use crate::app_constants::{API_PREFIX, WEB_PREFIX};
 use crate::cli::CliConfig;
@@ -18,6 +19,7 @@ use dumbnotes::storage::NoteStorage;
 use figment::Figment;
 use josekit::jwk::Jwk;
 use rocket::{launch, Build, Rocket};
+use crate::access_granter::AccessGranter;
 use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator};
 
 // TODO: print the errors prettier
@@ -67,12 +69,14 @@ async fn rocket() -> Rocket<Build> {
             })
     );
 
-    let session_storage = ProductionSessionStorage::new(&config)
-        .await
-        .unwrap_or_else(|e| {
-            eprintln!("error: {e}");
-            panic!("Initialization error");
-        });
+    let session_storage = Box::new(
+        ProductionSessionStorage::new(&config)
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                panic!("Initialization error");
+            })
+    );
 
     // TODO: check file permissions on start
     let hmac_key = std::fs::read(&config.hmac_key)
@@ -96,10 +100,17 @@ async fn rocket() -> Rocket<Build> {
             panic!("Initialization error");
         });
 
+    let access_granter = AccessGranter::new(
+        session_storage,
+        user_db,
+        access_token_generator,
+        access_token_decoder,
+    );
+
     rocket::custom(figment)
         .manage(storage)
         .manage(config)
-        .manage(user_db)
+        .manage(access_granter)
         .mount(API_PREFIX, api_routes())
         .mount(WEB_PREFIX, web_routes())
 }

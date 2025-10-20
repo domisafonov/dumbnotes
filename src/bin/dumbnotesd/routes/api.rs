@@ -1,10 +1,12 @@
 mod errors;
 mod protobuf;
 mod model;
+pub mod authentication_guard;
 
 use rocket::response::content::{RawJson, RawText};
 use rocket::{get, post, routes, Route};
 use rocket::http::Status;
+use crate::routes::api::authentication_guard::Authenticated;
 use crate::routes::api::model::{LoginRequest, LoginResponse};
 
 #[get("/version")]
@@ -23,7 +25,9 @@ fn login(request: LoginRequest) -> Result<LoginResponse, Status> {
 }
 
 #[post("/logout")]
-fn logout() -> RawJson<&'static str> {
+fn logout(
+    authenticated: Authenticated,
+) -> RawJson<&'static str> {
     RawJson("{}")
 }
 
