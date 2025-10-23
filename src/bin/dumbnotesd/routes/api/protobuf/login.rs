@@ -18,7 +18,9 @@ impl TryFrom<bindings::LoginRequest> for LoginRequest {
         Ok(
             LoginRequest {
                 username: UsernameString::from_str(&pb.username)?,
-                secret: match pb.secret.ok_or_mapping_error(MappingError)? {
+                secret: match pb.secret.ok_or_mapping_error(
+                    MappingError::missing("secret")
+                )? {
                     PbSecret::Password(s) => LoginRequestSecret::Password(s),
                     PbSecret::RefreshToken(s) =>
                         LoginRequestSecret::RefreshToken(s),

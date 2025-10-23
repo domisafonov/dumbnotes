@@ -1,19 +1,19 @@
-use std::fmt::{Display, Formatter};
+use thiserror::Error;
 use dumbnotes::username_string::UsernameParseError;
-use crate::routes::api::errors::ProtobufRequestError;
 
-#[derive(Debug)]
-pub struct MappingError;
-
-impl Display for MappingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Error mapping data")
-    }
+#[derive(Debug, Error)]
+pub enum MappingError {
+    #[error("missing field: {name}")]
+    MissingField {
+        name: &'static str,
+    },
+    
+    #[error("invalid username: {0}")]
+    UsernameParse(#[from] UsernameParseError),
 }
-impl std::error::Error for MappingError {}
 
-impl From<UsernameParseError> for MappingError {
-    fn from(_: UsernameParseError) -> Self {
-        MappingError
+impl MappingError {
+    pub fn missing(name: &'static str) -> Self {
+        MappingError::MissingField { name }
     }
 }

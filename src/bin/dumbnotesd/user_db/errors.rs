@@ -1,35 +1,11 @@
-use std::fmt;
 use std::io::Error as IoError;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum UserDbError {
-    IoError(IoError),
-    ParsingError {
-        message: String,
-    },
-}
+    #[error(transparent)]
+    Io(#[from] IoError),
 
-impl fmt::Display for UserDbError { // TODO: prettier strings
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UserDbError::IoError(_) => fmt::Debug::fmt(self, f),
-            UserDbError::ParsingError { message } =>
-                f.write_fmt(format_args!("User db parsing error: {}", message))
-        }
-    }
-}
-impl std::error::Error for UserDbError {}
-
-impl From<IoError> for UserDbError {
-    fn from(e: IoError) -> Self {
-        Self::IoError(e)
-    }
-}
-
-impl From<toml::de::Error> for UserDbError {
-    fn from(e: toml::de::Error) -> Self {
-        UserDbError::ParsingError {
-            message: format!("{e}"),
-        }
-    }
+    #[error("invalid user db file contents: $0")]
+    Parsing(#[from] toml::de::Error),
 }

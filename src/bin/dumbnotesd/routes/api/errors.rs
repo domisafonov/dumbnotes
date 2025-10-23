@@ -1,44 +1,26 @@
 use crate::routes::api::protobuf::errors::MappingError;
 use prost::DecodeError;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use thiserror::Error;
+use dumbnotes::username_string::UsernameParseError;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ProtobufRequestError {
-    ProtobufDecodeError(DecodeError),
-    SemanticDecodeError(MappingError),
-    IoError(std::io::Error),
-    TooLarge,
+    #[error("invalid protobuf message: {0}")]
+    ProtobufDecode(#[from] DecodeError),
+
+    #[error("invalid protobuf message semantics: {0}")]
+    SemanticDecode(#[from] MappingError),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error("request too large")]
+    RequestTooLarge,
 }
 
-impl Display for ProtobufRequestError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ProtobufRequestError::ProtobufDecodeError(e) => f.write_fmt(format_args!("{e}")),
-            ProtobufRequestError::SemanticDecodeError(e) => f.write_fmt(format_args!("{e}")),
-            ProtobufRequestError::IoError(e) => f.write_fmt(format_args!("{e}")),
-            ProtobufRequestError::TooLarge => f.write_str("Request too large"),
-        }
-    }
-}
-
-impl Error for ProtobufRequestError {}
-
-impl From<DecodeError> for ProtobufRequestError {
-    fn from(err: DecodeError) -> Self {
-        ProtobufRequestError::ProtobufDecodeError(err)
-    }
-}
-
-impl From<std::io::Error> for ProtobufRequestError {
-    fn from(err: std::io::Error) -> Self {
-        ProtobufRequestError::IoError(err)
-    }
-}
-
-impl<T: Into<MappingError>> From<T> for ProtobufRequestError {
-    fn from(err: T) -> Self {
-        ProtobufRequestError::SemanticDecodeError(err.into())
+impl From<UsernameParseError> for ProtobufRequestError {
+    fn from(err: UsernameParseError) -> Self {
+        ProtobufRequestError::SemanticDecode(err.into())
     }
 }
 
@@ -48,6 +30,6 @@ pub(super) trait OptionExt<T> {
 
 impl<T> OptionExt<T> for Option<T> {
     fn ok_or_mapping_error(self, e: MappingError) -> Result<T, ProtobufRequestError> {
-        self.ok_or(ProtobufRequestError::SemanticDecodeError(e))
+        self.ok_or(ProtobufRequestError::SemanticDecode(e))
     }
 }

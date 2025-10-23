@@ -35,7 +35,7 @@ macro_rules! protobuf_request {
                     }
                     Ok(_) => Outcome::Error((
                         Status::PayloadTooLarge,
-                        $crate::routes::api::errors::ProtobufRequestError::TooLarge
+                        $crate::routes::api::errors::ProtobufRequestError::RequestTooLarge
                     )),
                     Err(e) => Outcome::Error((Status::BadRequest, e.into())),
                 }

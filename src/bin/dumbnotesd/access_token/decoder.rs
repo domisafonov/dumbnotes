@@ -33,18 +33,19 @@ impl AccessTokenDecoder {
         )?;
         let session_id = payload.claim("session_id")
             .map(|v| serde_json::from_value::<Uuid>(v.clone()))
-            .transpose()?
-            .ok_or(AccessTokenDecoderError::PayloadError)?;
+            .transpose()
+            .map_err(AccessTokenDecoderError::PayloadParse)?
+            .ok_or(AccessTokenDecoderError::missing("session_id"))?;
         let username = payload.subject()
             .map(UsernameString::from_str)
             .transpose()?
-            .ok_or(AccessTokenDecoderError::PayloadError)?;
+            .ok_or(AccessTokenDecoderError::missing("subject"))?;
         let not_before = payload.not_before()
             .map(OffsetDateTime::from)
-            .ok_or(AccessTokenDecoderError::PayloadError)?;
+            .ok_or(AccessTokenDecoderError::missing("not_before"))?;
         let expires_at = payload.expires_at()
             .map(OffsetDateTime::from)
-            .ok_or(AccessTokenDecoderError::PayloadError)?;
+            .ok_or(AccessTokenDecoderError::missing("expires_at"))?;
         Ok(
             AccessTokenData {
                 session_id,

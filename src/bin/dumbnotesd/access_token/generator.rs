@@ -30,7 +30,13 @@ impl AccessTokenGenerator {
     ) -> Result<String, AccessTokenGeneratorError> {
         let mut payload = JwtPayload::new();
         payload.set_subject(session.username.to_string());
-        payload.set_claim("session_id", Some(serde_json::to_value(session.session_id)?))?;
+        payload.set_claim(
+            "session_id", 
+            Some(
+                serde_json::to_value(session.session_id)
+                    .map_err(AccessTokenGeneratorError::SessionIdSerialization)?
+            )
+        )?;
         payload.set_not_before(&now);
         payload.set_expires_at(&session.expires_at.into());
 

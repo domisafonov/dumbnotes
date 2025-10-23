@@ -5,6 +5,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
 use serde::de::Unexpected::Str;
+use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct UsernameString(String);
@@ -57,7 +58,8 @@ impl ToOwned for UsernameStr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("invalid username string")]
 pub struct UsernameParseError;
 
 impl Serialize for UsernameStr {

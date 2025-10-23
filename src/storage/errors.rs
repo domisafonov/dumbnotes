@@ -1,36 +1,18 @@
-use std::fmt;
-use time::error::ComponentRange;
+use thiserror::Error;
 
 use tokio::io::Error as IoError;
-use tokio::io::ErrorKind;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum StorageError {
+    #[error("user directory does not exist")]
     DoesNotExist,
-    IoError(IoError),
+
+    #[error(transparent)]
+    IoError(#[from] IoError),
+
+    #[error("insufficient permissions to access storage")]
     PermissionError,
+
+    #[error("file too large")]
     TooBigError,
-    OutOfRangeDate,
-}
-impl fmt::Display for StorageError { // TODO: prettier strings
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        std::fmt::Debug::fmt(&self, f)
-    }
-}
-impl std::error::Error for StorageError {}
-
-impl From<IoError> for StorageError {
-    fn from(value: IoError) -> Self {
-        if value.kind() == ErrorKind::NotFound {
-            StorageError::DoesNotExist
-        } else {
-            StorageError::IoError(value)
-        }
-    }
-}
-
-impl From<ComponentRange> for StorageError {
-    fn from(_value: ComponentRange) -> Self {
-        StorageError::OutOfRangeDate
-    }
 }
