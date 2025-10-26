@@ -5,10 +5,11 @@ pub mod user_db;
 mod routes;
 mod access_token;
 pub mod access_granter;
+pub mod http;
 
 use crate::app_constants::{API_PREFIX, WEB_PREFIX};
 use crate::cli::CliConfig;
-use crate::routes::{api_routes, web_routes};
+use crate::routes::{api_catchers, api_routes, web_routes};
 use crate::session_storage::ProductionSessionStorage;
 use crate::user_db::{ProductionUserDb, UserDb};
 use clap::Parser;
@@ -112,5 +113,6 @@ async fn rocket() -> Rocket<Build> {
         .manage(config)
         .manage(access_granter)
         .mount(API_PREFIX, api_routes())
+        .register(API_PREFIX, api_catchers())
         .mount(WEB_PREFIX, web_routes())
 }

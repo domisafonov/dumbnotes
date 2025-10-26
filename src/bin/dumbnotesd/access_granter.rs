@@ -51,9 +51,8 @@ impl AccessGranter {
         &self,
         auth_header_value: &str,
     ) -> Result<SessionInfo, AccessGranterError> {
-        let token = auth_header_value.strip_prefix("Bearer")
-            .ok_or(AccessGranterError::HeaderFormatError)?
-            .trim_ascii_start();
+        let token = auth_header_value.strip_prefix("Bearer ")
+            .ok_or(AccessGranterError::HeaderFormatError)?;
         let token = self.access_token_decoder.decode_token(token)
             .map_err(|_| AccessGranterError::InvalidToken)?;
         let known_session = KnownSession {

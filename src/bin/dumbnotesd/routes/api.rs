@@ -4,11 +4,13 @@ mod model;
 pub mod authentication_guard;
 
 use crate::access_granter::{AccessGranter, AccessGranterError, LoginResult};
+use crate::http::header::UnauthorizedResponse;
+use crate::http::status::{StatusExt, Unauthorized};
 use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
 use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse};
 use rocket::http::Status;
-use rocket::response::content::{RawJson, RawText};
-use rocket::{get, post, routes, Route, State};
+use rocket::response::content::RawText;
+use rocket::{catch, catchers, get, post, routes, Catcher, Route, State};
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -54,11 +56,13 @@ async fn login(
 }
 
 fn map_login_error(e: AccessGranterError) -> Status {
-    match e { // TODO: headers
-        AccessGranterError::HeaderFormatError |
+    match e {
+        AccessGranterError::HeaderFormatError
+        => Status::UnauthorizedInvalidRequest,
+
         AccessGranterError::InvalidToken |
         AccessGranterError::InvalidCredentials
-        => Status::Unauthorized,
+        => Status::UnauthorizedInvalidToken,
 
         AccessGranterError::SessionStorageError(_) |
         AccessGranterError::UserDbError(_) |
@@ -78,10 +82,37 @@ async fn logout(
     }
 }
 
+#[catch(499)]
+fn catch_unauthorized_invalid_request() -> UnauthorizedResponse {
+    assert_eq!(Status::UnauthorizedInvalidRequest.code, 499);
+    Unauthorized::InvalidRequest.into()
+}
+
+
+#[catch(498)]
+fn catch_unauthorized_invalid_token() -> UnauthorizedResponse {
+    assert_eq!(Status::UnauthorizedInvalidToken.code, 498);
+    Unauthorized::InvalidToken.into()
+}
+
+#[catch(497)]
+fn catch_unauthorized_insufficient_scope() -> UnauthorizedResponse {
+    assert_eq!(Status::UnauthorizedInsufficientScope.code, 497);
+    Unauthorized::InsufficientScope.into()
+}
+
 pub fn api_routes() -> Vec<Route> {
     routes![
         version,
         login,
         logout,
+    ]
+}
+
+pub fn api_catchers() -> Vec<Catcher> {
+    catchers![
+        catch_unauthorized_invalid_request,
+        catch_unauthorized_invalid_token,
+        catch_unauthorized_insufficient_scope,
     ]
 }

@@ -5,6 +5,7 @@ use rocket::http::Status;
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
 use crate::access_granter::{AccessGranter, AccessGranterError, SessionInfo, KnownSession};
+use crate::http::status::StatusExt;
 
 #[derive(Debug)]
 pub struct Unauthenticated;
@@ -16,7 +17,8 @@ pub struct Authenticated(pub KnownSession);
 pub enum MaybeAuthenticated {
     Valid(KnownSession),
     Expired(KnownSession),
-    Invalid,
+    InvalidRequest,
+    InvalidToken,
     Unauthenticated,
 }
 
@@ -26,7 +28,7 @@ impl<'r> FromRequest<'r> for Unauthenticated {
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         if request.headers().contains(header::AUTHORIZATION.as_str()) {
-            Outcome::Error((Status::Forbidden, ()))
+            Outcome::Forward(Status::Forbidden)
         } else {
             Outcome::Success(Unauthenticated)
         }
@@ -40,9 +42,10 @@ impl<'r> FromRequest<'r> for Authenticated {
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         match try_outcome!(request.guard::<MaybeAuthenticated>().await) {
             MaybeAuthenticated::Valid(session) => Outcome::Success(Authenticated(session)),
-            MaybeAuthenticated::Expired(_) => Outcome::Error((Status::Unauthorized, ())),
-            MaybeAuthenticated::Invalid => Outcome::Error((Status::Unauthorized, ())),
-            MaybeAuthenticated::Unauthenticated => Outcome::Error((Status::Unauthorized, ())),
+            MaybeAuthenticated::Expired(_) => Outcome::Error((Status::UnauthorizedInvalidToken, ())),
+            MaybeAuthenticated::InvalidRequest => Outcome::Error((Status::UnauthorizedInvalidRequest, ())),
+            MaybeAuthenticated::InvalidToken => Outcome::Error((Status::UnauthorizedInvalidToken, ())),
+            MaybeAuthenticated::Unauthenticated => Outcome::Forward(Status::Unauthorized),
         }
     }
 }
@@ -62,15 +65,17 @@ impl<'r> FromRequest<'r> for MaybeAuthenticated {
             Ok(SessionInfo::Valid(info)) => Outcome::Success(MaybeAuthenticated::Valid(info)),
             Ok(SessionInfo::Expired(info)) => Outcome::Success(MaybeAuthenticated::Expired(info)),
             Err(e) => match e {
-                AccessGranterError::HeaderFormatError |
+                AccessGranterError::HeaderFormatError
+                => Outcome::Success(MaybeAuthenticated::InvalidRequest),
+
                 AccessGranterError::InvalidToken |
                 AccessGranterError::InvalidCredentials
-                => Outcome::Success(MaybeAuthenticated::Invalid),
+                => Outcome::Success(MaybeAuthenticated::InvalidToken),
 
                 AccessGranterError::SessionStorageError(_) |
                 AccessGranterError::UserDbError(_) |
                 AccessGranterError::AccessTokenGeneratorError(_)
-                => Outcome::Error((Status::InternalServerError, ())), // TODO: forward
+                => Outcome::Error((Status::InternalServerError, ())), // TODO: forward when it'll be possible
             }
         }
     }
