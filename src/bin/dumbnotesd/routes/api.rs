@@ -10,7 +10,8 @@ use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
 use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse};
 use rocket::http::Status;
 use rocket::response::content::RawText;
-use rocket::{catch, catchers, get, post, routes, Catcher, Route, State};
+use rocket::{catch, catchers, get, post, routes, Build, Catcher, Rocket, Route, State};
+use crate::app_constants::API_PREFIX;
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -101,18 +102,28 @@ fn catch_unauthorized_insufficient_scope() -> UnauthorizedResponse {
     Unauthorized::InsufficientScope.into()
 }
 
-pub fn api_routes() -> Vec<Route> {
-    routes![
-        version,
-        login,
-        logout,
-    ]
+pub trait ApiRocketBuildExt {
+    fn install_dumbnotes_api(self) -> Self;
 }
 
-pub fn api_catchers() -> Vec<Catcher> {
-    catchers![
-        catch_unauthorized_invalid_request,
-        catch_unauthorized_invalid_token,
-        catch_unauthorized_insufficient_scope,
-    ]
+impl ApiRocketBuildExt for Rocket<Build> {
+    fn install_dumbnotes_api(self) -> Self {
+        self
+            .mount(
+                API_PREFIX,
+                routes![
+                    version,
+                    login,
+                    logout,
+                ],
+            )
+            .register(
+                API_PREFIX,
+                catchers![
+                    catch_unauthorized_invalid_request,
+                    catch_unauthorized_invalid_token,
+                    catch_unauthorized_insufficient_scope,
+                ]
+            )
+    }
 }

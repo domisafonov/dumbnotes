@@ -9,9 +9,8 @@ pub mod http;
 
 use crate::access_granter::AccessGranter;
 use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator};
-use crate::app_constants::{API_PREFIX, WEB_PREFIX};
 use crate::cli::CliConfig;
-use crate::routes::{api_catchers, api_routes, web_routes};
+use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
 use crate::session_storage::ProductionSessionStorage;
 use crate::user_db::{ProductionUserDb, UserDb};
 use clap::Parser;
@@ -109,9 +108,8 @@ async fn rocket() -> Rocket<Build> {
         .manage(storage)
         .manage(config)
         .manage(access_granter)
-        .mount(API_PREFIX, api_routes())
-        .register(API_PREFIX, api_catchers())
-        .mount(WEB_PREFIX, web_routes())
+        .install_dumbnotes_api()
+        .install_dumbnotes_web()
 }
 
 fn read_hmac_key(path: &Path) -> Result<Jwk, Box<dyn Error>> {
