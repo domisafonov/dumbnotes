@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 #[async_trait]
-pub(super) trait SessionStorageIo: Send + Sync {
+pub(super) trait SessionStorageIo: Send + Sync + 'static {
     async fn read_session_file(
         &self,
     ) -> Result<SessionsData, SessionStorageError>;

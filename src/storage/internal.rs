@@ -1,4 +1,4 @@
-use futures_util::future::join_all;
+use futures::future::join_all;
 use std::ffi::OsString;
 use std::ops::Add;
 use std::os::unix::prelude::*;
@@ -201,8 +201,6 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         username: &UsernameString,
         uuid: Uuid,
     ) -> PathBuf {
-        // TODO: maybe, guarantee atomic file creation upstream instead
-        //  of using a uuid suffix
         self.get_user_dir(username)
             .join(
                 uuid.hyphenated().to_string() +
