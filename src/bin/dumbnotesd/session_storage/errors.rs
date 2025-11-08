@@ -18,7 +18,7 @@ pub enum SessionStorageError {
 
     #[error("session not found")]
     SessionNotFound,
-    
+
     #[error("failed to watch session file: {0}")]
     SessionFileWatch(#[from] FileWatcherError),
 }

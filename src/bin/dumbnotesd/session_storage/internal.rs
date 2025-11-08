@@ -2,7 +2,7 @@ use crate::app_constants::SESSION_STORAGE_PATH;
 use crate::session_storage::internal::data::{SessionsData, UserSessionData, UserSessionsData};
 use crate::session_storage::internal::io_trait::{ProductionSessionStorageIo, SessionStorageIo};
 use crate::session_storage::internal::session::Session;
-use crate::session_storage::SessionStorageError;
+use crate::session_storage::{SessionStorage, SessionStorageError};
 use async_trait::async_trait;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::username_string::{UsernameStr, UsernameString};
@@ -16,43 +16,14 @@ use time::{Duration, OffsetDateTime};
 use tokio::spawn;
 use tokio::sync::{Notify, RwLock};
 use uuid::Uuid;
-use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
+use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
+use crate::file_watcher::Event;
+use crate::file_watcher::FileWatcherError;
 
 #[cfg(test)] mod tests;
 mod data;
 pub(super) mod session;
 mod io_trait;
-
-#[async_trait]
-pub trait SessionStorage: Send + Sync {
-    async fn create_session(
-        &self,
-        username: &UsernameStr,
-        created_at: OffsetDateTime,
-        expires_at: OffsetDateTime,
-    ) -> Result<Session, SessionStorageError>;
-
-    async fn refresh_session(
-        &self,
-        refresh_token: &[u8],
-        expires_at: OffsetDateTime,
-    ) -> Result<Session, SessionStorageError>;
-
-    async fn delete_session(
-        &self,
-        session_id: Uuid,
-    ) -> Result<bool, SessionStorageError>;
-
-    async fn get_session_by_id(
-        &self,
-        session_id: Uuid,
-    ) -> Result<Option<Arc<Session>>, SessionStorageError>;
-
-    async fn get_session_by_token(
-        &self,
-        refresh_token: &[u8],
-    ) -> Result<Option<Arc<Session>>, SessionStorageError>;
-}
 
 #[allow(private_bounds)]
 pub struct SessionStorageImpl<Io: SessionStorageIo, W: FileWatcher> {
