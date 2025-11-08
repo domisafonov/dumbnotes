@@ -1,7 +1,6 @@
 #[cfg(test)] mod tests;
 
 use std::path::{Path, PathBuf};
-use std::pin::pin;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use notify_debouncer_full::{new_debouncer_opt, DebounceEventHandler, DebounceEventResult, DebouncedEvent, Debouncer, RecommendedCache};
@@ -9,7 +8,6 @@ use tokio::sync::{broadcast, Notify};
 use notify::{EventKind, RecursiveMode};
 use futures::Stream;
 use async_stream::try_stream;
-use futures::future::{select, Either};
 use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError};
 
 #[derive(Clone, Debug)]
@@ -35,7 +33,7 @@ struct FileWatcherInternal<W: notify::Watcher> {
     events: broadcast::Sender<InternalEvent>,
 }
 
-impl<W: notify::Watcher + Send + Sync> FileWatcher for FileWatcherImpl<W> {
+impl<W: notify::Watcher + Send + Sync + 'static> FileWatcher for FileWatcherImpl<W> {
     type Guard = FileWatchGuardImpl<W>;
 
     fn watch(
@@ -124,43 +122,45 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
             .events
             .subscribe();
         drop(lock);
-        
-        let trigger_modification = self.trigger_modification.clone();
 
+        let trigger_modification = self.trigger_modification.clone();
         try_stream! {
-            let mut do_drop_one = false;
+            let mut drop_one = DropOne::NoDrops;
 
             loop {
-                let event = match select(
-                    pin!(trigger_modification.notified()),
-                    pin!(receiver.recv())
-                ).await {
-                    Either::Left(_) => {
-                        do_drop_one = true;
-                        Some(Event::Any)
+                let event = tokio::select! {
+                    biased;
+                    _ = trigger_modification.notified() => {
+                        drop_one = DropOne::OneAfterThis;
+                        Ok(Some(Event::Any))
                     },
-                    Either::Right((event, _)) => match event {
-                        Ok(InternalEvent::Event(event)) => match event.kind {
-                            EventKind::Create(_) |
-                                EventKind::Modify(_)
-                            => Some(Event::Any),
+                    event = receiver.recv() => {
+                        match event {
+                            Ok(InternalEvent::Event(event)) => match event.kind {
+                                EventKind::Create(_) |
+                                    EventKind::Modify(_)
+                                => Ok(Some(Event::Any)),
 
-                            EventKind::Remove(_) => Some(Event::Any),
+                                EventKind::Remove(_) => Ok(Some(Event::Any)),
 
-                            _ => None,
-                        },
-                        Ok(InternalEvent::Error(message)) => Err(FileWatcherError::Watch(message))?,
-                        Err(e) => match e {
-                            broadcast::error::RecvError::Lagged(n) => Err(FileWatcherError::Overflow(n))?,
-                            _ => unreachable!(),
-                        },
-                    }
-                };
+                                _ => Ok(None),
+                            },
+                            Ok(InternalEvent::Error(message)) => Err(FileWatcherError::Watch(message)),
+                            Err(e) => match e {
+                                broadcast::error::RecvError::Lagged(n) => Err(FileWatcherError::Overflow(n)),
+                                _ => unreachable!(),
+                            },
+                        }
+                    },
+                }?;
                 if let Some(e) = event {
-                    if do_drop_one {
-                        do_drop_one = false;
-                    } else {
-                        yield e;
+                    match drop_one {
+                        DropOne::NoDrops => yield e,
+                        DropOne::OneAfterThis => {
+                            drop_one = DropOne::OneNow;
+                            yield e
+                        },
+                        DropOne::OneNow => drop_one = DropOne::NoDrops,
                     }
                 }
             }
@@ -170,4 +170,11 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
     fn trigger_modification(&self) {
         self.trigger_modification.notify_one()
     }
+}
+
+#[derive(Debug)]
+enum DropOne {
+    OneAfterThis,
+    OneNow,
+    NoDrops,
 }

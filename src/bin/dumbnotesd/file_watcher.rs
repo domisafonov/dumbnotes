@@ -9,7 +9,7 @@ pub use errors::*;
 pub use events::Event;
 use internal::FileWatcherImpl;
 
-pub trait FileWatcher: Send + Sync + Clone {
+pub trait FileWatcher: Send + Sync + Clone + 'static {
     type Guard: FileWatchGuard;
 
     fn watch(

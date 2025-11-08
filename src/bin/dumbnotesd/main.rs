@@ -78,7 +78,7 @@ async fn rocket() -> Rocket<Build> {
 
     let watcher = ProductionFileWatcher::new()
         .unwrap_or_else(|e| {
-            println!("failed to create file watcher: {e}");
+            eprintln!("failed to create file watcher: {e}");
             panic!("Initialization error");
         });
 

@@ -7,14 +7,12 @@ use async_trait::async_trait;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::username_string::{UsernameStr, UsernameString};
 use std::collections::HashMap;
-use std::ops::DerefMut;
 use std::path::Path;
-use std::pin::pin;
 use std::sync::Arc;
-use futures::{select_biased, FutureExt, StreamExt};
+use futures::{Stream, StreamExt};
 use time::{Duration, OffsetDateTime};
 use tokio::spawn;
-use tokio::sync::{Notify, RwLock};
+use tokio::sync::{Notify, RwLock, RwLockWriteGuard};
 use uuid::Uuid;
 use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
 use crate::file_watcher::Event;
@@ -30,6 +28,7 @@ pub struct SessionStorageImpl<Io: SessionStorageIo, W: FileWatcher> {
     state: Arc<RwLock<State>>,
     io: Arc<Io>,
     file_watch_guard: W::Guard,
+    state_read_notification: Arc<Notify>,
     die_notice: Arc<Notify>,
 }
 
@@ -39,6 +38,7 @@ impl<Io: SessionStorageIo, W: FileWatcher> Drop for SessionStorageImpl<Io, W> {
     }
 }
 
+#[derive(Debug)]
 struct State {
     id_to_session: HashMap<Uuid, Arc<Session>>,
     name_to_sessions_cache: HashMap<UsernameString, Vec<Arc<Session>>>,
@@ -48,8 +48,8 @@ struct State {
 impl From<SessionsData> for State {
     fn from(value: SessionsData) -> Self {
         let mut id_to_session = HashMap::new();
-        let mut name_to_sessions: HashMap<_, Vec<Arc<Session>>> = HashMap::new();
-        let mut token_to_session = HashMap::new();
+        let mut name_to_sessions_cache: HashMap<_, Vec<Arc<Session>>> = HashMap::new();
+        let mut token_to_session_cache = HashMap::new();
         value.users
             .into_iter()
             .map(|user_data| {
@@ -73,14 +73,14 @@ impl From<SessionsData> for State {
             .for_each(|(sessions, username)| {
                 sessions.iter().for_each(|session| {
                     id_to_session.insert(session.session_id, session.clone());
-                    token_to_session.insert(session.refresh_token.clone(), session.clone());
+                    token_to_session_cache.insert(session.refresh_token.clone(), session.clone());
                 });
-                name_to_sessions.insert(username, sessions);
+                name_to_sessions_cache.insert(username, sessions);
             });
         State {
             id_to_session,
-            name_to_sessions_cache: name_to_sessions,
-            token_to_session_cache: token_to_session,
+            name_to_sessions_cache,
+            token_to_session_cache,
         }
     }
 }
@@ -95,61 +95,94 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
             Arc<RwLock<State>>,
             W::Guard,
             Arc<Notify>,
+            Arc<Notify>,
         ) -> Self,
     ) -> Result<Self, SessionStorageError> {
         let state: State = io.read_session_file()
             .await?
             .into();
         let file_watch_guard = file_watcher.watch(path)?;
-        let events = file_watch_guard.get_events().fuse();
         let die_notice = Arc::new(Notify::new());
-        let die = die_notice.clone();
         let state = Arc::new(RwLock::new(state));
-        let s = state.clone();
-        let m_io = io.clone();
-        spawn(async move {
-            let mut die_notice = pin!(die.notified().fuse());
-            let mut file_events = pin!(events);
-            loop {
-                // TODO: log errors
-                let _ = select_biased! {
-                    _ = die_notice => break,
-                    maybe_event = file_events.next().fuse() => match maybe_event.expect("file event stream finished") {
-                        Err(e) => match e {
-                            FileWatcherError::Overflow(_) => Self::read_and_replace(&m_io, &s).await,
-                            _ => {
-                                // TODO: log
-                                Ok(())
-                            },
-                        },
-                        Ok(Event::Any) => Self::read_and_replace(&m_io, &s).await,
-                    },
-                };
-            }
-        });
+        let state_read_notification = Arc::new(Notify::new());
+        spawn(
+            Self::file_updates_watcher(
+                state.clone(),
+                io.clone(),
+                state_read_notification.clone(),
+                die_notice.clone(),
+                file_watch_guard.get_events(),
+            )
+        );
         Ok(
             factory(
                 state,
                 file_watch_guard,
+                state_read_notification,
                 die_notice,
             )
         )
     }
 
+    async fn file_updates_watcher(
+        state: Arc<RwLock<State>>,
+        io: Arc<Io>,
+        state_read_notification: Arc<Notify>,
+        die_notice: Arc<Notify>,
+        events: impl Stream<Item=Result<Event, FileWatcherError>>,
+    ) {
+        let mut events = Box::pin(events);
+        loop {
+            // TODO: log errors
+            let _ = tokio::select! {
+                    _ = die_notice.notified() => break,
+                    maybe_event = events.next() => match maybe_event.expect("file event stream finished") {
+                        Err(e) => match e {
+                            FileWatcherError::Overflow(_) => Self
+                                ::read_and_replace(
+                                    &io,
+                                    &state,
+                                    &state_read_notification,
+                                )
+                                .await,
+                            _ => {
+                                // TODO: log
+                                Ok(())
+                            },
+                        },
+                        Ok(Event::Any) => Self
+                            ::read_and_replace(
+                                &io,
+                                &state,
+                                &state_read_notification,
+                            )
+                            .await,
+                    },
+                };
+        }
+    }
+
     async fn read_and_replace(
         io: &Io,
         state: &RwLock<State>,
+        state_read_notification: &Notify,
     ) -> Result<(), SessionStorageError> {
-        todo!()
+        let mut state = state.write().await;
+        let new_state: State = io.read_session_file()
+            .await?
+            .into();
+        *state = new_state;
+        state_read_notification.notify_one();
+        Ok(())
     }
 
     async fn write_state(
         &self,
-        state: impl DerefMut<Target=State>,
+        guard: RwLockWriteGuard<'_, State>,
     ) -> Result<(), SessionStorageError> {
         let now = self.io.get_time();
         let mapped = SessionsData {
-            users: state.name_to_sessions_cache
+            users: guard.name_to_sessions_cache
                 .iter()
                 .filter_map(|(username, sessions)| {
                     let user_sessions: Vec<_> = sessions
@@ -176,6 +209,8 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
         };
         self.io.write_session_file(&mapped).await?;
         self.file_watch_guard.trigger_modification();
+        drop(guard);
+        self.state_read_notification.notified().await;
         Ok(())
     }
 
@@ -326,11 +361,12 @@ impl ProductionSessionStorage {
                 &path,
                 io2,
                 file_watcher,
-                move |state, file_watch_guard, die_notice| {
+                move |state, file_watch_guard, state_read_notification, die_notice| {
                     SessionStorageImpl {
                         state,
                         io,
                         file_watch_guard,
+                        state_read_notification,
                         die_notice,
                     }
                 },
