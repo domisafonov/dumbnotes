@@ -28,7 +28,6 @@ pub struct SessionStorageImpl<Io: SessionStorageIo, W: FileWatcher> {
     state: Arc<RwLock<State>>,
     io: Arc<Io>,
     file_watch_guard: W::Guard,
-    state_read_notification: Arc<Notify>,
     die_notice: Arc<Notify>,
 }
 
@@ -95,7 +94,6 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
             Arc<RwLock<State>>,
             W::Guard,
             Arc<Notify>,
-            Arc<Notify>,
         ) -> Self,
     ) -> Result<Self, SessionStorageError> {
         let state: State = io.read_session_file()
@@ -104,12 +102,10 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
         let file_watch_guard = file_watcher.watch(path)?;
         let die_notice = Arc::new(Notify::new());
         let state = Arc::new(RwLock::new(state));
-        let state_read_notification = Arc::new(Notify::new());
         spawn(
             Self::file_updates_watcher(
                 state.clone(),
                 io.clone(),
-                state_read_notification.clone(),
                 die_notice.clone(),
                 file_watch_guard.get_events(),
             )
@@ -118,7 +114,6 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
             factory(
                 state,
                 file_watch_guard,
-                state_read_notification,
                 die_notice,
             )
         )
@@ -127,7 +122,6 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
     async fn file_updates_watcher(
         state: Arc<RwLock<State>>,
         io: Arc<Io>,
-        state_read_notification: Arc<Notify>,
         die_notice: Arc<Notify>,
         events: impl Stream<Item=Result<Event, FileWatcherError>>,
     ) {
@@ -141,8 +135,7 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
                             FileWatcherError::Overflow(_) => Self
                                 ::read_and_replace(
                                     &io,
-                                    &state,
-                                    &state_read_notification,
+                                    &mut state.write().await,
                                 )
                                 .await,
                             _ => {
@@ -153,8 +146,7 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
                         Ok(Event::Any) => Self
                             ::read_and_replace(
                                 &io,
-                                &state,
-                                &state_read_notification,
+                                &mut state.write().await,
                             )
                             .await,
                     },
@@ -164,21 +156,22 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
 
     async fn read_and_replace(
         io: &Io,
-        state: &RwLock<State>,
-        state_read_notification: &Notify,
+        state: &mut RwLockWriteGuard<'_, State>,
     ) -> Result<(), SessionStorageError> {
-        let mut state = state.write().await;
-        let new_state: State = io.read_session_file()
-            .await?
-            .into();
-        *state = new_state;
-        state_read_notification.notify_one();
+        let new_state: State = match io.read_session_file().await {
+            Ok(v) => v.into(),
+            Err(e) => {
+                // TODO: log the error
+                return Ok(())
+            }
+        };
+        **state = new_state;
         Ok(())
     }
 
     async fn write_state(
         &self,
-        guard: RwLockWriteGuard<'_, State>,
+        mut guard: RwLockWriteGuard<'_, State>,
     ) -> Result<(), SessionStorageError> {
         let now = self.io.get_time();
         let mapped = SessionsData {
@@ -208,9 +201,11 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
                 .collect()
         };
         self.io.write_session_file(&mapped).await?;
-        self.file_watch_guard.trigger_modification();
-        drop(guard);
-        self.state_read_notification.notified().await;
+        self.file_watch_guard.skip_modification();
+        Self::read_and_replace(
+            &self.io,
+            &mut guard,
+        ).await?;
         Ok(())
     }
 
@@ -361,12 +356,11 @@ impl ProductionSessionStorage {
                 &path,
                 io2,
                 file_watcher,
-                move |state, file_watch_guard, state_read_notification, die_notice| {
+                move |state, file_watch_guard, die_notice| {
                     SessionStorageImpl {
                         state,
                         io,
                         file_watch_guard,
-                        state_read_notification,
                         die_notice,
                     }
                 },

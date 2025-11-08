@@ -21,8 +21,7 @@ pub trait FileWatcher: Send + Sync + Clone + 'static {
 pub trait FileWatchGuard: Send + Sync {
     fn get_events(&self) -> impl Stream<Item=Result<Event, FileWatcherError>> + Send + 'static;
 
-    /// Trigger one modification event, skip one actual event afterward.
-    fn trigger_modification(&self);
+    fn skip_modification(&self);
 }
 
 pub type ProductionFileWatcher = FileWatcherImpl<RecommendedWatcher>;

@@ -52,7 +52,7 @@ impl<W: notify::Watcher + Send + Sync + 'static> FileWatcher for FileWatcherImpl
             FileWatchGuardImpl {
                 path,
                 file_watcher: self.inner.clone(),
-                trigger_modification: Arc::new(Notify::new()),
+                skip_modification: Arc::new(Notify::new()),
             }
         )
     }
@@ -102,7 +102,7 @@ impl DebounceEventHandler for Callback {
 pub struct FileWatchGuardImpl<W: notify::Watcher> {
     path: PathBuf,
     file_watcher: Arc<Mutex<FileWatcherInternal<W>>>,
-    trigger_modification: Arc<Notify>,
+    skip_modification: Arc<Notify>,
 }
 
 impl<W: notify::Watcher> Drop for FileWatchGuardImpl<W> {
@@ -123,16 +123,16 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
             .subscribe();
         drop(lock);
 
-        let trigger_modification = self.trigger_modification.clone();
+        let skip_modification = self.skip_modification.clone();
         try_stream! {
-            let mut drop_one = DropOne::NoDrops;
+            let mut do_drop_one = false;
 
             loop {
                 let event = tokio::select! {
                     biased;
-                    _ = trigger_modification.notified() => {
-                        drop_one = DropOne::OneAfterThis;
-                        Ok(Some(Event::Any))
+                    _ = skip_modification.notified() => {
+                        do_drop_one = true;
+                        Ok(None)
                     },
                     event = receiver.recv() => {
                         match event {
@@ -154,27 +154,17 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
                     },
                 }?;
                 if let Some(e) = event {
-                    match drop_one {
-                        DropOne::NoDrops => yield e,
-                        DropOne::OneAfterThis => {
-                            drop_one = DropOne::OneNow;
-                            yield e
-                        },
-                        DropOne::OneNow => drop_one = DropOne::NoDrops,
+                    if do_drop_one {
+                        do_drop_one = false;
+                    } else {
+                        yield e
                     }
                 }
             }
         }
     }
 
-    fn trigger_modification(&self) {
-        self.trigger_modification.notify_one()
+    fn skip_modification(&self) {
+        self.skip_modification.notify_one()
     }
-}
-
-#[derive(Debug)]
-enum DropOne {
-    OneAfterThis,
-    OneNow,
-    NoDrops,
 }
