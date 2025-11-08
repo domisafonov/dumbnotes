@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::hasher::{Hasher, ProductionHasher};
 use dumbnotes::username_string::UsernameStr;
+use crate::file_watcher::ProductionFileWatcher;
 
 mod io_trait;
 #[cfg(test)] mod tests;
@@ -74,11 +75,15 @@ impl ProductionUserDb {
     pub async fn new(
         app_config: &AppConfig,
         hasher: ProductionHasher,
+        file_watcher: ProductionFileWatcher,
     ) -> Result<ProductionUserDb, UserDbError> {
         Ok(
             UserDbImpl {
                 hasher,
-                io: ProductionUserDbIo::new(&app_config.user_db).await?,
+                io: ProductionUserDbIo::new(
+                    &app_config.user_db,
+                    file_watcher,
+                ).await?,
             }
         )
     }

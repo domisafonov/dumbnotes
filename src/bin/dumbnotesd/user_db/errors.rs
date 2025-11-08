@@ -1,5 +1,6 @@
 use std::io::Error as IoError;
 use thiserror::Error;
+use crate::file_watcher::FileWatcherError;
 
 #[derive(Debug, Error)]
 pub enum UserDbError {
@@ -8,4 +9,7 @@ pub enum UserDbError {
 
     #[error("invalid user db file contents: $0")]
     Parsing(#[from] toml::de::Error),
+    
+    #[error("failed to watch the db file: $0")]
+    Watch(#[from] FileWatcherError),
 }

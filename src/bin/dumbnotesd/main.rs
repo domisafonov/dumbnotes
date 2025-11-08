@@ -11,7 +11,7 @@ pub mod file_watcher;
 use crate::access_granter::AccessGranter;
 use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator};
 use crate::cli::CliConfig;
-use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
+use crate::file_watcher::ProductionFileWatcher;
 use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
 use crate::session_storage::ProductionSessionStorage;
 use crate::user_db::{ProductionUserDb, UserDb};
@@ -21,13 +21,10 @@ use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::storage::NoteStorage;
 use figment::Figment;
-use futures::StreamExt;
 use josekit::jwk::Jwk;
 use rocket::{launch, Build, Rocket};
 use std::error::Error;
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
-use tokio::spawn;
 
 // TODO: print the errors prettier
 #[launch]
@@ -65,10 +62,17 @@ async fn rocket() -> Rocket<Build> {
         ProductionHasherConfig::new(hasher_config),
     );
 
+    let watcher = ProductionFileWatcher::new()
+        .unwrap_or_else(|e| {
+            eprintln!("failed to create file watcher: {e}");
+            panic!("Initialization error");
+        });
+
     let user_db: Box<dyn UserDb> = Box::new(
         ProductionUserDb::new(
             &config,
             hasher,
+            watcher.clone(),
         ).await
             .unwrap_or_else(|e| {
                 eprintln!("error: {e}");
@@ -76,18 +80,11 @@ async fn rocket() -> Rocket<Build> {
             })
     );
 
-    let watcher = ProductionFileWatcher::new()
-        .unwrap_or_else(|e| {
-            eprintln!("failed to create file watcher: {e}");
-            panic!("Initialization error");
-        });
-
-    // TODO: use the file watcher here with async-stream
     let session_storage = Box::new(
         ProductionSessionStorage
             ::new(
                 &config,
-                watcher.clone(),
+                watcher,
             )
             .await
             .unwrap_or_else(|e| {
