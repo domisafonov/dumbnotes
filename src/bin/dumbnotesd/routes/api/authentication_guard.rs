@@ -55,10 +55,9 @@ impl<'r> FromRequest<'r> for MaybeAuthenticated {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let auth_header = if let Some(h) = request.headers().get_one(header::AUTHORIZATION.as_str()) {
-            h
-        } else {
-            return Outcome::Success(MaybeAuthenticated::Unauthenticated);
+        let auth_header = match request.headers().get_one(header::AUTHORIZATION.as_str()) {
+            Some(h) => h,
+            _ => return Outcome::Success(MaybeAuthenticated::Unauthenticated),
         };
         let access_granter = try_outcome!(request.guard::<&State<AccessGranter>>().await);
         match access_granter.check_user_access(auth_header).await {
