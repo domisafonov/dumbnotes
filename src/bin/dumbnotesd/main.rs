@@ -24,6 +24,7 @@ use figment::Figment;
 use josekit::jwk::Jwk;
 use rocket::{launch, Build, Rocket};
 use std::error::Error;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
 // TODO: print the errors prettier
