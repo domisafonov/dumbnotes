@@ -10,11 +10,12 @@ async-stream = "0.3.6"
 async-trait = "0.1.89"
 base64ct = { version = "1.8.0", features = ["alloc", "std"] }
 clap = { version = "4.5.48", features = ["derive"] }
+env_logger = "0.11.8"
 figment = { version = "0.10.19", features = ["toml", "env"] }
 futures = "0.3.31"
 josekit = { version = "0.10.3", features = ["vendored"] }
 libc = "0.2.176"
-log = "0.4.28"
+log = { version = "0.4.28", features = ["max_level_debug", "release_max_level_info"] }
 notify = "8.2.0"
 notify-debouncer-full = "0.6.0"
 prost = "0.14.1"

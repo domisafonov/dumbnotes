@@ -7,21 +7,23 @@ use dumbnotes::hmac_key_generator::make_hmac_key;
 use figment::Figment;
 use rand::rngs::OsRng;
 use rpassword::prompt_password;
-use std::error::Error;
 use std::process::exit;
+use log::{error, info, warn};
 
 mod cli;
 mod config;
 
-// TODO: print the errors prettier
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
+    env_logger::init();
+
     let cli_config = CliConfig::parse();
 
     if !cli_config.config_file.exists() {
-        panic!(
-            "Configuration file at {} does not exist",
+        error!(
+            "configuration file at {} does not exist",
             cli_config.config_file.display()
-        )
+        );
+        exit(1)
     }
 
     let app_config: AppConfig = Figment::new()
@@ -29,9 +31,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .extract()
         .unwrap_or_else(|e| {
             for e in e {
-                eprintln!("error: {e}");
+                error!("{e}");
             }
-            panic!("Configuration error");
+            info!("finishing due to a configuration error");
+            exit(1)
         });
     
     if cli_config.generate_hmac_key {
@@ -44,39 +47,58 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn generate_hash(
     cli_config: CliConfig,
     app_config: AppConfig,
-) -> Result<(), Box<dyn Error>> {
+) {
+    let hasher_config = app_config.hasher_config.try_into()
+        .unwrap_or_else(|e| {
+            error!("hasher config is invalid: {}", e);
+            exit(1)
+        });
     let hasher = ProductionHasher::new(
         ProductionHasherConfig {
-            argon2_params: app_config.hasher_config.try_into()?,
+            argon2_params: hasher_config,
         },
     );
 
-    let read_value = prompt_password("Enter the password: ")?;
+    let read_value = prompt_password("Enter the password: ")
+        .unwrap_or_else(|e| {
+            error!("could not read password: {}", e);
+            exit(1);
+        });
     if read_value.is_empty() {
-        eprintln!("error: entered password is empty");
+        error!("entered password is empty");
         exit(1);
     }
 
     if !cli_config.no_repeat {
-        let confirmation_value = prompt_password("Repeat the password: ")?;
+        let confirmation_value = prompt_password("Repeat the password: ")
+            .unwrap_or_else(|e| {
+                error!("could not read password: {}", e);
+                exit(1);
+            });
         if confirmation_value != read_value {
-            eprintln!("error: the passwords do not match");
+            error!("the passwords do not match");
             exit(1);
         }
     }
 
     if read_value.trim() != read_value {
-        eprintln!("warning: the password has leading or trailing whitespace characters");
+        warn!("the password has leading or trailing whitespace characters");
     }
 
-    println!("{}", hasher.generate_hash(&read_value)?);
-
-    Ok(())
+    let hash = hasher.generate_hash(&read_value)
+        .unwrap_or_else(|e| {
+            error!("could not generate hash: {}", e);
+            exit(1);
+        });
+    println!("{}", hash);
 }
 
 fn generate_hmac_key(
     app_config: AppConfig,
-) -> Result<(), Box<dyn Error>> {
-    make_hmac_key(&app_config, &mut OsRng)?;
-    Ok(())
+) {
+    make_hmac_key(&app_config, &mut OsRng)
+        .unwrap_or_else(|e| {
+            error!("could not generate a hmac key: {e}");
+            exit(1);
+        });
 }
