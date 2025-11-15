@@ -1,4 +1,4 @@
-use rocket::{get, routes, Build, Rocket, Route};
+use rocket::{get, routes, Build, Rocket};
 use rocket::response::content::RawHtml;
 use crate::app_constants::WEB_PREFIX;
 

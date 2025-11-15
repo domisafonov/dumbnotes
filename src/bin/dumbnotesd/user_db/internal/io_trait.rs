@@ -1,16 +1,17 @@
+use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
 use crate::user_db::internal::data::UsersData;
 use crate::user_db::internal::user::User;
 use crate::user_db::UserDbError;
 use async_trait::async_trait;
 use dumbnotes::username_string::UsernameStr;
+use futures::StreamExt;
+use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::Arc;
-use futures::StreamExt;
 use tokio::fs;
 use tokio::sync::{Notify, RwLock, RwLockWriteGuard};
-use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
 
 #[async_trait]
 pub trait UserDbIo: Send + Sync {
@@ -36,7 +37,10 @@ impl ProductionUserDbIo {
         user_db_path: impl AsRef<Path> + Send,
         file_watcher: ProductionFileWatcher,
     ) -> Result<Self, UserDbError> {
+        trace!("creating user storage");
+
         let user_db_path = user_db_path.as_ref().to_owned();
+        debug!("reading user db at \"{}\"", user_db_path.display());
         let data = Self::read_data(&user_db_path).await?;
 
         let users = Arc::new(RwLock::new(data));
@@ -65,54 +69,63 @@ impl ProductionUserDbIo {
         die_notice: Arc<Notify>,
         file_watch_guard: <ProductionFileWatcher as FileWatcher>::Guard,
     ) {
+        trace!("watching user db updates at \"{}\"", user_db_path.display());
         let mut events = pin!(file_watch_guard.get_events());
         loop {
-            let _ = tokio::select! {
-                    _ = die_notice.notified() => break,
-                    maybe_event = events.next() => match maybe_event.expect("file event stream finished") {
-                        Err(e) => match(e) {
-                            FileWatcherError::Overflow(_) => Self
-                                ::read_and_replace(
-                                    users.write().await,
-                                    &user_db_path
-                                )
-                                .await,
-                            _ => {
-                                // TODO: log
-                                Ok(())
-                            }
-                        },
-                        Ok(Event::Any) => Self
+            tokio::select! {
+                _ = die_notice.notified() => break,
+                maybe_event = events.next() => match maybe_event.expect("file event stream finished") {
+                    Err(e) => match e {
+                        FileWatcherError::Overflow(_) => Self
                             ::read_and_replace(
                                 users.write().await,
-                                &user_db_path,
+                                &user_db_path
                             )
                             .await,
+                        _ => {
+                            error!(
+                                "failed to watch user db updates at \"{}\"",
+                                user_db_path.display(),
+                            );
+                        }
                     },
-                };
+                    Ok(Event::Any) => Self
+                        ::read_and_replace(
+                            users.write().await,
+                            &user_db_path,
+                        )
+                        .await,
+                },
+            }
         }
     }
 
     async fn read_and_replace(
         mut users: RwLockWriteGuard<'_, HashMap<String, User>>,
         user_db_path: &Path,
-    ) -> Result<(), UserDbError> {
+    ) {
+        info!("reading updated user db at \"{}\"", user_db_path.display());
         let data = match Self::read_data(user_db_path).await {
             Ok(d) => d,
             Err(e) => {
-                // TODO: log the error
-                return Ok(())
+                error!(
+                    "failed to read user db at \"{}\": {e}",
+                    user_db_path.display(),
+                );
+                return;
             }
         };
         *users = data;
-        Ok(())
     }
 
     async fn read_data(
         user_db_path: &Path,
     ) -> Result<HashMap<String, User>, UserDbError> {
+        trace!("reading user db at \"{}\"", user_db_path.display());
         let db_str = fs::read_to_string(&user_db_path).await?;
+        trace!("read user db data at \"{}\": {db_str}", user_db_path.display());
         let parsed = toml::from_str::<UsersData>(&db_str)?;
+        trace!("parsed user db data at \"{}\": {parsed:?}", user_db_path.display());
         Ok(
             HashMap::from_iter(
                 parsed.users

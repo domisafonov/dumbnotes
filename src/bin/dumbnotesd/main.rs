@@ -15,7 +15,7 @@ use crate::file_watcher::ProductionFileWatcher;
 use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
 use crate::session_storage::ProductionSessionStorage;
 use crate::user_db::{ProductionUserDb, UserDb};
-use clap::Parser;
+use clap::{crate_name, Parser};
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
@@ -31,6 +31,8 @@ use log::{error, info};
 #[launch]
 async fn rocket() -> Rocket<Build> {
     init_logging();
+
+    info!("{} starting up", crate_name!());
 
     let cli_config = CliConfig::parse();
 
@@ -161,7 +163,7 @@ fn init_logging() {
 
 #[cfg(not(debug_assertions))]
 fn init_logging() {
-    use syslog::{BasicLogger, Facility};
+    use syslog::BasicLogger;
 
     log
     ::set_boxed_logger(

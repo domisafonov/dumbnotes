@@ -22,9 +22,3 @@ pub enum AccessTokenDecoderError {
         part: &'static str,
     },
 }
-
-impl AccessTokenDecoderError {
-    pub fn missing(part: &'static str) -> AccessTokenDecoderError {
-        AccessTokenDecoderError::PayloadMissing { part }
-    }
-}

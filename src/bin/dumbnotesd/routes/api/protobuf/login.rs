@@ -6,9 +6,6 @@ use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse}
 use crate::routes::api::protobuf::bindings;
 use crate::routes::api::protobuf::errors::MappingError;
 
-protobuf_request!(bindings::LoginRequest, LoginRequest);
-protobuf_response!(bindings::LoginResponse, LoginResponse);
-
 impl TryFrom<bindings::LoginRequest> for LoginRequest {
     type Error = ProtobufRequestError;
 
@@ -38,3 +35,6 @@ impl From<LoginResponse> for bindings::LoginResponse {
         }
     }
 }
+
+protobuf_request!(bindings::LoginRequest, LoginRequest);
+protobuf_response!(bindings::LoginResponse, LoginResponse);

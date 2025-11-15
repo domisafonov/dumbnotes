@@ -1,5 +1,6 @@
 #[cfg(test)] mod tests;
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -8,7 +9,10 @@ use tokio::sync::{broadcast, Notify};
 use notify::{EventKind, RecursiveMode};
 use futures::Stream;
 use async_stream::try_stream;
+use log::{debug, error, log_enabled, trace};
 use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError};
+
+const FILE_WATCHER_BUFFER_SIZE: usize = 16;
 
 #[derive(Clone, Debug)]
 enum InternalEvent {
@@ -48,6 +52,7 @@ impl<W: notify::Watcher + Send + Sync + 'static> FileWatcher for FileWatcherImpl
             .watcher
             .watch(&path, RecursiveMode::NonRecursive)
             .map_err(FileWatcherError::WatchStart)?;
+        debug!("starting to watch path \"{}\"", path.display());
         Ok(
             FileWatchGuardImpl {
                 path,
@@ -60,7 +65,7 @@ impl<W: notify::Watcher + Send + Sync + 'static> FileWatcher for FileWatcherImpl
 
 impl<W: notify::Watcher> FileWatcherImpl<W> {
     pub fn new_impl() -> Result<Self, FileWatcherError> {
-        let (sender, _) = broadcast::channel(16);
+        let (sender, _) = broadcast::channel(FILE_WATCHER_BUFFER_SIZE);
         Ok(
             FileWatcherImpl {
                 inner: Arc::new(
@@ -86,13 +91,16 @@ impl<W: notify::Watcher> FileWatcherImpl<W> {
 struct Callback(broadcast::Sender<InternalEvent>);
 impl DebounceEventHandler for Callback {
     fn handle_event(&mut self, event: DebounceEventResult) {
-        // TODO: the only possible error is not having subscribers
-        //  log receiving event after unsub
         match event {
             Ok(v) => v.into_iter().for_each(|v| {
+                trace!("file event received: {v:?}");
+                // SAFETY: the only possible error is not having subscribers
                 let _ = self.0.send(InternalEvent::Event(v));
             }),
+
             Err(e) => e.into_iter().for_each(|e| {
+                error!("file watching error: {e}");
+                // SAFETY: the only possible error is not having subscribers
                 let _ = self.0.send(InternalEvent::Error(e.to_string()));
             })
         }
@@ -107,6 +115,7 @@ pub struct FileWatchGuardImpl<W: notify::Watcher> {
 
 impl<W: notify::Watcher> Drop for FileWatchGuardImpl<W> {
     fn drop(&mut self) {
+        debug!("stopping watching path \"{}\"", self.path.display());
         self.file_watcher
             .lock().expect("failed locking the file watcher")
             .watcher
@@ -123,10 +132,16 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
             .subscribe();
         drop(lock);
 
+        let path = if log_enabled!(log::Level::Trace) {
+            Cow::Owned(format!("{}", self.path.display()))
+        } else {
+            Cow::Borrowed("")
+        };
         let skip_modification = self.skip_modification.clone();
         try_stream! {
             let mut do_drop_one = false;
 
+            trace!("observing file changes for path \"{path}\"");
             loop {
                 let event = tokio::select! {
                     biased;
@@ -156,7 +171,9 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
                 if let Some(e) = event {
                     if do_drop_one {
                         do_drop_one = false;
+                        trace!("dropping event {e:?}");
                     } else {
+                        trace!("event on path \"{}\": {e:?}", path);
                         yield e
                     }
                 }
@@ -165,6 +182,7 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
     }
 
     fn skip_modification(&self) {
+        trace!("skip_modification() called for {}", self.path.display());
         self.skip_modification.notify_one()
     }
 }

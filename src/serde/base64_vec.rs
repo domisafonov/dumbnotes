@@ -29,7 +29,7 @@ pub fn deserialize<'de, D: Deserializer<'de>>(
             E: Error,
         {
             Base64::decode_vec(v)
-                .map_err(|e| Error::invalid_value(Str(v), &self))
+                .map_err(|_| Error::invalid_value(Str(v), &self))
         }
     }
 

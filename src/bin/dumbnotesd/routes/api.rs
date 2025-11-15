@@ -3,15 +3,18 @@ mod protobuf;
 mod model;
 pub mod authentication_guard;
 
-use crate::access_granter::{AccessGranter, AccessGranterError, LoginResult};
+use crate::access_granter::AccessGranterError;
+use crate::access_granter::AccessGranter;
+use crate::app_constants::API_PREFIX;
 use crate::http::header::UnauthorizedResponse;
 use crate::http::status::{StatusExt, Unauthorized};
 use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
 use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse};
+use log::error;
 use rocket::http::Status;
 use rocket::response::content::RawText;
-use rocket::{catch, catchers, get, post, routes, Build, Catcher, Rocket, Route, State};
-use crate::app_constants::API_PREFIX;
+use rocket::{catch, catchers, get, post, routes, Build, Rocket, State};
+use crate::access_granter::LoginResult;
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -36,7 +39,7 @@ async fn login(
                         access_token,
                     }
                 ),
-                Err(e) => Err(map_login_error(e))
+                Err(e) => Err(process_login_error(e))
             }
         }
         LoginRequestSecret::RefreshToken(token) => {
@@ -50,13 +53,13 @@ async fn login(
                         access_token,
                     }
                 ),
-                Err(e) => Err(map_login_error(e))
+                Err(e) => Err(process_login_error(e))
             }
         }
     }
 }
 
-fn map_login_error(e: AccessGranterError) -> Status {
+fn process_login_error(e: AccessGranterError) -> Status {
     match e {
         AccessGranterError::HeaderFormatError
         => Status::UnauthorizedInvalidRequest,
@@ -68,7 +71,10 @@ fn map_login_error(e: AccessGranterError) -> Status {
         AccessGranterError::SessionStorageError(_) |
         AccessGranterError::UserDbError(_) |
         AccessGranterError::AccessTokenGeneratorError(_)
-        => Status::InternalServerError,
+        => {
+            error!("authentication system failed: {e}");
+            Status::InternalServerError
+        },
     }
 }
 
@@ -79,7 +85,10 @@ async fn logout(
 ) -> Result<(), Status> {
     match access_granter.logout_user(authenticated.0.session_id).await {
         Ok(_) => Ok(()),
-        Err(_) => Err(Status::InternalServerError)
+        Err(e) => {
+            error!("authentication system failed: {e}");
+            Err(Status::InternalServerError)
+        }
     }
 }
 

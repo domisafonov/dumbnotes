@@ -1,10 +1,13 @@
 use async_trait::async_trait;
+use log::error;
 use rocket::{Request, State};
 use rocket::http::hyper::header;
 use rocket::http::Status;
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
-use crate::access_granter::{AccessGranter, AccessGranterError, SessionInfo, KnownSession};
+use crate::access_granter::AccessGranter;
+use crate::access_granter::AccessGranterError;
+use crate::access_granter::{KnownSession, SessionInfo};
 use crate::http::status::StatusExt;
 
 #[derive(Debug)]
@@ -74,7 +77,11 @@ impl<'r> FromRequest<'r> for MaybeAuthenticated {
                 AccessGranterError::SessionStorageError(_) |
                 AccessGranterError::UserDbError(_) |
                 AccessGranterError::AccessTokenGeneratorError(_)
-                => Outcome::Error((Status::InternalServerError, ())), // TODO: forward when it'll be possible
+                => {
+                    // TODO: forward the error when it'll be possible
+                    error!("authentication system failed: {e}");
+                    Outcome::Error((Status::InternalServerError, ()))
+                },
             }
         }
     }

@@ -1,7 +1,7 @@
 pub mod header {
-    use rocket::http::{Header, Status};
-    use rocket::Responder;
     use crate::http::status::Unauthorized;
+    use rocket::http::Header;
+    use rocket::Responder;
 
     pub struct WwwAuthenticate(Unauthorized);
 
