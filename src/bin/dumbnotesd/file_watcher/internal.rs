@@ -10,6 +10,8 @@ use notify::{EventKind, RecursiveMode};
 use futures::Stream;
 use async_stream::try_stream;
 use log::{debug, error, log_enabled, trace};
+use tokio_stream::StreamExt;
+use tokio_stream::wrappers::BroadcastStream;
 use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError};
 
 const FILE_WATCHER_BUFFER_SIZE: usize = 16;
@@ -17,7 +19,10 @@ const FILE_WATCHER_BUFFER_SIZE: usize = 16;
 #[derive(Clone, Debug)]
 enum InternalEvent {
     Event(DebouncedEvent),
-    Error(String),
+    Error {
+        message: String,
+        paths: Vec<PathBuf>,
+    },
 }
 
 pub struct FileWatcherImpl<W: notify::Watcher> {
@@ -101,7 +106,12 @@ impl DebounceEventHandler for Callback {
             Err(e) => e.into_iter().for_each(|e| {
                 error!("file watching error: {e}");
                 // SAFETY: the only possible error is not having subscribers
-                let _ = self.0.send(InternalEvent::Error(e.to_string()));
+                let _ = self.0.send(
+                    InternalEvent::Error {
+                        message: e.to_string(),
+                        paths: e.paths,
+                    }
+                );
             })
         }
     }
@@ -127,12 +137,17 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
     fn get_events(&self) -> impl Stream<Item=Result<Event, FileWatcherError>> + Send + 'static {
         let lock = self.file_watcher
             .lock().expect("failed locking the file watcher");
-        let mut receiver = lock
-            .events
-            .subscribe();
+        let path = self.path.clone();
+        let mut receiver = BroadcastStream
+            ::from(lock.events.subscribe())
+            .filter(move |event| match event {
+                Ok(InternalEvent::Event(event)) => event.paths.contains(&path),
+                Ok(InternalEvent::Error { paths, .. }) => paths.contains(&path),
+                _ => true
+            });
         drop(lock);
 
-        let path = if log_enabled!(log::Level::Trace) {
+        let path_display = if log_enabled!(log::Level::Trace) {
             Cow::Owned(format!("{}", self.path.display()))
         } else {
             Cow::Borrowed("")
@@ -141,7 +156,7 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
         try_stream! {
             let mut do_drop_one = false;
 
-            trace!("observing file changes for path \"{path}\"");
+            trace!("observing file changes for path \"{path_display}\"");
             loop {
                 let event = tokio::select! {
                     biased;
@@ -149,8 +164,8 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
                         do_drop_one = true;
                         Ok(None)
                     },
-                    event = receiver.recv() => {
-                        match event {
+                    event = receiver.next() => {
+                        match event.unwrap() {
                             Ok(InternalEvent::Event(event)) => match event.kind {
                                 EventKind::Create(_) |
                                     EventKind::Modify(_)
@@ -160,10 +175,10 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
 
                                 _ => Ok(None),
                             },
-                            Ok(InternalEvent::Error(message)) => Err(FileWatcherError::Watch(message)),
+                            Ok(InternalEvent::Error { message, .. }) => Err(FileWatcherError::Watch(message)),
                             Err(e) => match e {
-                                broadcast::error::RecvError::Lagged(n) => Err(FileWatcherError::Overflow(n)),
-                                _ => unreachable!(),
+                                tokio_stream::wrappers::errors::BroadcastStreamRecvError::Lagged(n)
+                                => Err(FileWatcherError::Overflow(n)),
                             },
                         }
                     },
@@ -173,7 +188,7 @@ impl<W: notify::Watcher + Send + Sync> FileWatchGuard for FileWatchGuardImpl<W> 
                         do_drop_one = false;
                         trace!("dropping event {e:?}");
                     } else {
-                        trace!("event on path \"{}\": {e:?}", path);
+                        trace!("event on path \"{}\": {e:?}", path_display);
                         yield e
                     }
                 }

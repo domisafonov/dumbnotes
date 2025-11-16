@@ -28,6 +28,7 @@ syslog = "7.0.0"
 thiserror = "2.0.17"
 time = { version = "0.3.43", features = ["std", "alloc", "formatting", "serde-human-readable"] }
 tokio = { version = "1.47.1", features = ["fs", "io-util", "sync"] }
+tokio-stream = { version = "0.1.17", features = ["sync"] }
 toml = "0.9.7"
 uuid = { version = "1.18.1", features = ["v4", "fast-rng", "serde"] }
 
