@@ -142,7 +142,7 @@ impl SessionStorageIo for ProductionSessionStorageIo {
             serialized.as_bytes(),
         ).await?;
         debug!(
-            "saved session storage at \"{}\"",
+            "finished writing session storage data at \"{}\"",
             self.session_file_path.display(),
         );
         Ok(())

@@ -54,7 +54,7 @@ impl AccessTokenGenerator {
             &self.signer,
         )?;
         debug!(
-            "access token {token} generated with subject {subject}, \
+            "access token generated with subject {subject}, \
                 session id {session_id_str}, \
                 not_before {not_before:?}, \
                 expires_at {expires_at:?}"

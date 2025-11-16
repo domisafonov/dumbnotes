@@ -1,6 +1,7 @@
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
 use crate::user_db::UserDbError;
 use async_trait::async_trait;
+use log::trace;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::hasher::{Hasher, ProductionHasher};
 use dumbnotes::username_string::UsernameStr;
@@ -37,12 +38,13 @@ impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
         &self,
         username: &UsernameStr,
     ) -> Result<bool, UserDbError> {
-        Ok(
-            self.io
-                .get_user(username)
-                .await?
-                .is_some()
-        )
+        trace!("checking user \"{username}\"");
+        let does_exist = self.io
+            .get_user(username)
+            .await?
+            .is_some();
+        trace!("user \"{username}\" exists: {does_exist}");
+        Ok(does_exist)
     }
 
     async fn check_user_credentials(
@@ -53,10 +55,14 @@ impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
         let user = self.io
             .get_user(username)
             .await?;
-
+        trace!("checking credentials for \"{username}\"");
         match user {
-            None => Ok(false),
+            None => {
+                trace!("user \"{username}\" not authenticated");
+                Ok(false)
+            },
             Some(user) => {
+                trace!("user \"{username}\" correctly authenticated");
                 Ok(
                     self.hasher
                         .check_hash(

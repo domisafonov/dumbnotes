@@ -4,6 +4,7 @@ use std::ops::Add;
 use std::os::unix::prelude::*;
 use std::path::PathBuf;
 use std::str::FromStr;
+use log::{debug, error, trace};
 use time::UtcDateTime;
 use tokio::io;
 use tokio::io::AsyncReadExt;
@@ -55,6 +56,10 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         app_config: &AppConfig,
         io: Io,
     ) -> Result<NoteStorageImpl<Io>, StorageError> {
+        debug!(
+            "creating note storage at {}",
+            app_config.data_directory.display(),
+        );
         let meta = io.metadata(&app_config.data_directory).await?;
         if !meta.is_dir {
             return Err(StorageError::DoesNotExist);
@@ -74,6 +79,10 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         note_id: Uuid,
     ) -> Result<Note, StorageError> {
         let path = self.get_note_path(username, note_id);
+        debug!(
+            "reading note {note_id} for user \"{username}\" at \"{}\"",
+            path.display(),
+        );
         let (file, file_size) = self.io.open_file(&path).await?;
         if file_size > self.max_note_len {
             return Err(StorageError::TooBigError);
@@ -81,6 +90,10 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         let contents = read_limited_utf8_lossy(self.max_note_len, file).await?;
         let (name, contents) = contents.split_once('\n')
             .unwrap_or((&contents, ""));
+        trace!(
+            "read a note {note_id} with title \"{name}\" \
+                and contents \"{contents}\""
+        );
         if name.len() > self.max_note_len as usize {
             return Err(StorageError::TooBigError);
         }
@@ -99,11 +112,35 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         note: &Note,
     ) -> Result<(), StorageError> {
         let filename = self.get_note_path(username, note.id);
+        debug!(
+            "writing note {} for user \"{username}\" to \"{}\"",
+            note.id,
+            filename.display(),
+        );
         let tmp_filename = self.get_note_tmp_path(username, note.id);
+        trace!(
+            "tmp filename for note {}: \"{}\"",
+            note.id,
+            tmp_filename.display(),
+        );
         self.io.write_file(&tmp_filename, format_note(note)).await?;
+        trace!(
+            "renaming tmp file \"{}\" for note \"{}\"",
+            tmp_filename.display(),
+            note.id,
+        );
         if let Err(e) = self.io.rename_file(&tmp_filename, &filename).await {
+            error!(
+                "failed to rename tmp file \"{}\" for note {}: {e}",
+                tmp_filename.display(),
+                note.id,
+            );
             if let Err(e) = self.io.remove_file(&tmp_filename).await {
-                log::error!("TODO");
+                error!(
+                    "failed to remove tmp file \"{}\" for note {}",
+                    tmp_filename.display(),
+                    e,
+                );
             }
             return Err(e.into())
         }
@@ -114,12 +151,18 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         &mut self,
         username: &UsernameString,
     ) -> Result<Vec<NoteMetadata>, StorageError> {
+        debug!("listing notes for user \"{username}\"");
         // TODO: reimplement with `scandir()` (needs an async implementation)
         //  and a data limit
         let mut read = self.io.read_dir(self.get_user_dir(username)).await?;
         let mut ret = Vec::new();
         while let Some(entry) = read.next_entry().await? {
+            trace!("read dir entry \"{entry:?}\" for user \"{username}\"");
             if let Some(uuid) = Self::try_extract_uuid(entry.file_name()) {
+                trace!(
+                    "dir entry \"{entry:?}\" for user \"{username}\" \
+                        accepted with id {uuid}"
+                );
                 ret.push(
                     NoteMetadata { 
                         id: uuid,
@@ -143,28 +186,47 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         username: &UsernameString,
         notes: impl IntoIterator<Item=NoteMetadata>,
     ) -> Result<Vec<Option<NoteInfo>>, StorageError> {
+        debug!("getting note details for user \"{username}\"");
         Ok(
             join_all(
                 notes.into_iter()
                     .map(async |nm| {
+                        trace!(
+                            "filling note details for note {} for user \"{username}\"",
+                            nm.id,
+                        );
                         let file = self.io
                             .open_file(self.get_note_path(username, nm.id))
                             .await
                             .map(|(file, _)| Some(file))
-                            .unwrap_or_else(|e|
-                                // TODO: log
+                            .unwrap_or_else(|e| {
+                                error!(
+                                    "failed to open note {} for user \"{username}\": {e}",
+                                    nm.id,
+                                );
                                 None
-                            )?;
+                            })?;
+                        trace!(
+                            "open note {} for user \"{username}\", reading",
+                            nm.id,
+                        );
                         let buf = read_limited_utf8_lossy(self.max_note_name_len, file)
                             .await
                             .map(Some)
-                            .unwrap_or_else(|e|
-                                // TODO: log
+                            .unwrap_or_else(|e| {
+                                error!(
+                                    "failed to read note {} for user \"{username}\": {e}",
+                                    nm.id,
+                                );
                                 None
-                            )?;
+                            })?;
                         let name = buf.split_once('\n')
                             .map(|(name, _)| name)
                             .unwrap_or(&buf);
+                        trace!(
+                            "parsed note title \"{name}\" of note {} for user \"{username}\"",
+                            nm.id,
+                        );
                         Some(
                             NoteInfo {
                                 metadata: nm,
@@ -181,6 +243,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         username: &UsernameString,
         id: Uuid,
     ) -> Result<(), StorageError> {
+        debug!("deleting note {id} for user \"{username}\"");
         Ok(
             self.io
                 .remove_file(self.get_note_path(username, id))
@@ -204,8 +267,8 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         self.get_user_dir(username)
             .join(
                 uuid.hyphenated().to_string() +
-                    TMP_FILENAME_INFIX
-                    + &self.io.generate_uuid().hyphenated().to_string()
+                    TMP_FILENAME_INFIX +
+                    &self.io.generate_uuid().hyphenated().to_string()
             )
     }
 
@@ -239,6 +302,7 @@ async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin>(
     limit: u64,
     reader: R
 ) -> Result<String, io::Error> {
+    // TODO: reimplement manually to log trimming and lossy conversions
     let mut buf = Vec::with_capacity(limit as usize);
     io::BufReader::new(reader).take(limit).read_to_end(&mut buf).await?;
     Ok(

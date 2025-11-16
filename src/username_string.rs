@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::fmt;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -103,5 +104,17 @@ impl<'de> Deserialize<'de> for UsernameString {
         }
 
         deserializer.deserialize_str(Visitor)
+    }
+}
+
+impl fmt::Display for UsernameString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl fmt::Display for UsernameStr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_ref())
     }
 }

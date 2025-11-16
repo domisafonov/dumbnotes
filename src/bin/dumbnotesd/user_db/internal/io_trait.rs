@@ -98,6 +98,10 @@ impl ProductionUserDbIo {
                 },
             }
         }
+        trace!(
+            "stopped observing user db updates at {}",
+            user_db_path.display(),
+        );
     }
 
     async fn read_and_replace(
