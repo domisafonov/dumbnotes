@@ -77,7 +77,7 @@ impl<W: notify::Watcher> FileWatcherImpl<W> {
                     Mutex::new(
                         FileWatcherInternal {
                             watcher: new_debouncer_opt(
-                                FILE_WATCHER_DEBOUNCE_TIME,
+                                FILE_WATCHER_DEBOUNCE_TIME.unsigned_abs(),
                                 None,
                                 Callback(sender.clone()),
                                 Default::default(),
