@@ -3,7 +3,6 @@
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use notify_debouncer_full::{new_debouncer_opt, DebounceEventHandler, DebounceEventResult, DebouncedEvent, Debouncer, RecommendedCache};
 use tokio::sync::{broadcast, Notify};
 use notify::{EventKind, RecursiveMode};
@@ -12,6 +11,7 @@ use async_stream::try_stream;
 use log::{debug, error, log_enabled, trace};
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
+use crate::app_constants::FILE_WATCHER_DEBOUNCE_TIME;
 use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError};
 
 const FILE_WATCHER_BUFFER_SIZE: usize = 16;
@@ -77,7 +77,7 @@ impl<W: notify::Watcher> FileWatcherImpl<W> {
                     Mutex::new(
                         FileWatcherInternal {
                             watcher: new_debouncer_opt(
-                                Duration::from_secs(10),
+                                FILE_WATCHER_DEBOUNCE_TIME,
                                 None,
                                 Callback(sender.clone()),
                                 Default::default(),

@@ -4,7 +4,7 @@ use crate::user_db::UserDb;
 use dumbnotes::username_string::UsernameStr;
 use std::time::SystemTime;
 use log::{debug, info, trace, warn};
-use time::{Duration, OffsetDateTime};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 mod errors;
@@ -12,6 +12,7 @@ mod model;
 
 pub use errors::AccessGranterError;
 pub use model::{KnownSession, LoginResult, SessionInfo};
+use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 pub struct AccessGranter {
     session_storage: Box<dyn SessionStorage>,
@@ -78,7 +79,7 @@ impl AccessGranter {
                 .create_session(
                     username,
                     now,
-                    now + Duration::minutes(15),
+                    now + ACCESS_TOKEN_VALIDITY_TIME,
                 )
                 .await?;
             let access_token = self.access_token_generator
@@ -121,7 +122,7 @@ impl AccessGranter {
         let session = self.session_storage
             .refresh_session(
                 refresh_token,
-                now + Duration::minutes(15)
+                now + ACCESS_TOKEN_VALIDITY_TIME,
             )
             .await?;
         info!(

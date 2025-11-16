@@ -28,7 +28,7 @@ impl FromStr for UsernameString {
     //  the main intention of the filter is for the username
     //  to be a valid path segment
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.chars().all(|c| c.is_ascii_alphanumeric() || c == ' ') {
+        if s.chars().all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '_' || c == '-') {
             Ok(UsernameString(s.to_string()))
         } else {
             Err(UsernameParseError)

@@ -1,4 +1,4 @@
-use crate::app_constants::SESSION_STORAGE_PATH;
+use crate::app_constants::{REFRESH_TOKEN_GC_TIME, SESSION_STORAGE_PATH};
 use crate::session_storage::internal::data::{SessionsData, UserSessionData, UserSessionsData};
 use crate::session_storage::internal::io_trait::{ProductionSessionStorageIo, SessionStorageIo};
 use crate::session_storage::internal::session::Session;
@@ -11,7 +11,7 @@ use std::path::Path;
 use std::sync::Arc;
 use futures::{Stream, StreamExt};
 use log::{error, info, trace};
-use time::{Duration, OffsetDateTime};
+use time::OffsetDateTime;
 use tokio::spawn;
 use tokio::sync::{Notify, RwLock, RwLockWriteGuard};
 use uuid::Uuid;
@@ -188,7 +188,7 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
                     let user_sessions: Vec<_> = sessions
                         .iter()
                         .filter_map(|session| {
-                            if session.expires_at + Duration::weeks(5) <= now { // TODO: find and order/properly delegate all time-related stuff
+                            if session.expires_at + REFRESH_TOKEN_GC_TIME <= now {
                                 None
                             } else {
                                 Some(Self::session_to_session_data(session))

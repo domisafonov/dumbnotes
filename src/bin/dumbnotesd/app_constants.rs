@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 // relative to the data directory
 pub const SESSION_STORAGE_PATH: &str = "session.toml";
 pub const SESSION_STORAGE_READ_BUF_SIZE: usize = 1024 * 128;
@@ -9,3 +11,7 @@ pub const API_PREFIX: &str = "/api";
 pub const API_VERSION: &str = "1";
 
 pub const DEFAULT_PROTOBUF_READ_LIMIT: u64 = 1024 * 1024;
+
+pub const FILE_WATCHER_DEBOUNCE_TIME: Duration = Duration::from_secs(10);
+pub const ACCESS_TOKEN_VALIDITY_TIME: Duration = Duration::from_mins(15);
+pub const REFRESH_TOKEN_GC_TIME: time::Duration = time::Duration::weeks(5);

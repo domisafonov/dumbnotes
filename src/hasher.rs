@@ -3,6 +3,7 @@
 use argon2::password_hash::SaltString;
 use argon2::Argon2;
 use argon2::{Algorithm, PasswordHash, PasswordHasher, Version};
+use log::error;
 use rand::rand_core::OsError;
 use rand::rngs::OsRng;
 
@@ -70,7 +71,17 @@ impl Hasher for ProductionHasher {
 
     fn check_hash(&self, hash: PasswordHash<'_>, password: &str) -> bool {
         hash.verify_password(&[&self.get_hasher()], password)
-            .map(|_| true) // TODO: log errors
-            .unwrap_or(false)
+            .map(|_| true)
+            .or_else(|e|
+                if let argon2::password_hash::Error::Password = e {
+                    Ok(false)
+                } else {
+                    Err(e)
+                }
+            )
+            .unwrap_or_else(|e| {
+                error!("failed to check password hash: {e}");
+                false
+            })
     }
 }
