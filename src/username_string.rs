@@ -1,11 +1,11 @@
+use serde::de::Error;
+use serde::de::Unexpected::Str;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::str::FromStr;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::Error;
-use serde::de::Unexpected::Str;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -24,8 +24,15 @@ impl UsernameString {
 impl FromStr for UsernameString {
     type Err = UsernameParseError;
 
+    // TODO: expand
+    //  the main intention of the filter is for the username
+    //  to be a valid path segment
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(UsernameString(s.to_string())) // TODO: the validation
+        if s.chars().all(|c| c.is_ascii_alphanumeric() || c == ' ') {
+            Ok(UsernameString(s.to_string()))
+        } else {
+            Err(UsernameParseError)
+        }
     }
 }
 
