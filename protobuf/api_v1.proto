@@ -14,3 +14,17 @@ message LoginResponse {
     bytes refresh_token = 1;
     string token = 2; // jwt
 }
+
+message NoteListResponse {
+    repeated NoteInfo notes_info = 1;
+}
+
+message NoteMetadata {
+    bytes id = 1;
+    int64 mtime = 2;
+}
+
+message NoteInfo {
+    NoteMetadata metadata = 1;
+    optional string name = 2;
+}

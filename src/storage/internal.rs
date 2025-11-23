@@ -1,10 +1,10 @@
 use futures::future::join_all;
+use log::{debug, error, trace};
 use std::ffi::OsString;
 use std::ops::Add;
 use std::os::unix::prelude::*;
 use std::path::PathBuf;
 use std::str::FromStr;
-use log::{debug, error, trace};
 use time::UtcDateTime;
 use tokio::io;
 use tokio::io::AsyncReadExt;
@@ -14,9 +14,9 @@ use uuid::Uuid;
 use crate::config::app_config::AppConfig;
 use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
-use crate::util::StrExt;
+use crate::util::{send_fut_workaround, StrExt};
 
-use crate::username_string::UsernameString;
+use crate::username_string::UsernameStr;
 use io_trait::Metadata;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
@@ -74,8 +74,8 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     }
 
     pub async fn read_note(
-        &mut self,
-        username: &UsernameString,
+        &self,
+        username: &UsernameStr,
         note_id: Uuid,
     ) -> Result<Note, StorageError> {
         let path = self.get_note_path(username, note_id);
@@ -107,8 +107,8 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     }
 
     pub async fn write_note(
-        &mut self,
-        username: &UsernameString,
+        &self,
+        username: &UsernameStr,
         note: &Note,
     ) -> Result<(), StorageError> {
         let filename = self.get_note_path(username, note.id);
@@ -146,10 +146,10 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         }
         Ok(())
     }
-    
+
     pub async fn list_notes(
-        &mut self,
-        username: &UsernameString,
+        &self,
+        username: &UsernameStr,
     ) -> Result<Vec<NoteMetadata>, StorageError> {
         debug!("listing notes for user \"{username}\"");
         // TODO: reimplement with `scandir()` (needs an async implementation)
@@ -180,15 +180,15 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         ret.sort_by_key(|nm| nm.mtime);
         Ok(ret)
     }
-    
+
     pub async fn get_note_details(
-        &mut self,
-        username: &UsernameString,
+        &self,
+        username: &UsernameStr,
         notes: impl IntoIterator<Item=NoteMetadata>,
     ) -> Result<Vec<Option<NoteInfo>>, StorageError> {
         debug!("getting note details for user \"{username}\"");
         Ok(
-            join_all(
+            send_fut_workaround(join_all(
                 notes.into_iter()
                     .map(async |nm| {
                         trace!(
@@ -210,7 +210,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                             "open note {} for user \"{username}\", reading",
                             nm.id,
                         );
-                        let buf = read_limited_utf8_lossy(self.max_note_name_len, file)
+                        let buf = send_fut_workaround(read_limited_utf8_lossy(self.max_note_name_len, file))
                             .await
                             .map(Some)
                             .unwrap_or_else(|e| {
@@ -234,13 +234,13 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                             }
                         )
                     })
-            ).await
+            )).await
         )
     }
     
     pub async fn delete_note(
-        &mut self,
-        username: &UsernameString,
+        &self,
+        username: &UsernameStr,
         id: Uuid,
     ) -> Result<(), StorageError> {
         debug!("deleting note {id} for user \"{username}\"");
@@ -251,17 +251,17 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         )
     }
 
-    fn get_user_dir(&self, username: &UsernameString) -> PathBuf {
+    fn get_user_dir(&self, username: &UsernameStr) -> PathBuf {
         self.basedir.join(username as &str)
     }
-    
-    fn get_note_path(&self, username: &UsernameString, uuid: Uuid) -> PathBuf {
+
+    fn get_note_path(&self, username: &UsernameStr, uuid: Uuid) -> PathBuf {
         self.get_user_dir(username).join(uuid.hyphenated().to_string())
     }
 
     fn get_note_tmp_path(
         &self,
-        username: &UsernameString,
+        username: &UsernameStr,
         uuid: Uuid,
     ) -> PathBuf {
         self.get_user_dir(username)
@@ -298,7 +298,7 @@ pub fn validate_note_root_permissions(
     Ok(())
 }
 
-async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin>(
+async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin + Send>(
     limit: u64,
     reader: R
 ) -> Result<String, io::Error> {

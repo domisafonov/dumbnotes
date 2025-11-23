@@ -6,7 +6,7 @@ use tokio::{fs, io};
 use uuid::Uuid;
 
 #[async_trait]
-pub trait NoteStorageIo: Send {
+pub trait NoteStorageIo: Send + Sync {
     async fn metadata(
         &self,
         path: impl AsRef<Path> + Send,
@@ -15,7 +15,7 @@ pub trait NoteStorageIo: Send {
     async fn open_file(
         &self,
         path: impl AsRef<Path> + Send,
-    ) -> io::Result<(impl io::AsyncRead + Unpin, u64)>;
+    ) -> io::Result<(impl io::AsyncRead + Unpin + Send + Sync, u64)>;
 
     async fn write_file(
         &self,

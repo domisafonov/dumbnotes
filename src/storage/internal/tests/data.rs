@@ -134,7 +134,7 @@ lazy_static!(
         )
         .fold(
             Vec::<(String, VersionedFileSpec)>::new(),
-            |mut r, (k, mut v): (_, VersionedFileSpec)| {
+            |mut r, (k, v): (_, VersionedFileSpec)| {
                 match r.last_mut() {
                     Some((last_key, last)) if *last_key == k => {
                         last.specs.push(

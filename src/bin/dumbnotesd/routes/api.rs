@@ -3,18 +3,20 @@ mod protobuf;
 mod model;
 pub mod authentication_guard;
 
-use crate::access_granter::AccessGranterError;
 use crate::access_granter::AccessGranter;
+use crate::access_granter::AccessGranterError;
+use crate::access_granter::LoginResult;
 use crate::app_constants::API_PREFIX;
 use crate::http::header::UnauthorizedResponse;
 use crate::http::status::{StatusExt, Unauthorized};
 use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
-use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse};
-use log::error;
+use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse, NoteListResponse};
+use dumbnotes::storage::NoteStorage;
+use futures::TryFutureExt;
+use log::{error, warn};
 use rocket::http::Status;
 use rocket::response::content::RawText;
 use rocket::{catch, catchers, get, post, routes, Build, Rocket, State};
-use crate::access_granter::LoginResult;
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -92,6 +94,39 @@ async fn logout(
     }
 }
 
+#[get("/")]
+async fn get_users_notes(
+    authenticated: Authenticated,
+    note_storage: &State<NoteStorage>,
+) -> Result<NoteListResponse, Status> {
+    let result = note_storage
+        .list_notes(&authenticated.0.username)
+        .and_then(|notes_metadata| {
+            note_storage
+                .get_note_details(&authenticated.0.username, notes_metadata)
+        })
+        .await;
+    match result {
+        Ok(notes_info) => Ok(
+            NoteListResponse {
+                notes_info: notes_info
+                    .into_iter()
+                    .filter_map(|maybe_info| {
+                        if maybe_info.is_none() {
+                            warn!("no info could be read for a note");
+                        }
+                        maybe_info
+                    })
+                    .collect(),
+            }
+        ),
+        Err(e) => {
+            error!("error fetching note info: {}", e);
+            Err(Status::InternalServerError)
+        },
+    }
+}
+
 #[catch(499)]
 fn catch_unauthorized_invalid_request() -> UnauthorizedResponse {
     assert_eq!(Status::UnauthorizedInvalidRequest.code, 499);
@@ -124,6 +159,7 @@ impl ApiRocketBuildExt for Rocket<Build> {
                     version,
                     login,
                     logout,
+                    get_users_notes,
                 ],
             )
             .register(

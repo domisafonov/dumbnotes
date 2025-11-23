@@ -267,7 +267,7 @@ impl NoteStorageIo for TestStorageIo {
                     .rfind(|ev|
                         matches!(
                             ev,
-                            StorageWrite::Write { path, .. }
+                            StorageWrite::Write { .. }
                         )
                     )
                     .is_some();
@@ -313,7 +313,7 @@ impl NoteStorageIo for TestStorageIo {
                 let mut tmp_files = self.tmp_files.lock().await;
                 let tmp_file = tmp_files
                     .iter()
-                    .find(|(key, name)|
+                    .find(|(_, name)|
                         Path::new(name) == path.as_ref()
                     )
                     .map(|(_, name)| name);
