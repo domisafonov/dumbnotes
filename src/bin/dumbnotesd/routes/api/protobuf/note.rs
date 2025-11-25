@@ -1,5 +1,7 @@
-use crate::protobuf_response;
-use crate::routes::api::model::NoteResponse;
+use time::UtcDateTime;
+use crate::{protobuf_request, protobuf_response};
+use crate::routes::api::errors::ProtobufRequestError;
+use crate::routes::api::model::{NoteResponse, NoteWriteRequest};
 use crate::routes::api::protobuf::bindings;
 
 impl From<NoteResponse> for bindings::NoteResponse {
@@ -18,4 +20,18 @@ impl From<NoteResponse> for bindings::NoteResponse {
     }
 }
 
+impl TryFrom<bindings::NoteWriteRequest> for NoteWriteRequest {
+    type Error = ProtobufRequestError;
+    fn try_from(value: bindings::NoteWriteRequest) -> Result<Self, Self::Error> {
+        Ok(
+            NoteWriteRequest {
+                mtime: UtcDateTime::from_unix_timestamp(value.mtime)?,
+                name: value.name,
+                contents: value.contents,
+            }
+        )
+    }
+}
+
+protobuf_request!(bindings::NoteWriteRequest, NoteWriteRequest);
 protobuf_response!(bindings::NoteResponse, NoteResponse);

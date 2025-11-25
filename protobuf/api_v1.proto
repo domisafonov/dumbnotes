@@ -33,3 +33,9 @@ message NoteResponse {
     NoteInfo info = 1;
     string contents = 2;
 }
+
+message NoteWriteRequest {
+    int64 mtime = 1;
+    optional string name = 2;
+    string contents = 3;
+}

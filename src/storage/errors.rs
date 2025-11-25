@@ -5,7 +5,7 @@ use tokio::io::Error as IoError;
 #[derive(Debug, Error)]
 pub enum StorageError {
     #[error("user directory does not exist")]
-    DoesNotExist,
+    UserDirDoesNotExist,
 
     #[error(transparent)]
     Io(#[from] IoError),
@@ -18,4 +18,7 @@ pub enum StorageError {
     
     #[error("cannot interpret timestamp")]
     Timestamp(#[from] ComponentRange),
+    
+    #[error("note not found")]
+    NoteNotFound,
 }

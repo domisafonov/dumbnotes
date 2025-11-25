@@ -16,6 +16,12 @@ pub enum ProtobufRequestError {
 
     #[error("request too large")]
     RequestTooLarge,
+    
+    #[error("incorrect uuid")]
+    IncorrectUuid(#[from] uuid::Error),
+    
+    #[error("incorrect timestamp")]
+    IncorrectTimestamp(#[from] time::error::ComponentRange),
 }
 
 impl From<UsernameParseError> for ProtobufRequestError {

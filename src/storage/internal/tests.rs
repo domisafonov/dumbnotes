@@ -38,7 +38,7 @@ async fn create_storage_dir_does_not_exist_error() {
     let io = TestStorageIo::new();
     let err = make_default_limits_storage("/a_file", io)
         .await.expect_err("should fail");
-    assert!(matches!(err, StorageError::DoesNotExist), "wrong error type: {err:#?}");
+    assert!(matches!(err, StorageError::UserDirDoesNotExist), "wrong error type: {err:#?}");
 }
 
 #[tokio::test]

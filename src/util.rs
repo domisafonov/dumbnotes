@@ -1,5 +1,3 @@
-use tokio::io;
-
 pub trait StrExt: AsRef<str> {
     fn nonblank_to_some(&self) -> Option<String> {
         Some(self.as_ref().trim())

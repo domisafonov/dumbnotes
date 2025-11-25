@@ -1,3 +1,4 @@
+use time::UtcDateTime;
 use dumbnotes::data::{Note, NoteInfo};
 use dumbnotes::username_string::UsernameString;
 
@@ -21,3 +22,9 @@ pub struct NoteListResponse {
 }
 
 pub struct NoteResponse(pub Note);
+
+pub struct NoteWriteRequest {
+    pub mtime: UtcDateTime,
+    pub name: Option<String>,
+    pub contents: String,
+}

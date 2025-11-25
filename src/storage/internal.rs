@@ -1,6 +1,7 @@
 use futures::future::join_all;
 use log::{debug, error, trace};
 use std::ffi::OsString;
+use std::io::ErrorKind;
 use std::ops::Add;
 use std::os::unix::prelude::*;
 use std::path::PathBuf;
@@ -63,7 +64,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         );
         let meta = io.metadata(&app_config.data_directory).await?;
         if !meta.is_dir {
-            return Err(StorageError::DoesNotExist);
+            return Err(StorageError::UserDirDoesNotExist);
         }
         validate_note_root_permissions(&io, &meta)?;
         Ok(NoteStorageImpl {
@@ -86,7 +87,11 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         );
         let file = self.io
             .open_file(path)
-            .await?;
+            .await
+            .map_err(|e| match e.kind() {
+                ErrorKind::NotFound => StorageError::NoteNotFound,
+                _ => StorageError::Io(e),
+            })?;
         if file.size > self.max_note_len {
             return Err(StorageError::TooBig);
         }
