@@ -20,7 +20,7 @@ notify = "8.2.0"
 notify-debouncer-full = "0.6.0"
 prost = "0.14.1"
 rand = { version = "0.9.2", features = ["thread_rng", "std_rng", "os_rng"] }
-rocket = { version = "0.5.1", default-features = false }
+rocket = { version = "0.5.1", features = ["uuid"], default-features = false }
 rpassword = "7.4.0"
 serde = { version = "1.0.225", features = ["derive"] }
 serde_json = "1.0.145"

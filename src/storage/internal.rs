@@ -14,12 +14,13 @@ use uuid::Uuid;
 use crate::config::app_config::AppConfig;
 use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
-use crate::util::{send_fut_workaround, StrExt};
+use crate::util::{send_fut_lifetime_workaround, StrExt};
 
 use crate::username_string::UsernameStr;
 use io_trait::Metadata;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
+use crate::storage::internal::io_trait::OpenFile;
 
 mod io_trait;
 #[cfg(test)] mod tests;
@@ -83,11 +84,14 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
             "reading note {note_id} for user \"{username}\" at \"{}\"",
             path.display(),
         );
-        let (file, file_size) = self.io.open_file(&path).await?;
-        if file_size > self.max_note_len {
-            return Err(StorageError::TooBigError);
+        let file = self.io
+            .open_file(path)
+            .await?;
+        if file.size > self.max_note_len {
+            return Err(StorageError::TooBig);
         }
-        let contents = read_limited_utf8_lossy(self.max_note_len, file).await?;
+        let contents = read_limited_utf8_lossy(self.max_note_len, file.file)
+            .await?;
         let (name, contents) = contents.split_once('\n')
             .unwrap_or((&contents, ""));
         trace!(
@@ -95,45 +99,50 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                 and contents \"{contents}\""
         );
         if name.len() > self.max_note_len as usize {
-            return Err(StorageError::TooBigError);
+            return Err(StorageError::TooBig);
         }
         Ok(
             Note {
-                id: note_id,
+                metadata: NoteMetadata {
+                    id: note_id,
+                    mtime: UtcDateTime::from_unix_timestamp(file.mtime)?,
+                },
                 name: name.nonblank_to_some(),
                 contents: contents.to_owned(),
             }
         )
     }
 
+    // TODO: write mtime
     pub async fn write_note(
         &self,
         username: &UsernameStr,
         note: &Note,
     ) -> Result<(), StorageError> {
-        let filename = self.get_note_path(username, note.id);
+        let filename = self.get_note_path(username, note.metadata.id);
         debug!(
             "writing note {} for user \"{username}\" to \"{}\"",
-            note.id,
+            note.metadata.id,
             filename.display(),
         );
-        let tmp_filename = self.get_note_tmp_path(username, note.id);
+        let tmp_filename = self
+            .get_note_tmp_path(username, note.metadata.id);
         trace!(
             "tmp filename for note {}: \"{}\"",
-            note.id,
+            note.metadata.id,
             tmp_filename.display(),
         );
         self.io.write_file(&tmp_filename, format_note(note)).await?;
         trace!(
             "renaming tmp file \"{}\" for note \"{}\"",
             tmp_filename.display(),
-            note.id,
+            note.metadata.id,
         );
         if let Err(e) = self.io.rename_file(&tmp_filename, &filename).await {
             error!(
                 "failed to rename tmp file \"{}\" for note {}: {e}",
                 tmp_filename.display(),
-                note.id,
+                note.metadata.id,
             );
             if let Err(e) = self.io.remove_file(&tmp_filename).await {
                 error!(
@@ -169,8 +178,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                         mtime: UtcDateTime
                             ::from_unix_timestamp(
                                 entry.metadata().await
-                                    .map(|nm| nm.mtime())
-                                    .unwrap_or(0)
+                                    .map(|nm| nm.mtime())?
                             )
                             .unwrap_or(UtcDateTime::MIN),
                     }
@@ -188,7 +196,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     ) -> Result<Vec<Option<NoteInfo>>, StorageError> {
         debug!("getting note details for user \"{username}\"");
         Ok(
-            send_fut_workaround(join_all(
+            send_fut_lifetime_workaround(join_all(
                 notes.into_iter()
                     .map(async |nm| {
                         trace!(
@@ -198,7 +206,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                         let file = self.io
                             .open_file(self.get_note_path(username, nm.id))
                             .await
-                            .map(|(file, _)| Some(file))
+                            .map(|OpenFile { file, .. }| Some(file))
                             .unwrap_or_else(|e| {
                                 error!(
                                     "failed to open note {} for user \"{username}\": {e}",
@@ -210,7 +218,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
                             "open note {} for user \"{username}\", reading",
                             nm.id,
                         );
-                        let buf = send_fut_workaround(read_limited_utf8_lossy(self.max_note_name_len, file))
+                        let buf = send_fut_lifetime_workaround(read_limited_utf8_lossy(self.max_note_name_len, file))
                             .await
                             .map(Some)
                             .unwrap_or_else(|e| {
@@ -293,14 +301,14 @@ pub fn validate_note_root_permissions(
     let uid = io.getuid();
     if meta.uid != uid
         || meta.mode & REQUIRED_UNIX_PERMISSIONS != REQUIRED_UNIX_PERMISSIONS {
-        return Err(StorageError::PermissionError)
+        return Err(StorageError::Permission)
     }
     Ok(())
 }
 
 async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin + Send>(
     limit: u64,
-    reader: R
+    reader: R,
 ) -> Result<String, io::Error> {
     // TODO: reimplement manually to log trimming and lossy conversions
     let mut buf = Vec::with_capacity(limit as usize);

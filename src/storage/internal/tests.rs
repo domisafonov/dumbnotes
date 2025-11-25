@@ -21,7 +21,7 @@ async fn create_storage_metadata_fail() {
     let io = TestStorageIo::new();
     let err = make_default_limits_storage("/meta_fail", io)
         .await.expect_err("should fail");
-    assert!(matches!(err, StorageError::IoError(_)), "wrong error type: {err:#?}");
+    assert!(matches!(err, StorageError::Io(_)), "wrong error type: {err:#?}");
 }
 
 #[tokio::test]
@@ -46,7 +46,7 @@ async fn create_storage_wrong_permissions() {
     let io = TestStorageIo::new();
     let err = make_default_limits_storage("/other_owner_dir", io)
         .await.expect_err("should fail");
-    assert!(matches!(err, StorageError::PermissionError), "wrong error type: {err:#?}");
+    assert!(matches!(err, StorageError::Permission), "wrong error type: {err:#?}");
 }
 
 #[tokio::test]
@@ -127,7 +127,7 @@ async fn read_note_successfully(id: Uuid) -> Note {
         &UsernameString::from_str("read_note").unwrap(),
         id,
     ).await.expect("note read failed");
-    assert_eq!(note.id, id);
+    assert_eq!(note.metadata.id, id);
     note
 }
 
@@ -140,7 +140,7 @@ async fn read_note_with_error(error_kind: io::ErrorKind, uuid: Uuid) {
         uuid,
     ).await.expect_err("should fail");
     match err {
-        StorageError::IoError(e) if e.kind() == error_kind => (),
+        StorageError::Io(e) if e.kind() == error_kind => (),
         e => panic!("wrong error type: {e:#?}"),
     }
 }
@@ -167,7 +167,10 @@ async fn write_note_normal_impl(title: Option<&str>, contents: &str) {
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
-            id: *WRITE_NOTE_NORMAL_UUID,
+            metadata: NoteMetadata {
+                id: *WRITE_NOTE_NORMAL_UUID,
+                mtime: UtcDateTime::from_unix_timestamp(0).unwrap(),
+            },
             name: title.map(|t| t.into()),
             contents: contents.into(),
         },
@@ -196,7 +199,10 @@ async fn write_note_write_empty_name_and_contents() {
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
-            id: *WRITE_NOTE_NORMAL_UUID,
+            metadata: NoteMetadata {
+                id: *WRITE_NOTE_NORMAL_UUID,
+                mtime: UtcDateTime::from_unix_timestamp(0).unwrap(),
+            },
             name: None,
             contents: "".into(),
         },
@@ -225,7 +231,10 @@ async fn write_note_write_error() {
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
-            id: *WRITE_NOTE_CANT_WRITE_UUID,
+            metadata: NoteMetadata {
+                id: *WRITE_NOTE_CANT_WRITE_UUID,
+                mtime: UtcDateTime::from_unix_timestamp(0).unwrap(),
+            },
             name: None,
             contents: "".into(),
         },
@@ -255,7 +264,10 @@ async fn write_note_rename_error_impl() {
     storage.write_note(
         &UsernameString::from_str("write_note").unwrap(),
         &Note {
-            id: *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID,
+            metadata: NoteMetadata {
+                id: *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID,
+                mtime: UtcDateTime::from_unix_timestamp(0).unwrap(),
+            },
             name: None,
             contents: "".into(),
         },

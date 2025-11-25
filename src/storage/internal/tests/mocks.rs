@@ -16,7 +16,7 @@ use tokio::io::{AsyncRead, ReadBuf};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::storage::internal::io_trait::{Metadata, NoteStorageIo};
+use crate::storage::internal::io_trait::{Metadata, NoteStorageIo, OpenFile};
 use crate::rng::make_uuid;
 use crate::rng::testing::SyncRng;
 use crate::storage::internal::tests::data::{DEFAULT_SPECS, RNG};
@@ -282,19 +282,29 @@ impl NoteStorageIo for TestStorageIo {
         }
     }
 
-    async fn open_file(
+    fn open_file(
         &self,
         path: impl AsRef<Path> + Send,
-    ) -> io::Result<(impl AsyncRead + Unpin, u64)> {
+    ) -> impl Future<Output=io::Result<OpenFile<impl AsyncRead + Unpin + Send + Sync>>> + Send { async move {
         match self.get_spec(path) {
             FileSpec::File { contents } => Ok(
-                (TestFile::new(contents), contents.len() as u64)
+                OpenFile {
+                    file: TestFile::new(contents),
+                    size: contents.len() as u64,
+                    mtime: 0,
+                }
             ),
             FileSpec::CantOpen => Err(io::Error::from(io::ErrorKind::Other)),
-            FileSpec::CantRead => Ok((TestFile::CantRead, 0)),
+            FileSpec::CantRead => Ok(
+                OpenFile {
+                    file: TestFile::CantRead,
+                    size: 0,
+                    mtime: 0,
+                }
+            ),
             _ => unreachable!()
         }
-    }
+    } }
 
     async fn write_file(
         &self,

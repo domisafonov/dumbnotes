@@ -28,3 +28,8 @@ message NoteInfo {
     NoteMetadata metadata = 1;
     optional string name = 2;
 }
+
+message NoteResponse {
+    NoteInfo info = 1;
+    string contents = 2;
+}

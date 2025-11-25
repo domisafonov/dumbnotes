@@ -1,5 +1,5 @@
 use thiserror::Error;
-
+use time::error::ComponentRange;
 use tokio::io::Error as IoError;
 
 #[derive(Debug, Error)]
@@ -8,11 +8,14 @@ pub enum StorageError {
     DoesNotExist,
 
     #[error(transparent)]
-    IoError(#[from] IoError),
+    Io(#[from] IoError),
 
     #[error("insufficient permissions to access storage")]
-    PermissionError,
+    Permission,
 
     #[error("file too large")]
-    TooBigError,
+    TooBig,
+    
+    #[error("cannot interpret timestamp")]
+    Timestamp(#[from] ComponentRange),
 }

@@ -10,13 +10,15 @@ use crate::app_constants::API_PREFIX;
 use crate::http::header::UnauthorizedResponse;
 use crate::http::status::{StatusExt, Unauthorized};
 use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
-use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse, NoteListResponse};
+use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse, NoteListResponse, NoteResponse};
 use dumbnotes::storage::NoteStorage;
 use futures::TryFutureExt;
 use log::{error, warn};
 use rocket::http::Status;
 use rocket::response::content::RawText;
 use rocket::{catch, catchers, get, post, routes, Build, Rocket, State};
+use uuid::Uuid;
+use dumbnotes::util::send_fut_lifetime_workaround;
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -94,7 +96,7 @@ async fn logout(
     }
 }
 
-#[get("/")]
+#[get("/notes")]
 async fn get_users_notes(
     authenticated: Authenticated,
     note_storage: &State<NoteStorage>,
@@ -127,12 +129,29 @@ async fn get_users_notes(
     }
 }
 
+#[get("/notes/<note_id>")]
+async fn get_note(
+    authenticated: Authenticated,
+    note_storage: &State<NoteStorage>,
+    note_id: Uuid,
+) -> Result<NoteResponse, Status> {
+    let result = send_fut_lifetime_workaround(note_storage
+        .read_note(&authenticated.0.username, note_id))
+        .await;
+    match result {
+        Ok(note) => Ok(NoteResponse(note)),
+        Err(e) => {
+            error!("error fetching note: {}", e);
+            Err(Status::InternalServerError)
+        }
+    }
+}
+
 #[catch(499)]
 fn catch_unauthorized_invalid_request() -> UnauthorizedResponse {
     assert_eq!(Status::UnauthorizedInvalidRequest.code, 499);
     Unauthorized::InvalidRequest.into()
 }
-
 
 #[catch(498)]
 fn catch_unauthorized_invalid_token() -> UnauthorizedResponse {
@@ -160,6 +179,7 @@ impl ApiRocketBuildExt for Rocket<Build> {
                     login,
                     logout,
                     get_users_notes,
+                    get_note,
                 ],
             )
             .register(

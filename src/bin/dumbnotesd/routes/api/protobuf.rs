@@ -1,6 +1,8 @@
 mod login;
 pub mod errors;
 mod users_notes;
+mod note;
+mod note_metadata;
 
 pub mod bindings {
     include!(concat!(env!("OUT_DIR"), "/dumbnotes.protobuf.rs"));

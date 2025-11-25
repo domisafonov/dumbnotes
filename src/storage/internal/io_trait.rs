@@ -6,16 +6,19 @@ use tokio::{fs, io};
 use uuid::Uuid;
 
 #[async_trait]
-pub trait NoteStorageIo: Send + Sync {
+pub trait NoteStorageIo: Send + Sync
+{
     async fn metadata(
         &self,
         path: impl AsRef<Path> + Send,
     ) -> io::Result<Metadata>;
 
-    async fn open_file(
+    // TODO: https://github.com/rust-lang/rust/issues/130113
+    //  when fixed, it would be a regular async fn
+    fn open_file(
         &self,
         path: impl AsRef<Path> + Send,
-    ) -> io::Result<(impl io::AsyncRead + Unpin + Send + Sync, u64)>;
+    ) -> impl Future<Output=io::Result<OpenFile<impl io::AsyncRead + Unpin + Send + Sync>>> + Send;
 
     async fn write_file(
         &self,
@@ -51,6 +54,12 @@ pub struct Metadata {
     pub mode: u32,
 }
 
+pub struct OpenFile<F: io::AsyncRead + Unpin + Send + Sync> {
+    pub file: F,
+    pub size: u64,
+    pub mtime: i64,
+}
+
 pub struct ProductionNoteStorageIo;
 
 impl ProductionNoteStorageIo {
@@ -73,14 +82,20 @@ impl NoteStorageIo for ProductionNoteStorageIo {
         })
     }
 
-    async fn open_file(
+    fn open_file(
         &self,
         path: impl AsRef<Path> + Send,
-    ) -> io::Result<(impl io::AsyncRead + Unpin, u64)> {
+    ) -> impl Future<Output=io::Result<OpenFile<impl io::AsyncRead + Unpin + Send + Sync>>> + Send { async move {
         let file = fs::File::open(path).await?;
         let metadata = file.metadata().await?;
-        Ok((file, metadata.len()))
-    }
+        Ok(
+            OpenFile {
+                file,
+                size: metadata.len(),
+                mtime: metadata.mtime(),
+            }
+        )
+    } }
 
     async fn write_file(
         &self,

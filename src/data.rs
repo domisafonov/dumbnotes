@@ -13,9 +13,10 @@ pub struct NoteInfo {
     pub name: Option<String>,
 }
 
+// TODO: data is always validated for MAX_NOTE_LEN
 #[derive(Clone, Debug)]
-pub struct Note { // always prevalidated for Unicode and MAX_NOTE_LEN
-    pub id: Uuid,
+pub struct Note { 
+    pub metadata: NoteMetadata,
     pub name: Option<String>,
     pub contents: String,
 }
