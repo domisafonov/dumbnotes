@@ -21,6 +21,7 @@ use crate::username_string::UsernameStr;
 use io_trait::Metadata;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
+use crate::lib_constants::NOTES_DIRECTORY_PATH;
 use crate::storage::internal::io_trait::OpenFile;
 
 mod io_trait;
@@ -265,7 +266,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     }
 
     fn get_user_dir(&self, username: &UsernameStr) -> PathBuf {
-        self.basedir.join(username as &str)
+        self.basedir.join(NOTES_DIRECTORY_PATH).join(username as &str)
     }
 
     fn get_note_path(&self, username: &UsernameStr, uuid: Uuid) -> PathBuf {

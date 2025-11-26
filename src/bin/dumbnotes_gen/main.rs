@@ -3,15 +3,15 @@ use clap::Parser;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
-use dumbnotes::hmac_key_generator::make_hmac_key;
+use jwt_key_generator::make_jwt_key;
 use figment::Figment;
-use rand::rngs::OsRng;
 use rpassword::prompt_password;
 use std::process::exit;
 use log::{error, info, warn};
 
 mod cli;
 mod config;
+pub mod jwt_key_generator;
 
 fn main() {
     env_logger::init();
@@ -37,8 +37,8 @@ fn main() {
             exit(1)
         });
     
-    if cli_config.generate_hmac_key {
-        generate_hmac_key(app_config)
+    if cli_config.generate_jwt_key {
+        generate_jwt_key(app_config)
     } else {
         generate_hash(cli_config, app_config)
     }
@@ -93,12 +93,12 @@ fn generate_hash(
     println!("{}", hash);
 }
 
-fn generate_hmac_key(
+fn generate_jwt_key(
     app_config: AppConfig,
 ) {
-    make_hmac_key(&app_config, &mut OsRng)
+    make_jwt_key(&app_config.jwt_private_key, &app_config.jwt_public_key)
         .unwrap_or_else(|e| {
-            error!("could not generate a hmac key: {e}");
+            error!("could not generate a jwt key: {e}");
             exit(1);
         });
 }

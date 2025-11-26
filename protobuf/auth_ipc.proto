@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package dumbnotes.auth_ipc.protobuf;
+
+message Command {
+    uint64 command_id = 1;
+    oneof command {
+        LoginRequest login = 2;
+        RefreshTokenRequest refresh_token = 3;
+        LogoutRequest logout = 4;
+    }
+}
+
+message Response {
+    uint64 command_id = 1;
+    oneof response {
+        LoginResponse login = 2;
+        RefreshTokenResponse refresh_token = 3;
+        LogoutResponse logout = 4;
+    }
+}
+
+message LoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    oneof response {
+        SuccessfulLogin successful_login = 1;
+        LoginError login_error = 2;
+    }
+}
+
+message RefreshTokenRequest {
+    bytes session_id = 1;
+    string username = 2;
+    int64 not_before = 3;
+    int64 expires_at = 4;
+}
+
+message RefreshTokenResponse {
+    oneof result {
+        SuccessfulLogin successful_login = 1;
+        LoginError login_error = 2;
+    }
+}
+
+message LogoutRequest {
+    bytes session_id = 1;
+}
+
+message LogoutResponse {
+    optional LogoutError error = 1;
+}
+
+message SuccessfulLogin {
+    string access_token = 1;
+    bytes refresh_token = 2;
+}
+
+enum LoginError {
+    LOGIN_INVALID_CREDENTIALS = 0;
+    LOGIN_INTERNAL_ERROR = 1;
+}
+
+enum LogoutError {
+    LOGOUT_INTERNAL_ERROR = 0;
+}

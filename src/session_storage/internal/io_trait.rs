@@ -1,8 +1,5 @@
-use crate::app_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
-use crate::session_storage::internal::data::SessionsData;
-use crate::session_storage::SessionStorageError;
 use async_trait::async_trait;
-use dumbnotes::rng::make_uuid;
+use crate::rng::make_uuid;
 use rand::RngCore;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -12,9 +9,12 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use crate::lib_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
+use crate::session_storage::internal::data::SessionsData;
+use crate::session_storage::SessionStorageError;
 
 #[async_trait]
-pub(super) trait SessionStorageIo: Send + Sync + 'static {
+pub trait SessionStorageIo: Send + Sync + 'static {
     async fn read_session_file(
         &self,
     ) -> Result<SessionsData, SessionStorageError>;
@@ -141,6 +141,7 @@ impl SessionStorageIo for ProductionSessionStorageIo {
         db_file.file.write_all(
             serialized.as_bytes(),
         ).await?;
+        db_file.file.flush().await?;
         debug!(
             "finished writing session storage data at \"{}\"",
             self.session_file_path.display(),

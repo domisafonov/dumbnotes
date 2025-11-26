@@ -1,6 +1,6 @@
 use std::io::Error as IoError;
 use thiserror::Error;
-use crate::file_watcher::FileWatcherError;
+use dumbnotes::file_watcher::FileWatcherError;
 
 #[derive(Debug, Error)]
 pub enum UserDbError {

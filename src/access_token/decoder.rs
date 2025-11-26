@@ -1,25 +1,26 @@
-use std::str::FromStr;
-use josekit::jwt;
+use crate::access_token::data::{AccessTokenData, SESSION_ID_CLAIM_NAME};
+use crate::username_string::UsernameString;
+use errors::AccessTokenDecoderError;
 use josekit::jwk::Jwk;
-use josekit::jws::alg::hmac::{HmacJwsAlgorithm, HmacJwsVerifier};
+use josekit::jwt;
 use log::info;
+use std::str::FromStr;
+use josekit::jws::alg::eddsa::EddsaJwsVerifier;
+use josekit::jws::EdDSA;
 use time::OffsetDateTime;
 use uuid::Uuid;
-use dumbnotes::username_string::UsernameString;
-use errors::AccessTokenDecoderError;
-use crate::access_token::data::{AccessTokenData, SESSION_ID_CLAIM_NAME};
 
-pub(super) mod errors;
+pub mod errors;
 
 pub struct AccessTokenDecoder {
-    verifier: HmacJwsVerifier,
+    verifier: EddsaJwsVerifier,
 }
 
 impl AccessTokenDecoder {
     pub fn from_jwk(jwk: &Jwk) -> Result<Self, AccessTokenDecoderError> {
         Ok(
             AccessTokenDecoder {
-                verifier: HmacJwsAlgorithm::Hs512.verifier_from_jwk(jwk)?,
+                verifier: EdDSA.verifier_from_jwk(jwk)?,
             }
         )
     }

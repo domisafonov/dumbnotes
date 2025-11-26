@@ -1,4 +1,4 @@
-use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
+use dumbnotes::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
 use crate::user_db::internal::data::UsersData;
 use crate::user_db::internal::user::User;
 use crate::user_db::UserDbError;

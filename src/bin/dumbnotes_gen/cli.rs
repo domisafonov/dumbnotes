@@ -12,5 +12,5 @@ pub struct CliConfig {
     pub no_repeat: bool,
     
     #[arg(long, default_value_t = false)]
-    pub generate_hmac_key: bool,
+    pub generate_jwt_key: bool,
 }

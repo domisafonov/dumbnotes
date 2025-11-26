@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package dumbnotes.protobuf;
+package dumbnotes.api.protobuf;
 
 message LoginRequest {
     string username = 1;

@@ -1,5 +1,5 @@
-use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator};
-use crate::session_storage::SessionStorage;
+use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenGenerator};
+use dumbnotes::session_storage::SessionStorage;
 use crate::user_db::UserDb;
 use dumbnotes::username_string::UsernameStr;
 use std::time::SystemTime;
@@ -83,7 +83,12 @@ impl AccessGranter {
                 )
                 .await?;
             let access_token = self.access_token_generator
-                .generate_token(&session, now.into())?;
+                .generate_token(
+                    session.session_id,
+                    &session.username,
+                    &now.into(),
+                    &session.expires_at.into(),
+                )?;
             info!(
                 "logged user \"{username}\" in with session \"{}\"",
                 session.session_id,
@@ -130,7 +135,12 @@ impl AccessGranter {
             session.session_id,
         );
         let access_token = self.access_token_generator
-            .generate_token(&session, now.into())?;
+            .generate_token(
+                session.session_id,
+                &session.username,
+                &now.into(),
+                &session.expires_at.into(),
+            )?;
         Ok(
             LoginResult {
                 refresh_token: session.refresh_token,

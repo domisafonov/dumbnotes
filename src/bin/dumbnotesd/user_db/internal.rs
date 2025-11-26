@@ -5,7 +5,7 @@ use log::trace;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::hasher::{Hasher, ProductionHasher};
 use dumbnotes::username_string::UsernameStr;
-use crate::file_watcher::ProductionFileWatcher;
+use dumbnotes::file_watcher::ProductionFileWatcher;
 
 mod io_trait;
 #[cfg(test)] mod tests;

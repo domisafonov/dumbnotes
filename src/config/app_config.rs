@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
-use crate::bin_constants::{DEFAULT_DATA_DIR, DEFAULT_HMAC_KEY, DEFAULT_USER_DB};
+use crate::bin_constants::{DEFAULT_DATA_DIR, DEFAULT_JWT_PRIVATE_KEY, DEFAULT_JWT_PUBLIC_KEY, DEFAULT_USER_DB};
 use crate::config::hasher_config::ProductionHasherConfigData;
 use crate::lib_constants::{DEFAULT_MAX_NOTE_LEN, DEFAULT_MAX_NOTE_NAME_LEN};
 
@@ -12,8 +12,11 @@ pub struct AppConfig {
     #[serde(default = "app_config_default_user_db")]
     pub user_db: PathBuf,
 
-    #[serde(default = "app_config_default_hmac_key")]
-    pub hmac_key: PathBuf,
+    #[serde(default = "app_config_default_jwt_private_key")]
+    pub jwt_private_key: PathBuf,
+
+    #[serde(default = "app_config_default_jwt_public_key")]
+    pub jwt_public_key: PathBuf,
 
     #[serde(default = "app_config_default_max_note_size")]
     pub max_note_size: u64,
@@ -33,8 +36,12 @@ pub fn app_config_default_user_db() -> PathBuf {
     DEFAULT_USER_DB.into()
 }
 
-pub fn app_config_default_hmac_key() -> PathBuf {
-    DEFAULT_HMAC_KEY.into()
+pub fn app_config_default_jwt_private_key() -> PathBuf {
+    DEFAULT_JWT_PRIVATE_KEY.into()
+}
+
+pub fn app_config_default_jwt_public_key() -> PathBuf {
+    DEFAULT_JWT_PUBLIC_KEY.into()
 }
 
 pub fn app_config_default_max_note_size() -> u64 {
@@ -50,7 +57,8 @@ impl Default for AppConfig {
         AppConfig {
             data_directory: DEFAULT_DATA_DIR.into(),
             user_db: DEFAULT_USER_DB.into(),
-            hmac_key: DEFAULT_HMAC_KEY.into(),
+            jwt_private_key: DEFAULT_JWT_PRIVATE_KEY.into(),
+            jwt_public_key: DEFAULT_JWT_PUBLIC_KEY.into(),
             max_note_size: DEFAULT_MAX_NOTE_LEN,
             max_note_name_size: DEFAULT_MAX_NOTE_NAME_LEN,
             hasher_config: ProductionHasherConfigData::default(),

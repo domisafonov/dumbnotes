@@ -1,5 +1,7 @@
+use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
-use crate::bin_constants::{DEFAULT_ARGON2_M_COST, DEFAULT_ARGON2_OUTPUT_LEN, DEFAULT_ARGON2_P_COST, DEFAULT_ARGON2_T_COST};
+use crate::bin_constants::DEFAULT_PEPPER_PATH;
+use crate::lib_constants::{DEFAULT_ARGON2_M_COST, DEFAULT_ARGON2_OUTPUT_LEN, DEFAULT_ARGON2_P_COST, DEFAULT_ARGON2_T_COST};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProductionHasherConfigData {
@@ -14,6 +16,10 @@ pub struct ProductionHasherConfigData {
 
     #[serde(default = "production_hasher_config_default_argon2_output_len")]
     pub argon2_output_len: Option<usize>,
+
+    // TODO: actually use
+    #[serde(default = "production_hasher_config_default_pepper_path")]
+    pub pepper_path: PathBuf,
 }
 
 pub fn production_hasher_config_default_argon2_m_cost() -> u32 {
@@ -30,6 +36,10 @@ pub fn production_hasher_config_default_argon2_p_cost() -> u32 {
 
 pub fn production_hasher_config_default_argon2_output_len() -> Option<usize> {
     DEFAULT_ARGON2_OUTPUT_LEN
+}
+
+pub fn production_hasher_config_default_pepper_path() -> PathBuf {
+    DEFAULT_PEPPER_PATH.into()
 }
 
 impl TryFrom<ProductionHasherConfigData> for argon2::Params {
@@ -51,6 +61,7 @@ impl Default for ProductionHasherConfigData {
             argon2_t_cost: DEFAULT_ARGON2_T_COST,
             argon2_p_cost: DEFAULT_ARGON2_P_COST,
             argon2_output_len: DEFAULT_ARGON2_OUTPUT_LEN,
+            pepper_path: DEFAULT_PEPPER_PATH.into(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use thiserror::Error;
-use crate::access_token::AccessTokenGeneratorError;
-use crate::session_storage::SessionStorageError;
+use dumbnotes::access_token::AccessTokenGeneratorError;
+use dumbnotes::session_storage::SessionStorageError;
 use crate::user_db::UserDbError;
 
 #[derive(Debug, Error)]

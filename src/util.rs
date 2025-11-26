@@ -14,3 +14,12 @@ pub fn send_fut_lifetime_workaround<F: Future + Send>(
 ) -> impl Future<Output=F::Output> + Send {
     fut
 }
+
+#[macro_export]
+#[clippy::format_args]
+macro_rules! error_exit {
+    ($($args:tt)*) => ({
+        log::error!($($args)*);
+        std::process::exit(1)
+    });
+}

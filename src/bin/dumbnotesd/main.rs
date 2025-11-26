@@ -1,32 +1,37 @@
 mod cli;
 pub mod app_constants;
-mod session_storage;
 pub mod user_db;
 mod routes;
-mod access_token;
 pub mod access_granter;
 pub mod http;
-pub mod file_watcher;
 
 use crate::access_granter::AccessGranter;
-use crate::access_token::{AccessTokenDecoder, AccessTokenGenerator};
 use crate::cli::CliConfig;
-use crate::file_watcher::ProductionFileWatcher;
+use dumbnotes::file_watcher::ProductionFileWatcher;
 use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
-use crate::session_storage::ProductionSessionStorage;
+use dumbnotes::session_storage::ProductionSessionStorage;
 use crate::user_db::{ProductionUserDb, UserDb};
+use boolean_enums::gen_boolean_enum;
 use clap::{crate_name, Parser};
+use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenGenerator};
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
+use dumbnotes::logging::init_logging;
 use dumbnotes::storage::NoteStorage;
 use figment::Figment;
 use josekit::jwk::Jwk;
+use log::{error, info};
 use rocket::{launch, Build, Rocket};
 use std::error::Error;
+use std::ffi::OsString;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd};
+use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
 use std::process::exit;
-use log::{error, info};
+use socket2::{Domain, Socket, Type};
+use tokio::net::UnixStream;
+use dumbnotes::error_exit;
 
 #[launch]
 async fn rocket() -> Rocket<Build> {
@@ -37,11 +42,10 @@ async fn rocket() -> Rocket<Build> {
     let cli_config = CliConfig::parse();
 
     if !cli_config.config_file.exists() {
-        error!(
+        error_exit!(
             "configuration file at {} does not exist",
             cli_config.config_file.display()
-        );
-        exit(1)
+        )
     }
 
     let figment = Figment::from(rocket::Config::default())
@@ -55,26 +59,80 @@ async fn rocket() -> Rocket<Build> {
             exit(1)
         });
 
-    let storage: NoteStorage = NoteStorage::new(&config)
-        .await
-        .unwrap_or_else(|e| {
-            error!("note storage initialization failed: {e}");
-            exit(1)
-        });
-
     let hasher_config = config.hasher_config.clone().try_into().unwrap_or_else(|e| {
-        error!("hasher config read failed: {e}");
-        exit(1)
+        error_exit!("hasher config read failed: {e}")
     });
     let hasher = ProductionHasher::new(
         ProductionHasherConfig::new(hasher_config),
     );
 
+    // TODO: WIP, rewrite properly
+    let (socket_to_auth, auth_childs_socket) = Socket
+        ::pair_raw(Domain::UNIX, Type::STREAM, None)
+        .and_then(|(socket_to_auth, auth_childs_socket)| {
+            socket_to_auth.set_nonblocking(true)?;
+            socket_to_auth.set_cloexec(true)?;
+            auth_childs_socket.set_nonblocking(true)?;
+
+            #[cfg(target_os = "macos")] {
+                socket_to_auth.set_nosigpipe(true)?;
+                auth_childs_socket.set_nosigpipe(true)?;
+            }
+
+            let socket_to_auth = UnixStream::from_std(
+                unsafe { StdUnixStream::from_raw_fd(socket_to_auth.into_raw_fd()) }
+            );
+            Ok((socket_to_auth, auth_childs_socket))
+        })
+        .unwrap_or_else(|e|
+            error_exit!(
+                "failed to create sockets for auth daemon communication: {}",
+                e,
+            )
+        );
+    let mut command = tokio::process::Command::new("dumbnotesd_auth");
+    command
+        .arg(format!("--socket-fd={}", auth_childs_socket.as_raw_fd()))
+        .arg({
+            let mut str = OsString::from("--private-key-file=");
+            str.push(config.jwt_private_key.as_os_str());
+            str
+        })
+        .arg({
+            let mut str = OsString::from("--data-directory=");
+            str.push(&config.data_directory);
+            str
+        })
+        .arg(
+            format!(
+                "--hasher-config={}",
+                serde_json::to_string(&config.hasher_config)
+                    .unwrap_or_else(|e| error_exit!("cannot serialize hasher config: {e}")),
+            )
+        );
+    let mut auth_child = command
+        .spawn()
+        .unwrap_or_else(|e|
+            error_exit!("failed to spawn dumbnotesd_auth process: {}", e)
+        );
+    drop(auth_childs_socket);
+    tokio::spawn(async move {
+        let status = auth_child.wait().await
+            .unwrap_or_else(|e|
+                error_exit!("waiting for dumbnotesd_auth failed: {}", e)
+            );
+        info!("dumbnotesd_auth child finished with {status}");
+    });
+
+    let storage: NoteStorage = NoteStorage::new(&config)
+        .await
+        .unwrap_or_else(|e|
+            error_exit!("note storage initialization failed: {e}")
+        );
+
+
     let watcher = ProductionFileWatcher::new()
-        .unwrap_or_else(|e| {
-            error!("failed to create file watcher: {e}");
-            exit(1)
-        });
+        .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
 
     let user_db: Box<dyn UserDb> = Box::new(
         ProductionUserDb::new(
@@ -82,40 +140,39 @@ async fn rocket() -> Rocket<Build> {
             hasher,
             watcher.clone(),
         ).await
-            .unwrap_or_else(|e| {
-                error!("could not initialize the user DB: {e}");
-                exit(1)
-            })
+            .unwrap_or_else(|e|
+                error_exit!("could not initialize the user DB: {e}")
+            )
     );
 
     let session_storage = Box::new(
         ProductionSessionStorage
             ::new(
-                &config,
+                &config.data_directory,
                 watcher,
             )
             .await
-            .unwrap_or_else(|e| {
-                error!("could not initialize the session DB: {e}");
-                exit(1)
-            })
+            .unwrap_or_else(|e|
+                error_exit!("could not initialize the session DB: {e}")
+            )
     );
 
-    let hmac_key = read_hmac_key(&config.hmac_key)
-        .unwrap_or_else(|e| {
-            error!("failed reading the hmac key: {e}");
-            exit(1)
-        });
-    let access_token_generator = AccessTokenGenerator::from_jwk(&hmac_key)
-        .unwrap_or_else(|e| {
-            error!("could not initialize access token generator: {e}");
-            exit(1)
-        });
-    let access_token_decoder = AccessTokenDecoder::from_jwk(&hmac_key)
-        .unwrap_or_else(|e| {
-            error!("could not initialize access token decoder: {e}");
-            exit(1)
-        });
+    let jwt_private_key = read_jwt_key(&config.jwt_private_key, IsPrivate::Yes)
+        .unwrap_or_else(|e|
+            error_exit!("failed reading the private jwt key: {e}")
+        );
+    let jwt_public_key = read_jwt_key(&config.jwt_public_key, IsPrivate::No)
+        .unwrap_or_else(|e|
+            error_exit!("failed reading the public jwt key: {e}")
+        );
+    let access_token_generator = AccessTokenGenerator::from_jwk(&jwt_private_key)
+        .unwrap_or_else(|e|
+            error_exit!("could not initialize access token generator: {e}")
+        );
+    let access_token_decoder = AccessTokenDecoder::from_jwk(&jwt_public_key)
+        .unwrap_or_else(|e|
+            error_exit!("could not initialize access token decoder: {e}")
+        );
 
     let access_granter = AccessGranter::new(
         session_storage,
@@ -132,53 +189,34 @@ async fn rocket() -> Rocket<Build> {
         .install_dumbnotes_web()
 }
 
-fn read_hmac_key(path: &Path) -> Result<Jwk, Box<dyn Error>> {
-    test_permissions(
-        path,
-        |p| p == 0o600 || p == 0o400,
-        &format!(
-            "{} must be owned by root and have mode of 600 or 400",
-            path.to_string_lossy(),
-        )
-    )?;
-    test_permissions(
-        path.parent().expect("path has no parent"),
-        |p| p & 0o022 == 0,
-        &format!(
-            "{} must be owned by root and not be writeable by group or other",
-            path.to_string_lossy(),
-        ),
-    )?;
+gen_boolean_enum!(IsPrivate);
+fn read_jwt_key(
+    path: &Path,
+    is_private: IsPrivate,
+) -> Result<Jwk, Box<dyn Error>> {
+    if is_private.into() {
+        test_permissions(
+            path,
+            |p| p == 0o600 || p == 0o400,
+            &format!(
+                "{} must be owned by root and have mode of 600 or 400",
+                path.to_string_lossy(),
+            )
+        )?;
+        test_permissions(
+            path.parent().expect("path has no parent"),
+            |p| p & 0o022 == 0,
+            &format!(
+                "{} must be owned by root and not be writeable by group or other",
+                path.to_string_lossy(),
+            ),
+        )?;
+    }
     Ok(
         Jwk::from_bytes(
             std::fs::read(path)?
         )?
     )
-}
-
-#[cfg(debug_assertions)]
-fn init_logging() {
-    env_logger::init()
-}
-
-#[cfg(not(debug_assertions))]
-fn init_logging() {
-    use syslog::BasicLogger;
-
-    log
-    ::set_boxed_logger(
-        Box::new(
-            BasicLogger::new(
-                syslog::unix(
-                    // for some reason, only 3164 has log crate
-                    // integration at the moment
-                    syslog::Formatter3164::default(),
-                ).expect("syslog initialization failed")
-            )
-        )
-    )
-        .map(|()| log::set_max_level(log::STATIC_MAX_LEVEL))
-        .expect("syslog initialization failed");
 }
 
 #[cfg(not(debug_assertions))]
@@ -192,8 +230,7 @@ fn test_permissions(
     let metadata = std::fs::metadata(path)?;
     let permissions = metadata.permissions().mode() & 0o777;
     if metadata.uid() != 0 || !is_valid(permissions) {
-        error!("{message}");
-        exit(1)
+        error_exit!("{message}")
     }
     Ok(())
 }
