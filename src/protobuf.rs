@@ -1,7 +1,23 @@
-use crate::routes::api::protobuf::errors::MappingError;
-use prost::DecodeError;
 use thiserror::Error;
-use dumbnotes::username_string::UsernameParseError;
+use prost::DecodeError;
+use crate::username_string::UsernameParseError;
+
+#[derive(Debug, Error)]
+pub enum MappingError {
+    #[error("missing field: {name}")]
+    MissingField {
+        name: &'static str,
+    },
+
+    #[error("invalid username: {0}")]
+    UsernameParse(#[from] UsernameParseError),
+}
+
+impl MappingError {
+    pub fn missing(name: &'static str) -> Self {
+        MappingError::MissingField { name }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ProtobufRequestError {
@@ -16,10 +32,10 @@ pub enum ProtobufRequestError {
 
     #[error("request too large")]
     RequestTooLarge,
-    
+
     #[error("incorrect uuid")]
     IncorrectUuid(#[from] uuid::Error),
-    
+
     #[error("incorrect timestamp")]
     IncorrectTimestamp(#[from] time::error::ComponentRange),
 }
@@ -30,7 +46,7 @@ impl From<UsernameParseError> for ProtobufRequestError {
     }
 }
 
-pub(super) trait OptionExt<T> {
+pub trait OptionExt<T> {
     fn ok_or_mapping_error(self, e: MappingError) -> Result<T, ProtobufRequestError>;
 }
 

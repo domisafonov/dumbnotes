@@ -1,9 +1,6 @@
-use dumbnotes::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
-use crate::user_db::internal::data::UsersData;
-use crate::user_db::internal::user::User;
-use crate::user_db::UserDbError;
+use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
 use async_trait::async_trait;
-use dumbnotes::username_string::UsernameStr;
+use crate::username_string::UsernameStr;
 use futures::StreamExt;
 use log::{debug, error, info, trace};
 use std::collections::HashMap;
@@ -12,6 +9,9 @@ use std::pin::pin;
 use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::{Notify, RwLock, RwLockWriteGuard};
+use crate::user_db::internal::data::UsersData;
+use crate::user_db::internal::user::User;
+use crate::user_db::UserDbError;
 
 #[async_trait]
 pub trait UserDbIo: Send + Sync {

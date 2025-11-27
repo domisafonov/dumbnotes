@@ -1,3 +1,5 @@
+use time::Duration;
+
 pub const DEFAULT_CONFIG_FILE: &str = "/etc/dumbnotes/dumbnotes.toml";
 pub const DEFAULT_USER_DB: &str = "/etc/dumbnotes/users.toml";
 pub const DEFAULT_DATA_DIR: &str = "/var/dumbnotes";
@@ -7,3 +9,5 @@ pub const DEFAULT_PEPPER_PATH: &str = "/etc/dumbnotes/private/pepper.json";
 pub const APP_CONFIG_ENV_PREFIX: &str = "DUMBNOTES_";
 
 pub const IPC_MESSAGE_MAX_SIZE: usize = 1024 * 16;
+
+pub const ACCESS_TOKEN_VALIDITY_TIME: Duration = Duration::minutes(15);

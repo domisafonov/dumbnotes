@@ -1,5 +1,8 @@
 mod cli;
 mod protobuf;
+mod model;
+mod eventloop;
+mod processors;
 
 use crate::cli::CliConfig;
 use async_stream::stream;
@@ -9,24 +12,23 @@ use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use dumbnotes::error_exit;
 use dumbnotes::file_watcher::ProductionFileWatcher;
-use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
+use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::logging::init_logging;
 use dumbnotes::session_storage::ProductionSessionStorage;
-use futures::{pin_mut, Stream};
+use dumbnotes::user_db::ProductionUserDb;
+use futures::Stream;
 use josekit::jwk::Jwk;
-use log::{error, info};
+use log::info;
 use prost::Message;
-use scc::HashSet;
 use socket2::Socket;
 use std::error::Error;
+use std::io;
 use std::os::fd::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
-use std::sync::Arc;
-use tokio::io::{AsyncReadExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
-use tokio_stream::StreamExt;
 
 #[tokio::main]
 async fn main() {
@@ -37,68 +39,32 @@ async fn main() {
     let config = CliConfig::parse();
 
     let (read_socket, write_socket) = make_sockets(&config);
-
     let watcher = ProductionFileWatcher::new()
         .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
-    let session_storage = Box::new(
-        ProductionSessionStorage
-            ::new(
-                &config.data_directory,
-                watcher,
-            )
-            .await
-            .unwrap_or_else(|e|
-                error_exit!("could not initialize the session DB: {e}")
-            )
-    );
+    let hasher = make_hasher(&config);
 
     let result = tokio::spawn(
-        process_commands(
-            make_hasher(&config),
+        eventloop::process_commands(
             make_token_generator(&config),
+            make_user_db(
+                &config,
+                hasher,
+                watcher.clone(),
+            ).await,
+            make_session_storage(
+                &config,
+                watcher,
+            ).await,
             make_command_stream(read_socket),
             write_socket,
         )
     ).await;
+
     if let Err(e) = result {
         error_exit!("event loop finished with error: {e}")
     }
 
     info!("{} terminating normally", crate_name!());
-}
-
-async fn process_commands(
-    hasher: impl Hasher,
-    token_generator: AccessTokenGenerator,
-    commands: impl Stream<Item=protobuf::Command>,
-    write_socket: Arc<OwnedWriteHalf>,
-) {
-    info!("{} listening to commands", crate_name!());
-
-    let mut active_request_ids = HashSet::<u64>::new();
-
-    pin_mut!(commands);
-    while let Some(command) = commands.next().await {
-        if active_request_ids.insert_sync(command.command_id).is_err() {
-            error!("duplicate command id: {}", command.command_id);
-            continue
-        }
-        let command = match command.command {
-            Some(command) => command,
-            None => {
-                error!("empty command with id {}", command.command_id);
-                active_request_ids.remove_sync(&command.command_id);
-                continue
-            },
-        };
-
-        use protobuf::command::Command as CE;
-        match command {
-            CE::Login(request) => todo!(),
-            CE::RefreshToken(request) => todo!(),
-            CE::Logout(request) => todo!(),
-        }
-    }
 }
 
 fn make_command_stream(
@@ -107,22 +73,33 @@ fn make_command_stream(
     let mut socket = BufReader::new(socket);
     let mut buffer = [0; IPC_MESSAGE_MAX_SIZE];
     stream! {
-        let message_size = socket.read_u64().await.unwrap_or_else(|e| error_exit!("aaaaa"));
-        let message_size = usize::try_from(message_size).unwrap_or_else(|e| error_exit!("aaaaaaa"));
+        let message_size = socket.read_u64().await
+            .unwrap_or_else(|e|
+                error_exit!("failed to read message size: {e}")
+            );
+        let message_size = usize::try_from(message_size)
+            .unwrap_or_else(|e|
+                error_exit!("read incorrect message size: {e}")
+            );
         if message_size > IPC_MESSAGE_MAX_SIZE {
             error_exit!("message too big: {message_size}")
         }
         let buffer = &mut buffer[..message_size];
-        socket.read_exact(buffer).await.unwrap_or_else(|e| error_exit!("aaaaa"));
-        let command = protobuf::Command::decode(buffer.as_ref()).unwrap_or_else(|e| error_exit!("aaaaa"));
-        // TODO
+        socket.read_exact(buffer).await
+            .unwrap_or_else(|e|
+                error_exit!("error reading command: {e}")
+            );
+        let command = protobuf::Command::decode(buffer.as_ref())
+            .unwrap_or_else(|e|
+                error_exit!("error decoding command: {e}")
+            );
         yield command
     }
 }
 
 fn make_hasher(
     config: &CliConfig,
-) -> impl Hasher + 'static {
+) -> ProductionHasher {
     let hasher_config: ProductionHasherConfigData = serde_json
     ::from_str(&config.hasher_config)
         .unwrap_or_else(|e|
@@ -138,18 +115,19 @@ fn make_hasher(
 
 fn make_sockets(
     config: &CliConfig,
-) -> (OwnedReadHalf, Arc<OwnedWriteHalf>) {
-    let command_socket = unsafe { Socket::from_raw_fd(config.socket_fd) };
-    command_socket.set_cloexec(true)
-        .unwrap_or_else(|e| error_exit!("failed command socket setup: {}", e));
-    let command_socket = UnixStream
-    ::from_std(
-        unsafe { StdUnixStream::from_raw_fd(command_socket.into_raw_fd()) },
-    )
-        .unwrap_or_else(|e| error_exit!("failed command socket setup: {}", e));
-    let (read_socket, write_socket) = command_socket.into_split();
-    let write_socket = Arc::new(write_socket);
-    (read_socket, write_socket)
+) -> (OwnedReadHalf, OwnedWriteHalf) {
+    fn make(config: &CliConfig) -> Result<(OwnedReadHalf, OwnedWriteHalf), io::Error> {
+        let command_socket = unsafe { Socket::from_raw_fd(config.socket_fd) };
+        command_socket.set_cloexec(true)?;
+        let command_socket = UnixStream::from_std(
+            unsafe { StdUnixStream::from_raw_fd(command_socket.into_raw_fd()) },
+        )?;
+        Ok(command_socket.into_split())
+    }
+    make(config)
+        .unwrap_or_else(|e|
+            error_exit!("failed control socket setup: {}", e)
+        )
 }
 
 fn make_token_generator(
@@ -214,4 +192,36 @@ fn test_permissions(
     _message: &str,
 ) -> Result<(), Box<dyn Error>> {
     Ok(())
+}
+
+async fn make_user_db(
+    config: &CliConfig,
+    hasher: ProductionHasher,
+    watcher: ProductionFileWatcher,
+) -> ProductionUserDb {
+    ProductionUserDb
+    ::new(
+        &config.user_db_directory,
+        hasher,
+        watcher.clone(),
+    )
+        .await
+        .unwrap_or_else(|e|
+            error_exit!("could not initialize the user DB: {e}")
+        )
+}
+
+async fn make_session_storage(
+    config: &CliConfig,
+    watcher: ProductionFileWatcher,
+) -> ProductionSessionStorage {
+    ProductionSessionStorage
+    ::new(
+        &config.data_directory,
+        watcher,
+    )
+        .await
+        .unwrap_or_else(|e|
+            error_exit!("could not initialize the session DB: {e}")
+        )
 }

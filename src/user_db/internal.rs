@@ -1,11 +1,12 @@
-use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
-use crate::user_db::UserDbError;
+use std::path::Path;
 use async_trait::async_trait;
 use log::trace;
-use dumbnotes::config::app_config::AppConfig;
-use dumbnotes::hasher::{Hasher, ProductionHasher};
-use dumbnotes::username_string::UsernameStr;
-use dumbnotes::file_watcher::ProductionFileWatcher;
+use crate::config::app_config::AppConfig;
+use crate::hasher::{Hasher, ProductionHasher};
+use crate::username_string::UsernameStr;
+use crate::file_watcher::ProductionFileWatcher;
+use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
+use crate::user_db::UserDbError;
 
 mod io_trait;
 #[cfg(test)] mod tests;
@@ -79,7 +80,7 @@ pub type ProductionUserDb = UserDbImpl<ProductionHasher, ProductionUserDbIo>;
 
 impl ProductionUserDb {
     pub async fn new(
-        app_config: &AppConfig,
+        user_db_path: &Path,
         hasher: ProductionHasher,
         file_watcher: ProductionFileWatcher,
     ) -> Result<ProductionUserDb, UserDbError> {
@@ -87,7 +88,7 @@ impl ProductionUserDb {
             UserDbImpl {
                 hasher,
                 io: ProductionUserDbIo::new(
-                    &app_config.user_db,
+                    user_db_path,
                     file_watcher,
                 ).await?,
             }

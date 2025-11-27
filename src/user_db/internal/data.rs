@@ -7,7 +7,7 @@ use crate::user_db::internal::user::User;
 pub struct UserData {
     pub username: String,
 
-    #[serde(with = "dumbnotes::serde::password_hash_string")]
+    #[serde(with = "crate::serde::password_hash_string")]
     pub hash: PasswordHashString,
 }
 

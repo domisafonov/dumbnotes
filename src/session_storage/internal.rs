@@ -306,7 +306,10 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorage for SessionStorageImpl
         let found_username = state.id_to_session
             .get(&session_id)
             .map(|s| s.username.clone());
-        info!("terminating session {session_id} for user {found_username:?}");
+        info!(
+            "terminating session {session_id} for user {}",
+            found_username.as_ref().map(UsernameString::as_str).unwrap_or("None")
+        );
         match found_username {
             Some(found_username) => {
                 let (_, users_sessions) = state.name_to_sessions_cache

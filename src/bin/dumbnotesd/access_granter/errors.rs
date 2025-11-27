@@ -1,7 +1,7 @@
 use thiserror::Error;
 use dumbnotes::access_token::AccessTokenGeneratorError;
 use dumbnotes::session_storage::SessionStorageError;
-use crate::user_db::UserDbError;
+use dumbnotes::user_db::UserDbError;
 
 #[derive(Debug, Error)]
 pub enum AccessGranterError {

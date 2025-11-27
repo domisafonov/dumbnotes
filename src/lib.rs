@@ -15,3 +15,5 @@ pub mod logging;
 pub mod access_token;
 pub mod file_watcher;
 pub mod session_storage;
+pub mod user_db;
+pub mod protobuf;

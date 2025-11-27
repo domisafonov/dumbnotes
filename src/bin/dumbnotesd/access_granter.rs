@@ -1,18 +1,18 @@
 use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenGenerator};
 use dumbnotes::session_storage::SessionStorage;
-use crate::user_db::UserDb;
+use dumbnotes::user_db::UserDb;
 use dumbnotes::username_string::UsernameStr;
 use std::time::SystemTime;
 use log::{debug, info, trace, warn};
 use time::OffsetDateTime;
 use uuid::Uuid;
+use dumbnotes::bin_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 mod errors;
 mod model;
 
 pub use errors::AccessGranterError;
 pub use model::{KnownSession, LoginResult, SessionInfo};
-use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 pub struct AccessGranter {
     session_storage: Box<dyn SessionStorage>,
@@ -115,7 +115,7 @@ impl AccessGranter {
             .get_session_by_token(refresh_token)
             .await?;
         if let Some(session) = session
-            && session.username.as_str() != username
+            && session.username.as_username_str() != username
         {
             warn!(
                 "attempt to refresh access token for nonexisting \

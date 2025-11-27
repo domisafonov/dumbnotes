@@ -1,6 +1,7 @@
-use std::{fs, io};
-use std::fs::Permissions;
-use std::os::unix::fs::PermissionsExt;
+use std::io;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use josekit::JoseError;
 use josekit::jwk::alg::ed::EdCurve;
@@ -25,17 +26,33 @@ pub fn make_jwt_key(
 ) -> Result<(), MakeJwtKeyError> {
     let private_key = Jwk::generate_ed_key(EdCurve::Ed25519)?;
     let public_key = private_key.to_public_key()?;
-    fs::write(
+    write(
         jwt_private_key,
         serde_json::to_string_pretty(&private_key)? + "\n",
+        Some(0o700),
     )?;
-    fs::set_permissions(
-        jwt_private_key,
-        Permissions::from_mode(0o700),
-    )?;
-    fs::write(
+    write(
         jwt_public_key,
         serde_json::to_string_pretty(&public_key)? + "\n",
+        None,
     )?;
+    Ok(())
+}
+
+fn write(
+    path: &Path,
+    contents: impl AsRef<str>,
+    mode: Option<u32>,
+) -> Result<(), io::Error> {
+    let mut options = OpenOptions::new();
+    if let Some(mode) = mode {
+        options.mode(mode);
+    }
+    let mut file = options
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)?;
+    file.write_all(contents.as_ref().as_bytes())?;
     Ok(())
 }

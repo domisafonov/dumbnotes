@@ -1,5 +1,4 @@
 mod login;
-pub mod errors;
 mod users_notes;
 mod note;
 mod note_metadata;
@@ -13,7 +12,7 @@ macro_rules! protobuf_request {
     ($request_type:ty, $model_type:ty) => {
         #[async_trait::async_trait]
         impl<'r> rocket::data::FromData<'r> for $request_type {
-            type Error = $crate::routes::api::errors::ProtobufRequestError;
+            type Error = dumbnotes::protobuf::ProtobufRequestError;
 
             async fn from_data(
                 req: &'r rocket::Request<'_>,
@@ -38,7 +37,7 @@ macro_rules! protobuf_request {
                     }
                     Ok(_) => Outcome::Error((
                         Status::PayloadTooLarge,
-                        $crate::routes::api::errors::ProtobufRequestError::RequestTooLarge
+                        dumbnotes::protobuf::ProtobufRequestError::RequestTooLarge
                     )),
                     Err(e) => Outcome::Error((Status::BadRequest, e.into())),
                 }
@@ -47,7 +46,7 @@ macro_rules! protobuf_request {
 
         #[async_trait::async_trait]
         impl<'r> rocket::data::FromData<'r> for $model_type {
-            type Error = $crate::routes::api::errors::ProtobufRequestError;
+            type Error = dumbnotes::protobuf::ProtobufRequestError;
 
             async fn from_data(
                 req: &'r rocket::Request<'_>,

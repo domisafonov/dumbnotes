@@ -1,4 +1,3 @@
-mod errors;
 mod protobuf;
 mod model;
 pub mod authentication_guard;

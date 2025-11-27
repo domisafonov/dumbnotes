@@ -1,6 +1,6 @@
 use time::UtcDateTime;
 use crate::{protobuf_request, protobuf_response};
-use crate::routes::api::errors::ProtobufRequestError;
+use dumbnotes::protobuf::ProtobufRequestError;
 use crate::routes::api::model::{NoteResponse, NoteWriteRequest};
 use crate::routes::api::protobuf::bindings;
 

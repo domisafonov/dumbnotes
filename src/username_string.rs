@@ -16,8 +16,16 @@ pub struct UsernameString(String);
 pub struct UsernameStr(str);
 
 impl UsernameString {
-    pub fn as_str(&self) -> &UsernameStr {
+    pub fn as_username_str(&self) -> &UsernameStr {
         self
+    }
+    
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
     }
 }
 
@@ -84,7 +92,7 @@ impl Serialize for UsernameString {
     where
         S: Serializer,
     {
-        self.as_str().serialize(serializer)
+        self.as_username_str().serialize(serializer)
     }
 }
 
@@ -116,7 +124,7 @@ impl<'de> Deserialize<'de> for UsernameString {
 
 impl fmt::Display for UsernameString {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+        f.write_str(self.as_username_str())
     }
 }
 

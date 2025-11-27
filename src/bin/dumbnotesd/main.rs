@@ -1,6 +1,5 @@
 mod cli;
 pub mod app_constants;
-pub mod user_db;
 mod routes;
 pub mod access_granter;
 pub mod http;
@@ -10,7 +9,7 @@ use crate::cli::CliConfig;
 use dumbnotes::file_watcher::ProductionFileWatcher;
 use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
 use dumbnotes::session_storage::ProductionSessionStorage;
-use crate::user_db::{ProductionUserDb, UserDb};
+use dumbnotes::user_db::{ProductionUserDb, UserDb};
 use boolean_enums::gen_boolean_enum;
 use clap::{crate_name, Parser};
 use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenGenerator};
@@ -24,7 +23,7 @@ use josekit::jwk::Jwk;
 use log::{error, info};
 use rocket::{launch, Build, Rocket};
 use std::error::Error;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
@@ -93,16 +92,9 @@ async fn rocket() -> Rocket<Build> {
     let mut command = tokio::process::Command::new("dumbnotesd_auth");
     command
         .arg(format!("--socket-fd={}", auth_childs_socket.as_raw_fd()))
-        .arg({
-            let mut str = OsString::from("--private-key-file=");
-            str.push(config.jwt_private_key.as_os_str());
-            str
-        })
-        .arg({
-            let mut str = OsString::from("--data-directory=");
-            str.push(&config.data_directory);
-            str
-        })
+        .arg(path_arg("private-key-file", &config.jwt_private_key))
+        .arg(path_arg("data-directory", &config.data_directory))
+        .arg(path_arg("user-db-directory", &config.user_db))
         .arg(
             format!(
                 "--hasher-config={}",
@@ -117,6 +109,7 @@ async fn rocket() -> Rocket<Build> {
         );
     drop(auth_childs_socket);
     tokio::spawn(async move {
+        // TODO: connect with the shutdown
         let status = auth_child.wait().await
             .unwrap_or_else(|e|
                 error_exit!("waiting for dumbnotesd_auth failed: {}", e)
@@ -130,13 +123,12 @@ async fn rocket() -> Rocket<Build> {
             error_exit!("note storage initialization failed: {e}")
         );
 
-
     let watcher = ProductionFileWatcher::new()
         .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
 
     let user_db: Box<dyn UserDb> = Box::new(
         ProductionUserDb::new(
-            &config,
+            &config.user_db,
             hasher,
             watcher.clone(),
         ).await
@@ -242,4 +234,10 @@ fn test_permissions(
     _message: &str,
 ) -> Result<(), Box<dyn Error>> {
     Ok(())
+}
+
+fn path_arg(arg_name: &str, path: impl AsRef<OsStr>) -> OsString {
+    let mut str = OsString::from(format!("--{arg_name}="));
+    str.push(path.as_ref());
+    str
 }
