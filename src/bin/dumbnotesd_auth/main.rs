@@ -1,29 +1,32 @@
 mod cli;
-mod command;
 mod protobuf;
 
-use std::error::Error;
-use std::os::fd::{FromRawFd, IntoRawFd};
-use std::os::unix::net::UnixStream as StdUnixStream;
-use std::path::Path;
-use std::sync::Arc;
+use crate::cli::CliConfig;
 use async_stream::stream;
 use clap::{crate_name, Parser};
-use futures::{pin_mut, Stream};
-use josekit::jwk::Jwk;
-use log::info;
-use socket2::Socket;
-use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::UnixStream;
-use tokio_stream::StreamExt;
 use dumbnotes::access_token::AccessTokenGenerator;
+use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use dumbnotes::error_exit;
 use dumbnotes::file_watcher::ProductionFileWatcher;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
 use dumbnotes::logging::init_logging;
 use dumbnotes::session_storage::ProductionSessionStorage;
-use crate::cli::CliConfig;
+use futures::{pin_mut, Stream};
+use josekit::jwk::Jwk;
+use log::{error, info};
+use prost::Message;
+use scc::HashSet;
+use socket2::Socket;
+use std::error::Error;
+use std::os::fd::{FromRawFd, IntoRawFd};
+use std::os::unix::net::UnixStream as StdUnixStream;
+use std::path::Path;
+use std::sync::Arc;
+use tokio::io::{AsyncReadExt, BufReader};
+use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::net::UnixStream;
+use tokio_stream::StreamExt;
 
 #[tokio::main]
 async fn main() {
@@ -34,15 +37,15 @@ async fn main() {
     let config = CliConfig::parse();
 
     let (read_socket, write_socket) = make_sockets(&config);
-    
+
     let watcher = ProductionFileWatcher::new()
         .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
     let session_storage = Box::new(
         ProductionSessionStorage
-        ::new(
-            &config.data_directory,
-            watcher,
-        )
+            ::new(
+                &config.data_directory,
+                watcher,
+            )
             .await
             .unwrap_or_else(|e|
                 error_exit!("could not initialize the session DB: {e}")
@@ -72,18 +75,48 @@ async fn process_commands(
 ) {
     info!("{} listening to commands", crate_name!());
 
+    let mut active_request_ids = HashSet::<u64>::new();
+
     pin_mut!(commands);
     while let Some(command) = commands.next().await {
-        todo!()
+        if active_request_ids.insert_sync(command.command_id).is_err() {
+            error!("duplicate command id: {}", command.command_id);
+            continue
+        }
+        let command = match command.command {
+            Some(command) => command,
+            None => {
+                error!("empty command with id {}", command.command_id);
+                active_request_ids.remove_sync(&command.command_id);
+                continue
+            },
+        };
+
+        use protobuf::command::Command as CE;
+        match command {
+            CE::Login(request) => todo!(),
+            CE::RefreshToken(request) => todo!(),
+            CE::Logout(request) => todo!(),
+        }
     }
 }
 
 fn make_command_stream(
     socket: OwnedReadHalf,
 ) -> impl Stream<Item=protobuf::Command> {
+    let mut socket = BufReader::new(socket);
+    let mut buffer = [0; IPC_MESSAGE_MAX_SIZE];
     stream! {
+        let message_size = socket.read_u64().await.unwrap_or_else(|e| error_exit!("aaaaa"));
+        let message_size = usize::try_from(message_size).unwrap_or_else(|e| error_exit!("aaaaaaa"));
+        if message_size > IPC_MESSAGE_MAX_SIZE {
+            error_exit!("message too big: {message_size}")
+        }
+        let buffer = &mut buffer[..message_size];
+        socket.read_exact(buffer).await.unwrap_or_else(|e| error_exit!("aaaaa"));
+        let command = protobuf::Command::decode(buffer.as_ref()).unwrap_or_else(|e| error_exit!("aaaaa"));
         // TODO
-        yield protobuf::Command { command_id: 1, command: None };
+        yield command
     }
 }
 

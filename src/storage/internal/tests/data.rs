@@ -48,10 +48,10 @@ lazy_static!(
                 Box::new(|| io::Error::from(io::ErrorKind::NotFound))
             )
         ),
-        ("/not_enough_perms_dir".into(), FileSpec::NotEnoughPermsDir),
+        ("/notes/not_enough_perms_dir".into(), FileSpec::NotEnoughPermsDir),
         ("/other_owner_dir".into(), FileSpec::OtherOwnerDir),
 
-        ("/read_note".into(), FileSpec::Dir),
+        ("/notes/read_note".into(), FileSpec::Dir),
         (make_path("/read_note", *READ_NOTE_NORMAL_UUID),
             FileSpec::File {
                contents: "normal title\nnormal contents".as_bytes().into(),
@@ -89,7 +89,7 @@ lazy_static!(
         (make_path("/read_note", *READ_NOTE_CANT_OPEN_UUID), FileSpec::CantOpen),
         (make_path("/read_note", *READ_NOTE_CANT_READ_UUID), FileSpec::CantRead),
 
-        ("/write_note".into(), FileSpec::Dir),
+        ("/notes/write_note".into(), FileSpec::Dir),
         (make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID), FileSpec::WriteTmpFile),
         (make_tmp_path("/write_note", *WRITE_NOTE_NORMAL_UUID),
             FileSpec::RenameWrittenTmpFile {
@@ -120,9 +120,9 @@ lazy_static!(
         ),
         (make_tmp_path("/write_note", *WRITE_NOTE_CANT_RENAME_CANT_REMOVE_UUID), FileSpec::CantRemove),
         
-        ("/empty_dir".into(), FileSpec::EmptyDir),
+        ("/notes/empty_dir".into(), FileSpec::EmptyDir),
         
-        ("/delete_note".into(), FileSpec::Dir),
+        ("/notes/delete_note".into(), FileSpec::Dir),
         (make_path("/delete_note", *DELETE_NOTE_SUCCESS),
             FileSpec::Remove { should_be_written: false }
         ),
@@ -171,14 +171,14 @@ impl From<&str> for DataPath {
 
 pub fn make_path(base: &str, uuid: Uuid) -> DataPath {
     DataPath {
-        path: base.to_string() + "/" + &uuid.hyphenated().to_string(),
+        path: "/notes".to_string() + base + "/" + &uuid.hyphenated().to_string(),
         is_tmp: false
     }
 }
 
 pub fn make_tmp_path(base: &str, uuid: Uuid) -> DataPath {
     DataPath {
-        path: base.to_string() + "/" + &uuid.hyphenated().to_string()
+        path: "/notes".to_string() + base + "/" + &uuid.hyphenated().to_string()
             + TMP_FILENAME_INFIX,
         is_tmp: true
     }
