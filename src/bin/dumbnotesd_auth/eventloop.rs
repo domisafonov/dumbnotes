@@ -1,9 +1,8 @@
 use std::io;
 use std::sync::Arc;
 use clap::crate_name;
-use dumbnotes::access_token::AccessTokenGenerator;
-use dumbnotes::session_storage::SessionStorage;
-use dumbnotes::user_db::UserDb;
+use crate::session_storage::SessionStorage;
+use crate::user_db::UserDb;
 use tokio::sync::Mutex;
 use tokio::net::unix::OwnedWriteHalf;
 use dumbnotes::protobuf::ProtobufRequestError;
@@ -17,6 +16,7 @@ use dumbnotes::error_exit;
 use dumbnotes::ipc::auth::protobuf;
 use crate::processors;
 use dumbnotes::ipc::auth::protobuf::command::Command;
+use crate::access_token_generator::AccessTokenGenerator;
 
 pub async fn process_commands(
     token_generator: AccessTokenGenerator,

@@ -1,13 +1,14 @@
 use log::{debug, error, info, warn};
 use thiserror::Error;
 use time::OffsetDateTime;
-use dumbnotes::access_token::{AccessTokenGenerator, AccessTokenGeneratorError};
-use dumbnotes::bin_constants::ACCESS_TOKEN_VALIDITY_TIME;
-use dumbnotes::session_storage::{SessionStorage, SessionStorageError};
+use crate::session_storage::{SessionStorage, SessionStorageError};
 use dumbnotes::ipc::auth::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
 use dumbnotes::ipc::auth::model::successful_login::SuccessfulLogin;
 use dumbnotes::ipc::auth::protobuf;
 use dumbnotes::ipc::auth::protobuf::LoginError;
+use crate::access_token_generator::AccessTokenGenerator;
+use crate::access_token_generator::errors::AccessTokenGeneratorError;
+use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 pub async fn process_refresh_token(
     session_storage: &impl SessionStorage,

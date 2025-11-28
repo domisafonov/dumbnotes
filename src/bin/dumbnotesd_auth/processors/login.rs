@@ -1,14 +1,15 @@
 use thiserror::Error;
-use dumbnotes::access_token::{AccessTokenGenerator, AccessTokenGeneratorError};
-use dumbnotes::session_storage::{SessionStorage, SessionStorageError};
-use dumbnotes::user_db::{UserDb, UserDbError};
+use crate::session_storage::{SessionStorage, SessionStorageError};
+use crate::user_db::{UserDb, UserDbError};
 use log::{debug, error, info, warn};
 use time::OffsetDateTime;
-use dumbnotes::bin_constants::ACCESS_TOKEN_VALIDITY_TIME;
 use dumbnotes::ipc::auth::model::login::{LoginRequest, LoginResponse};
 use dumbnotes::ipc::auth::model::successful_login::SuccessfulLogin;
 use dumbnotes::ipc::auth::protobuf;
 use dumbnotes::ipc::auth::protobuf::LoginError;
+use crate::access_token_generator::AccessTokenGenerator;
+use crate::access_token_generator::errors::AccessTokenGeneratorError;
+use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 pub async fn process_login(
     user_db: &impl UserDb,

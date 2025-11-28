@@ -1,12 +1,8 @@
-use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenGenerator};
-use dumbnotes::session_storage::SessionStorage;
-use dumbnotes::user_db::UserDb;
+use dumbnotes::access_token::AccessTokenDecoder;
 use dumbnotes::username_string::UsernameStr;
 use std::time::SystemTime;
-use log::{debug, info, trace, warn};
-use time::OffsetDateTime;
+use log::{debug, trace, warn};
 use uuid::Uuid;
-use dumbnotes::bin_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 mod errors;
 mod model;
@@ -15,23 +11,14 @@ pub use errors::AccessGranterError;
 pub use model::{KnownSession, LoginResult, SessionInfo};
 
 pub struct AccessGranter {
-    session_storage: Box<dyn SessionStorage>,
-    user_db: Box<dyn UserDb>,
-    access_token_generator: AccessTokenGenerator,
     access_token_decoder: AccessTokenDecoder,
 }
 
 impl AccessGranter {
     pub fn new(
-        session_storage: Box<dyn SessionStorage>,
-        user_db: Box<dyn UserDb>,
-        access_token_generator: AccessTokenGenerator,
-        access_token_decoder: AccessTokenDecoder
+        access_token_decoder: AccessTokenDecoder,
     ) -> Self {
         AccessGranter {
-            session_storage,
-            user_db,
-            access_token_generator,
             access_token_decoder,
         }
     }
@@ -73,36 +60,7 @@ impl AccessGranter {
         password: &str,
     ) -> Result<LoginResult, AccessGranterError> {
         debug!("logging user \"{username}\" in");
-        if self.user_db.check_user_credentials(username, password).await? {
-            let now = OffsetDateTime::now_utc();
-            let session = self.session_storage
-                .create_session(
-                    username,
-                    now,
-                    now + ACCESS_TOKEN_VALIDITY_TIME,
-                )
-                .await?;
-            let access_token = self.access_token_generator
-                .generate_token(
-                    session.session_id,
-                    &session.username,
-                    &now.into(),
-                    &session.expires_at.into(),
-                )?;
-            info!(
-                "logged user \"{username}\" in with session \"{}\"",
-                session.session_id,
-            );
-            Ok(
-                LoginResult {
-                    refresh_token: session.refresh_token,
-                    access_token,
-                }
-            )
-        } else {
-            warn!("invalid credentials for user \"{}\"", username);
-            Err(AccessGranterError::InvalidCredentials)
-        }
+        todo!()
     }
 
     pub async fn refresh_user_token(
@@ -111,42 +69,7 @@ impl AccessGranter {
         refresh_token: &[u8],
     ) -> Result<LoginResult, AccessGranterError> {
         debug!("refreshing access token for user \"{username}\"");
-        let session = self.session_storage
-            .get_session_by_token(refresh_token)
-            .await?;
-        if let Some(session) = session
-            && session.username.as_username_str() != username
-        {
-            warn!(
-                "attempt to refresh access token for nonexisting \
-                    or mismatched user \"{username}\""
-            );
-            return Err(AccessGranterError::InvalidCredentials);
-        }
-        let now = OffsetDateTime::now_utc();
-        let session = self.session_storage
-            .refresh_session(
-                refresh_token,
-                now + ACCESS_TOKEN_VALIDITY_TIME,
-            )
-            .await?;
-        info!(
-            "refreshed session {} for user \"{username}\"",
-            session.session_id,
-        );
-        let access_token = self.access_token_generator
-            .generate_token(
-                session.session_id,
-                &session.username,
-                &now.into(),
-                &session.expires_at.into(),
-            )?;
-        Ok(
-            LoginResult {
-                refresh_token: session.refresh_token,
-                access_token,
-            }
-        )
+        todo!()
     }
 
     pub async fn logout_user(
@@ -154,14 +77,6 @@ impl AccessGranter {
         session_id: Uuid,
     ) -> Result<(), AccessGranterError> {
         debug!("deleting session {session_id}");
-        let did_exist = self.session_storage
-            .delete_session(session_id)
-            .await?;
-        if did_exist {
-            info!("session {session_id} deleted");
-        } else {
-            warn!("attempting to delete nonexistent session {session_id}");
-        }
-        Ok(())
+        todo!()
     }
 }

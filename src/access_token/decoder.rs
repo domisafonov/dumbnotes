@@ -1,4 +1,4 @@
-use crate::access_token::data::{AccessTokenData, SESSION_ID_CLAIM_NAME};
+use crate::access_token::data::AccessTokenData;
 use crate::username_string::UsernameString;
 use errors::AccessTokenDecoderError;
 use josekit::jwk::Jwk;
@@ -9,6 +9,7 @@ use josekit::jws::alg::eddsa::EddsaJwsVerifier;
 use josekit::jws::EdDSA;
 use time::OffsetDateTime;
 use uuid::Uuid;
+use crate::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
 
 pub mod errors;
 
@@ -41,7 +42,7 @@ impl AccessTokenDecoder {
             token,
             &self.verifier,
         )?;
-        let session_id = payload.claim(SESSION_ID_CLAIM_NAME)
+        let session_id = payload.claim(SESSION_ID_JWT_CLAIM_NAME)
             .map(|v| serde_json::from_value::<Uuid>(v.clone()))
             .transpose()
             .map_err(|e| {
@@ -51,7 +52,7 @@ impl AccessTokenDecoder {
                 );
                 AccessTokenDecoderError::PayloadParse(e)
             })?
-            .ok_or_else(|| missing_field(token, SESSION_ID_CLAIM_NAME))?;
+            .ok_or_else(|| missing_field(token, SESSION_ID_JWT_CLAIM_NAME))?;
         let username = payload.subject()
             .map(UsernameString::from_str)
             .transpose()?

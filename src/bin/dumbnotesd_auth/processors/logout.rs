@@ -1,6 +1,6 @@
 use log::{debug, error, info, warn};
 use thiserror::Error;
-use dumbnotes::session_storage::{SessionStorage, SessionStorageError};
+use crate::session_storage::{SessionStorage, SessionStorageError};
 use dumbnotes::ipc::auth::model::logout::{LogoutRequest, LogoutResponse};
 use dumbnotes::ipc::auth::protobuf;
 use dumbnotes::ipc::auth::protobuf::LogoutError;

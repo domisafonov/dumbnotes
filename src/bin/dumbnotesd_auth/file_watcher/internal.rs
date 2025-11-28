@@ -11,8 +11,8 @@ use async_stream::try_stream;
 use log::{debug, error, log_enabled, trace};
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
+use crate::app_constants::FILE_WATCHER_DEBOUNCE_TIME;
 use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError};
-use crate::lib_constants::FILE_WATCHER_DEBOUNCE_TIME;
 
 const FILE_WATCHER_BUFFER_SIZE: usize = 16;
 

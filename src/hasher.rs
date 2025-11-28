@@ -7,10 +7,6 @@ use log::error;
 use rand::rand_core::OsError;
 use rand::rngs::OsRng;
 
-// TODO: test
-// TODO: process isolation
-//  this is why making the hasher async is disregarded
-
 pub trait Hasher: Send + Sync {
     fn generate_hash(&self, password: &str) -> Result<String, OsError>;
     fn check_hash(&self, hash: PasswordHash<'_>, password: &str) -> bool;

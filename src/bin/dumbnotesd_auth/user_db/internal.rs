@@ -1,8 +1,10 @@
 use std::path::Path;
+use std::sync::Arc;
 use async_trait::async_trait;
 use log::trace;
-use crate::hasher::{Hasher, ProductionHasher};
-use crate::username_string::UsernameStr;
+use tokio::task::spawn_blocking;
+use dumbnotes::hasher::{Hasher, ProductionHasher};
+use dumbnotes::username_string::UsernameStr;
 use crate::file_watcher::ProductionFileWatcher;
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
 use crate::user_db::UserDbError;
@@ -27,8 +29,8 @@ pub trait UserDb: Send + Sync {
 }
 
 #[allow(private_bounds)]
-pub struct UserDbImpl<H: Hasher, Io: UserDbIo> {
-    hasher: H,
+pub struct UserDbImpl<H: Hasher + 'static, Io: UserDbIo> {
+    hasher: Arc<H>,
     io: Io,
 }
 
@@ -63,12 +65,16 @@ impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
             },
             Some(user) => {
                 trace!("user \"{username}\" correctly authenticated");
+                let hasher = self.hasher.clone();
+                let password = password.to_string(); // TODO: erase allocations containing passwords on drop everywhere
                 Ok(
-                    self.hasher
-                        .check_hash(
-                            user.hash.password_hash(),
-                            password
-                        )
+                    spawn_blocking(move ||
+                        hasher
+                            .check_hash(
+                                user.hash.password_hash(),
+                                &password
+                            )
+                    ).await.unwrap()
                 )
             }
         }
@@ -85,7 +91,7 @@ impl ProductionUserDb {
     ) -> Result<ProductionUserDb, UserDbError> {
         Ok(
             UserDbImpl {
-                hasher,
+                hasher: Arc::new(hasher),
                 io: ProductionUserDbIo::new(
                     user_db_path,
                     file_watcher,

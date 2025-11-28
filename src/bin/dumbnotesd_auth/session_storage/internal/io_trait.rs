@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::rng::make_uuid;
+use dumbnotes::rng::make_uuid;
 use rand::RngCore;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
@@ -9,7 +9,7 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use crate::lib_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
+use crate::app_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
 use crate::session_storage::internal::data::SessionsData;
 use crate::session_storage::SessionStorageError;
 

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::username_string::{UsernameStr, UsernameString};
+use dumbnotes::username_string::{UsernameStr, UsernameString};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
 use crate::file_watcher::Event;
 use crate::file_watcher::FileWatcherError;
-use crate::lib_constants::{REFRESH_TOKEN_GC_TIME, SESSION_STORAGE_PATH};
+use crate::app_constants::{REFRESH_TOKEN_GC_TIME, SESSION_STORAGE_PATH};
 use crate::session_storage::internal::data::{SessionsData, UserSessionData, UserSessionsData};
 use crate::session_storage::internal::io_trait::{ProductionSessionStorageIo, SessionStorageIo};
 use crate::session_storage::{Session, SessionStorage, SessionStorageError};

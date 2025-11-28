@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use crate::username_string::UsernameString;
+use dumbnotes::username_string::UsernameString;
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -23,7 +23,7 @@ pub struct UserSessionsData {
 pub struct UserSessionData {
     pub session_id: Uuid,
 
-    #[serde(with = "crate::serde::base64_vec")]
+    #[serde(with = "dumbnotes::serde::base64_vec")]
     pub refresh_token: Vec<u8>,
 
     #[serde(with = "time::serde::rfc3339")]

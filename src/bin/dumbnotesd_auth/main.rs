@@ -1,19 +1,23 @@
 mod cli;
 mod eventloop;
 mod processors;
+pub mod session_storage;
+mod app_constants;
+pub mod user_db;
+pub mod access_token_generator;
+pub mod file_watcher;
 
 use crate::cli::CliConfig;
 use async_stream::stream;
 use clap::{crate_name, Parser};
-use dumbnotes::access_token::AccessTokenGenerator;
 use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use dumbnotes::error_exit;
-use dumbnotes::file_watcher::ProductionFileWatcher;
+use file_watcher::ProductionFileWatcher;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::logging::init_logging;
-use dumbnotes::session_storage::ProductionSessionStorage;
-use dumbnotes::user_db::ProductionUserDb;
+use session_storage::ProductionSessionStorage;
+use user_db::ProductionUserDb;
 use futures::Stream;
 use josekit::jwk::Jwk;
 use log::info;
@@ -28,6 +32,7 @@ use tokio::io::{AsyncReadExt, BufReader};
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
 use dumbnotes::ipc::auth::protobuf;
+use crate::access_token_generator::AccessTokenGenerator;
 
 #[tokio::main]
 async fn main() {
@@ -138,7 +143,7 @@ fn make_token_generator(
         );
     AccessTokenGenerator::from_jwk(&jwt_private_key)
         .unwrap_or_else(|e|
-            error_exit!("could not initialize access token generator: {e}")
+            error_exit!("could not initialize access token access_token_generator: {e}")
         )
 }
 

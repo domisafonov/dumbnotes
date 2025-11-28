@@ -74,14 +74,15 @@ impl<'r> FromRequest<'r> for MaybeAuthenticated {
                 AccessGranterError::InvalidCredentials
                 => Outcome::Success(MaybeAuthenticated::InvalidToken),
 
-                AccessGranterError::SessionStorageError(_) |
-                AccessGranterError::UserDbError(_) |
-                AccessGranterError::AccessTokenGeneratorError(_)
-                => {
+                // TODO
+                // AccessGranterError::SessionStorageError(_) |
+                // AccessGranterError::UserDbError(_) |
+                // AccessGranterError::AccessTokenGeneratorError(_)
+                // => {
                     // TODO: forward the error when it'll be possible
-                    error!("authentication system failed: {e}");
-                    Outcome::Error((Status::InternalServerError, ()))
-                },
+                    // error!("authentication system failed: {e}");
+                    // Outcome::Error((Status::InternalServerError, ()))
+                // },
             }
         }
     }

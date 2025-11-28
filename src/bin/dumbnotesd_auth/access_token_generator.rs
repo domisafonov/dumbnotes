@@ -1,5 +1,5 @@
-use crate::access_token::data::SESSION_ID_CLAIM_NAME;
-use crate::username_string::UsernameStr;
+use dumbnotes::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
+use dumbnotes::username_string::UsernameStr;
 use errors::AccessTokenGeneratorError;
 use josekit::jwk::Jwk;
 use josekit::jws::{EdDSA, JwsHeader};
@@ -43,7 +43,7 @@ impl AccessTokenGenerator {
         };
         payload.set_subject(&subject);
         payload.set_claim(
-            SESSION_ID_CLAIM_NAME,
+            SESSION_ID_JWT_CLAIM_NAME,
             Some(session_id)
         )?;
         payload.set_not_before(not_before);

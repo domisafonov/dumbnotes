@@ -72,13 +72,14 @@ fn process_login_error(e: AccessGranterError) -> Status {
         AccessGranterError::InvalidCredentials
         => Status::UnauthorizedInvalidToken,
 
-        AccessGranterError::SessionStorageError(_) |
-        AccessGranterError::UserDbError(_) |
-        AccessGranterError::AccessTokenGeneratorError(_)
-        => {
-            error!("authentication system failed: {e}");
-            Status::InternalServerError
-        },
+        // TODO
+        // AccessGranterError::SessionStorageError(_) |
+        // AccessGranterError::UserDbError(_) |
+        // AccessGranterError::AccessTokenGeneratorError(_)
+        // => {
+        //     error!("authentication system failed: {e}");
+        //     Status::InternalServerError
+        // },
     }
 }
 
