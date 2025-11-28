@@ -11,6 +11,9 @@ pub enum MappingError {
 
     #[error("invalid username: {0}")]
     UsernameParse(#[from] UsernameParseError),
+    
+    #[error("unexpected enum variant")]
+    UnexpectedEnumVariant,
 }
 
 impl MappingError {

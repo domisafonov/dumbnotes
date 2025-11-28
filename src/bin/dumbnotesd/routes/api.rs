@@ -29,7 +29,7 @@ fn version() -> RawText<&'static str> {
 async fn login(
     request: LoginRequest,
     _unauthenticated: Unauthenticated,
-    access_granter: &State<AccessGranter>,
+    access_granter: &State<Box<dyn AccessGranter>>,
 ) -> Result<LoginResponse, Status> {
     match request.secret {
         LoginRequestSecret::Password(password) => {
@@ -72,21 +72,20 @@ fn process_login_error(e: AccessGranterError) -> Status {
         AccessGranterError::InvalidCredentials
         => Status::UnauthorizedInvalidToken,
 
-        // TODO
-        // AccessGranterError::SessionStorageError(_) |
-        // AccessGranterError::UserDbError(_) |
-        // AccessGranterError::AccessTokenGeneratorError(_)
-        // => {
-        //     error!("authentication system failed: {e}");
-        //     Status::InternalServerError
-        // },
+        AccessGranterError::ProtobufError(_) |
+        AccessGranterError::Caller(_) |
+        AccessGranterError::AuthDaemonInternalError
+        => {
+            error!("authentication system failed: {e}");
+            Status::InternalServerError
+        },
     }
 }
 
 #[post("/logout")]
 async fn logout(
     authenticated: Authenticated,
-    access_granter: &State<AccessGranter>,
+    access_granter: &State<Box<dyn AccessGranter>>,
 ) -> Result<(), Status> {
     match access_granter.logout_user(authenticated.0.session_id).await {
         Ok(_) => Ok(()),

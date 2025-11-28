@@ -38,8 +38,6 @@ impl ProductionHasher {
         }
     }
 
-    // TODO: move the parameters to the config
-    // TODO: use pepper after auth process isolation is implemented
     fn get_hasher(&self) -> Argon2<'_> {
         Argon2::new(
             Algorithm::Argon2id,

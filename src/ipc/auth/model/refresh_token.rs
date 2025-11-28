@@ -25,10 +25,14 @@ impl TryFrom<protobuf::RefreshTokenRequest> for RefreshTokenRequest {
     }
 }
 
-impl TryFrom<protobuf::RefreshTokenResponse> for RefreshTokenResponse {
+impl TryFrom<protobuf::response::Response> for RefreshTokenResponse {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::RefreshTokenResponse) -> Result<Self, Self::Error> {
+    fn try_from(value: protobuf::response::Response) -> Result<Self, Self::Error> {
         use protobuf::refresh_token_response::Result;
+        let value = match value {
+            protobuf::response::Response::RefreshToken(value) => value,
+            _ => return Err(MappingError::UnexpectedEnumVariant.into()),
+        };
         Ok(
             RefreshTokenResponse(
                 match value.result.ok_or_mapping_error(MappingError::missing("result"))? {

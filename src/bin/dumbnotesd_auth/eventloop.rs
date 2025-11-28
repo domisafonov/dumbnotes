@@ -11,7 +11,9 @@ use log::{debug, error, info, trace};
 use scc::HashSet;
 use tokio_stream::StreamExt;
 use prost::Message;
+use thiserror::Error;
 use tokio::io::AsyncWriteExt;
+use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::error_exit;
 use dumbnotes::ipc::auth::protobuf;
 use crate::processors;
@@ -103,7 +105,7 @@ async fn dispatch_command(
     user_db: &impl UserDb,
     session_storage: &impl SessionStorage,
     write_socket: &Mutex<OwnedWriteHalf>,
-) -> Result<(), ProtobufRequestError> {
+) -> Result<(), DispatchCommandError> {
     use dumbnotes::ipc::auth::protobuf::command::Command as CE;
     let response = match command {
         CE::Login(request) => processors::process_login(
@@ -137,9 +139,24 @@ async fn dispatch_command(
 async fn write_response(
     write_socket: &mut OwnedWriteHalf,
     response: protobuf::Response,
-) -> io::Result<()> {
+) -> Result<(), DispatchCommandError> {
     let response = response.encode_to_vec();
+    if response.len() > IPC_MESSAGE_MAX_SIZE {
+        return Err(DispatchCommandError::MessageTooBig);
+    }
     write_socket.write_u64(response.len() as u64).await?;
     write_socket.write_all(response.as_slice()).await?;
     Ok(())
+}
+
+#[derive(Debug, Error)]
+enum DispatchCommandError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error("IPC message too big")]
+    MessageTooBig,
+
+    #[error(transparent)]
+    Protobuf(#[from] ProtobufRequestError),
 }

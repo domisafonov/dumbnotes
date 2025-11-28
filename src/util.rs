@@ -16,7 +16,6 @@ pub fn send_fut_lifetime_workaround<F: Future + Send>(
 }
 
 #[macro_export]
-#[clippy::format_args]
 macro_rules! error_exit {
     ($($args:tt)*) => ({
         log::error!($($args)*);

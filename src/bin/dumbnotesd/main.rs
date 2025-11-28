@@ -4,7 +4,7 @@ mod routes;
 pub mod access_granter;
 pub mod http;
 
-use crate::access_granter::AccessGranter;
+use crate::access_granter::{AccessGranter, ProductionAccessGranter};
 use crate::cli::CliConfig;
 use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
 use clap::{crate_name, Parser};
@@ -68,7 +68,7 @@ async fn rocket() -> Rocket<Build> {
 
             let socket_to_auth = UnixStream::from_std(
                 unsafe { StdUnixStream::from_raw_fd(socket_to_auth.into_raw_fd()) }
-            );
+            )?;
             Ok((socket_to_auth, auth_childs_socket))
         })
         .unwrap_or_else(|e|
@@ -120,8 +120,11 @@ async fn rocket() -> Rocket<Build> {
             error_exit!("could not initialize access token decoder: {e}")
         );
 
-    let access_granter = AccessGranter::new(
-        access_token_decoder,
+    let access_granter: Box<dyn AccessGranter> = Box::new(
+        ProductionAccessGranter::new(
+            access_token_decoder,
+            socket_to_auth
+        ).await
     );
 
     rocket::custom(figment)

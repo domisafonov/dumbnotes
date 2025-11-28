@@ -23,10 +23,14 @@ impl TryFrom<protobuf::LoginRequest> for LoginRequest {
     }
 }
 
-impl TryFrom<protobuf::LoginResponse> for LoginResponse {
+impl TryFrom<protobuf::response::Response> for LoginResponse {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::LoginResponse) -> Result<Self, Self::Error> {
+    fn try_from(value: protobuf::response::Response) -> Result<Self, Self::Error> {
         use protobuf::login_response::Response;
+        let value = match value {
+            protobuf::response::Response::Login(value) => value,
+            _ => return Err(MappingError::UnexpectedEnumVariant.into()),
+        };
         Ok(
             LoginResponse(
                 match value.response.ok_or_mapping_error(MappingError::missing("response"))? {

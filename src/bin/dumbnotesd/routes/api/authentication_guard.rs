@@ -5,8 +5,7 @@ use rocket::http::hyper::header;
 use rocket::http::Status;
 use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
-use crate::access_granter::AccessGranter;
-use crate::access_granter::AccessGranterError;
+use crate::access_granter::{AccessGranter, AccessGranterError};
 use crate::access_granter::{KnownSession, SessionInfo};
 use crate::http::status::StatusExt;
 
@@ -62,7 +61,7 @@ impl<'r> FromRequest<'r> for MaybeAuthenticated {
             Some(h) => h,
             _ => return Outcome::Success(MaybeAuthenticated::Unauthenticated),
         };
-        let access_granter = try_outcome!(request.guard::<&State<AccessGranter>>().await);
+        let access_granter = try_outcome!(request.guard::<&State<Box<dyn AccessGranter>>>().await);
         match access_granter.check_user_access(auth_header).await {
             Ok(SessionInfo::Valid(info)) => Outcome::Success(MaybeAuthenticated::Valid(info)),
             Ok(SessionInfo::Expired(info)) => Outcome::Success(MaybeAuthenticated::Expired(info)),
@@ -74,15 +73,14 @@ impl<'r> FromRequest<'r> for MaybeAuthenticated {
                 AccessGranterError::InvalidCredentials
                 => Outcome::Success(MaybeAuthenticated::InvalidToken),
 
-                // TODO
-                // AccessGranterError::SessionStorageError(_) |
-                // AccessGranterError::UserDbError(_) |
-                // AccessGranterError::AccessTokenGeneratorError(_)
-                // => {
+                AccessGranterError::ProtobufError(_) |
+                AccessGranterError::Caller(_) |
+                AccessGranterError::AuthDaemonInternalError
+                => {
                     // TODO: forward the error when it'll be possible
-                    // error!("authentication system failed: {e}");
-                    // Outcome::Error((Status::InternalServerError, ()))
-                // },
+                    error!("authentication system failed: {e}");
+                    Outcome::Error((Status::InternalServerError, ()))
+                },
             }
         }
     }

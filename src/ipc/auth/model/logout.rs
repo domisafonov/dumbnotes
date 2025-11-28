@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use crate::protobuf::ProtobufRequestError;
+use crate::protobuf::{MappingError, ProtobufRequestError};
 use super::super::protobuf;
 
 pub struct LogoutRequest {
@@ -19,9 +19,13 @@ impl TryFrom<protobuf::LogoutRequest> for LogoutRequest {
     }
 }
 
-impl TryFrom<protobuf::LogoutResponse> for LogoutResponse {
+impl TryFrom<protobuf::response::Response> for LogoutResponse {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::LogoutResponse) -> Result<Self, Self::Error> {
+    fn try_from(value: protobuf::response::Response) -> Result<Self, Self::Error> {
+        let value = match value {
+            protobuf::response::Response::Logout(value) => value,
+            _ => return Err(MappingError::UnexpectedEnumVariant.into()),
+        };
         Ok(
             LogoutResponse(
                 match value.error {

@@ -8,9 +8,7 @@ pub mod access_token_generator;
 pub mod file_watcher;
 
 use crate::cli::CliConfig;
-use async_stream::stream;
 use clap::{crate_name, Parser};
-use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use dumbnotes::error_exit;
 use file_watcher::ProductionFileWatcher;
@@ -18,20 +16,17 @@ use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::logging::init_logging;
 use session_storage::ProductionSessionStorage;
 use user_db::ProductionUserDb;
-use futures::Stream;
 use josekit::jwk::Jwk;
 use log::info;
-use prost::Message;
 use socket2::Socket;
 use std::error::Error;
 use std::io;
 use std::os::fd::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
-use tokio::io::{AsyncReadExt, BufReader};
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
-use dumbnotes::ipc::auth::protobuf;
+use dumbnotes::ipc::auth::message_stream;
 use crate::access_token_generator::AccessTokenGenerator;
 
 #[tokio::main]
@@ -59,7 +54,7 @@ async fn main() {
                 &config,
                 watcher,
             ).await,
-            make_command_stream(read_socket),
+            message_stream::stream(read_socket),
             write_socket,
         )
     ).await;
@@ -69,36 +64,6 @@ async fn main() {
     }
 
     info!("{} terminating normally", crate_name!());
-}
-
-fn make_command_stream(
-    socket: OwnedReadHalf,
-) -> impl Stream<Item=protobuf::Command> {
-    let mut socket = BufReader::new(socket);
-    let mut buffer = [0; IPC_MESSAGE_MAX_SIZE];
-    stream! {
-        let message_size = socket.read_u64().await
-            .unwrap_or_else(|e|
-                error_exit!("failed to read message size: {e}")
-            );
-        let message_size = usize::try_from(message_size)
-            .unwrap_or_else(|e|
-                error_exit!("read incorrect message size: {e}")
-            );
-        if message_size > IPC_MESSAGE_MAX_SIZE {
-            error_exit!("message too big: {message_size}")
-        }
-        let buffer = &mut buffer[..message_size];
-        socket.read_exact(buffer).await
-            .unwrap_or_else(|e|
-                error_exit!("error reading command: {e}")
-            );
-        let command = protobuf::Command::decode(buffer.as_ref())
-            .unwrap_or_else(|e|
-                error_exit!("error decoding command: {e}")
-            );
-        yield command
-    }
 }
 
 fn make_hasher(
