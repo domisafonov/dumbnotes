@@ -14,8 +14,9 @@ use tokio_stream::StreamExt;
 use prost::Message;
 use tokio::io::AsyncWriteExt;
 use dumbnotes::error_exit;
-use crate::{processors, protobuf};
-use crate::protobuf::command::Command;
+use dumbnotes::ipc::auth::protobuf;
+use crate::processors;
+use dumbnotes::ipc::auth::protobuf::command::Command;
 
 pub async fn process_commands(
     token_generator: AccessTokenGenerator,
@@ -103,7 +104,7 @@ async fn dispatch_command(
     session_storage: &impl SessionStorage,
     write_socket: &Mutex<OwnedWriteHalf>,
 ) -> Result<(), ProtobufRequestError> {
-    use crate::protobuf::command::Command as CE;
+    use dumbnotes::ipc::auth::protobuf::command::Command as CE;
     let response = match command {
         CE::Login(request) => processors::process_login(
             user_db,

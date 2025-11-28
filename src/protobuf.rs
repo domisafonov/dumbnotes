@@ -38,6 +38,9 @@ pub enum ProtobufRequestError {
 
     #[error("incorrect timestamp")]
     IncorrectTimestamp(#[from] time::error::ComponentRange),
+
+    #[error("invalid enum value: {0}")]
+    UnknownEnum(#[from] prost::UnknownEnumValue),
 }
 
 impl From<UsernameParseError> for ProtobufRequestError {

@@ -5,10 +5,10 @@ use dumbnotes::user_db::{UserDb, UserDbError};
 use log::{debug, error, info, warn};
 use time::OffsetDateTime;
 use dumbnotes::bin_constants::ACCESS_TOKEN_VALIDITY_TIME;
-use crate::model::login::{LoginRequest, LoginResponse};
-use crate::model::successful_login::SuccessfulLogin;
-use crate::protobuf;
-use crate::protobuf::LoginError;
+use dumbnotes::ipc::auth::model::login::{LoginRequest, LoginResponse};
+use dumbnotes::ipc::auth::model::successful_login::SuccessfulLogin;
+use dumbnotes::ipc::auth::protobuf;
+use dumbnotes::ipc::auth::protobuf::LoginError;
 
 pub async fn process_login(
     user_db: &impl UserDb,

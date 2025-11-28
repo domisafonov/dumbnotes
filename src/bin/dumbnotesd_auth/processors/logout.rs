@@ -1,9 +1,9 @@
 use log::{debug, error, info, warn};
 use thiserror::Error;
 use dumbnotes::session_storage::{SessionStorage, SessionStorageError};
-use crate::model::logout::{LogoutRequest, LogoutResponse};
-use crate::protobuf;
-use crate::protobuf::LogoutError;
+use dumbnotes::ipc::auth::model::logout::{LogoutRequest, LogoutResponse};
+use dumbnotes::ipc::auth::protobuf;
+use dumbnotes::ipc::auth::protobuf::LogoutError;
 
 pub async fn process_logout(
     session_storage: &impl SessionStorage,

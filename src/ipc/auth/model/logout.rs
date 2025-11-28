@@ -1,6 +1,6 @@
 use uuid::Uuid;
-use dumbnotes::protobuf::ProtobufRequestError;
-use crate::protobuf;
+use crate::protobuf::ProtobufRequestError;
+use super::super::protobuf;
 
 pub struct LogoutRequest {
     pub session_id: Uuid,
@@ -19,6 +19,20 @@ impl TryFrom<protobuf::LogoutRequest> for LogoutRequest {
     }
 }
 
+impl TryFrom<protobuf::LogoutResponse> for LogoutResponse {
+    type Error = ProtobufRequestError;
+    fn try_from(value: protobuf::LogoutResponse) -> Result<Self, Self::Error> {
+        Ok(
+            LogoutResponse(
+                match value.error {
+                    Some(e) => Some(e.try_into()?),
+                    None => None,
+                }
+            )
+        )
+    }
+}
+
 impl From<LogoutResponse> for protobuf::response::Response {
     fn from(value: LogoutResponse) -> Self {
         protobuf::response::Response::Logout(
@@ -26,5 +40,13 @@ impl From<LogoutResponse> for protobuf::response::Response {
                 error: value.0.map(protobuf::LogoutError::into),
             }
         )
+    }
+}
+
+impl From<LogoutRequest> for protobuf::LogoutRequest {
+    fn from(value: LogoutRequest) -> Self {
+        protobuf::LogoutRequest {
+            session_id: value.session_id.into_bytes().to_vec(),
+        }
     }
 }

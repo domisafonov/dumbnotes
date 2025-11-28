@@ -1,6 +1,4 @@
 mod cli;
-mod protobuf;
-mod model;
 mod eventloop;
 mod processors;
 
@@ -26,9 +24,10 @@ use std::io;
 use std::os::fd::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, BufReader};
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
+use dumbnotes::ipc::auth::protobuf;
 
 #[tokio::main]
 async fn main() {

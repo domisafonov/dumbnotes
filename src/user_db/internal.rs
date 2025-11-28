@@ -1,7 +1,6 @@
 use std::path::Path;
 use async_trait::async_trait;
 use log::trace;
-use crate::config::app_config::AppConfig;
 use crate::hasher::{Hasher, ProductionHasher};
 use crate::username_string::UsernameStr;
 use crate::file_watcher::ProductionFileWatcher;

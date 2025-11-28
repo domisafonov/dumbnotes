@@ -1,5 +1,3 @@
-use time::Duration;
-
 pub const WEB_PREFIX: &str = "/web";
 pub const API_PREFIX: &str = "/api";
 

@@ -4,10 +4,10 @@ use time::OffsetDateTime;
 use dumbnotes::access_token::{AccessTokenGenerator, AccessTokenGeneratorError};
 use dumbnotes::bin_constants::ACCESS_TOKEN_VALIDITY_TIME;
 use dumbnotes::session_storage::{SessionStorage, SessionStorageError};
-use crate::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
-use crate::model::successful_login::SuccessfulLogin;
-use crate::protobuf;
-use crate::protobuf::LoginError;
+use dumbnotes::ipc::auth::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
+use dumbnotes::ipc::auth::model::successful_login::SuccessfulLogin;
+use dumbnotes::ipc::auth::protobuf;
+use dumbnotes::ipc::auth::protobuf::LoginError;
 
 pub async fn process_refresh_token(
     session_storage: &impl SessionStorage,
