@@ -43,7 +43,7 @@ impl AppSetupFairing {
             .arg(format!("--socket-fd={}", auth_childs_socket.as_raw_fd()))
             .arg(path_arg("private-key-file", &config.jwt_private_key))
             .arg(path_arg("data-directory", &config.data_directory))
-            .arg(path_arg("user-db-directory", &config.user_db))
+            .arg(path_arg("user-db-path", &config.user_db))
             .arg(
                 format!(
                     "--hasher-config={}",

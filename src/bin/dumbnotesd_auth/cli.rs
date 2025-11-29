@@ -15,7 +15,7 @@ pub struct CliConfig {
     pub data_directory: PathBuf,
     
     #[arg(long)]
-    pub user_db_directory: PathBuf,
+    pub user_db_path: PathBuf,
 
     #[arg(long)]
     pub hasher_config: String,

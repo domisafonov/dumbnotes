@@ -105,7 +105,7 @@ impl<'de> Deserialize<'de> for UsernameString {
         impl<'de> serde::de::Visitor<'de> for Visitor {
             type Value = UsernameString;
 
-            fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
                 formatter.write_str("string containing a valid username")
             }
 

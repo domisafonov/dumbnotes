@@ -170,7 +170,7 @@ async fn make_user_db(
 ) -> ProductionUserDb {
     ProductionUserDb
     ::new(
-        &config.user_db_directory,
+        &config.user_db_path,
         hasher,
         watcher.clone(),
     )
