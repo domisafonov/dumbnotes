@@ -132,7 +132,9 @@ async fn dispatch_command(
         &mut *write_socket.lock().await,
         response,
     ).await
-        .unwrap_or_else(|e| error_exit!("error writing to the control socket: {e}"));
+        .unwrap_or_else(|e|
+            error_exit!("error writing to the control socket: {e}")
+        );
     Ok(())
 }
 

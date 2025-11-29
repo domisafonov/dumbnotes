@@ -4,7 +4,6 @@ mod routes;
 pub mod access_granter;
 pub mod http;
 mod app_setup;
-mod socket;
 
 use crate::cli::CliConfig;
 use app_setup::AppSetupFairing;

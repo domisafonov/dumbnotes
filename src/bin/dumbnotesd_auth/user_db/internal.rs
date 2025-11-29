@@ -16,11 +16,6 @@ mod user;
 
 #[async_trait]
 pub trait UserDb: Send + Sync {
-    async fn does_user_exist(
-        &self,
-        username: &UsernameStr,
-    ) -> Result<bool, UserDbError>;
-
     async fn check_user_credentials(
         &self,
         username: &UsernameStr,
@@ -36,19 +31,6 @@ pub struct UserDbImpl<H: Hasher + 'static, Io: UserDbIo> {
 
 #[async_trait]
 impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
-    async fn does_user_exist(
-        &self,
-        username: &UsernameStr,
-    ) -> Result<bool, UserDbError> {
-        trace!("checking user \"{username}\"");
-        let does_exist = self.io
-            .get_user(username)
-            .await?
-            .is_some();
-        trace!("user \"{username}\" exists: {does_exist}");
-        Ok(does_exist)
-    }
-
     async fn check_user_credentials(
         &self,
         username: &UsernameStr,

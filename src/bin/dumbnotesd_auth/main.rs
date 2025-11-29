@@ -21,7 +21,7 @@ use log::info;
 use socket2::Socket;
 use std::error::Error;
 use std::io;
-use std::os::fd::{FromRawFd, IntoRawFd};
+use std::os::fd::FromRawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
@@ -89,7 +89,7 @@ fn make_sockets(
         let command_socket = unsafe { Socket::from_raw_fd(config.socket_fd) };
         command_socket.set_cloexec(true)?;
         let command_socket = UnixStream::from_std(
-            unsafe { StdUnixStream::from_raw_fd(command_socket.into_raw_fd()) },
+            StdUnixStream::from(command_socket),
         )?;
         Ok(command_socket.into_split())
     }
