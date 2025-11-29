@@ -4,11 +4,12 @@ use dumbnotes::username_string::UsernameStr;
 use futures::StreamExt;
 use log::{debug, error, info, trace};
 use std::collections::HashMap;
+use std::mem::ManuallyDrop;
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::Arc;
 use tokio::fs;
-use tokio::sync::{Notify, RwLock, RwLockWriteGuard};
+use tokio::sync::{oneshot, RwLock, RwLockWriteGuard};
 use crate::user_db::internal::data::UsersData;
 use crate::user_db::internal::user::User;
 use crate::user_db::UserDbError;
@@ -22,13 +23,14 @@ pub trait UserDbIo: Send + Sync {
 }
 
 pub struct ProductionUserDbIo {
+    die_notice: ManuallyDrop<oneshot::Sender<()>>,
     users: Arc<RwLock<HashMap<String, User>>>,
-    die_notice: Arc<Notify>,
 }
 
 impl Drop for ProductionUserDbIo {
     fn drop(&mut self) {
-        self.die_notice.notify_one()
+        let _ = unsafe { ManuallyDrop::take(&mut self.die_notice) }
+            .send(());
     }
 }
 
@@ -44,13 +46,13 @@ impl ProductionUserDbIo {
         let data = Self::read_data(&user_db_path).await?;
 
         let users = Arc::new(RwLock::new(data));
-        let die_notice = Arc::new(Notify::new());
+        let (die_notice_sender, die_notice_receiver) = oneshot::channel();
         let file_watch_guard = file_watcher.watch(&user_db_path)?;
         tokio::spawn(
             Self::file_updates_watcher(
                 user_db_path,
                 users.clone(),
-                die_notice.clone(),
+                die_notice_receiver,
                 file_watch_guard,
             )
         );
@@ -58,7 +60,7 @@ impl ProductionUserDbIo {
         Ok(
             ProductionUserDbIo {
                 users,
-                die_notice,
+                die_notice: ManuallyDrop::new(die_notice_sender),
             }
         )
     }
@@ -66,14 +68,14 @@ impl ProductionUserDbIo {
     async fn file_updates_watcher(
         user_db_path: PathBuf,
         users: Arc<RwLock<HashMap<String, User>>>,
-        die_notice: Arc<Notify>,
+        mut die_notice: oneshot::Receiver<()>,
         file_watch_guard: <ProductionFileWatcher as FileWatcher>::Guard,
     ) {
         trace!("watching user db updates at \"{}\"", user_db_path.display());
         let mut events = pin!(file_watch_guard.get_events());
         loop {
             tokio::select! {
-                _ = die_notice.notified() => break,
+                _ = &mut die_notice => break,
                 maybe_event = events.next() => match maybe_event.expect("file event stream finished") {
                     Err(e) => match e {
                         FileWatcherError::Overflow(_) => Self

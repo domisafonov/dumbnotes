@@ -1,13 +1,14 @@
 use async_trait::async_trait;
 use dumbnotes::username_string::{UsernameStr, UsernameString};
 use std::collections::HashMap;
+use std::mem::ManuallyDrop;
 use std::path::Path;
 use std::sync::Arc;
 use futures::{Stream, StreamExt};
 use log::{error, info, trace};
 use time::OffsetDateTime;
 use tokio::spawn;
-use tokio::sync::{Notify, RwLock, RwLockWriteGuard};
+use tokio::sync::{oneshot, RwLock, RwLockWriteGuard};
 use uuid::Uuid;
 use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
 use crate::file_watcher::Event;
@@ -24,16 +25,17 @@ mod io_trait;
 
 #[allow(private_bounds)]
 pub struct SessionStorageImpl<Io: SessionStorageIo, W: FileWatcher> {
+    die_notice: ManuallyDrop<oneshot::Sender<()>>,
     state: Arc<RwLock<State>>,
     io: Arc<Io>,
     file_watch_guard: W::Guard,
-    die_notice: Arc<Notify>,
 }
 
 impl<Io: SessionStorageIo, W: FileWatcher> Drop for SessionStorageImpl<Io, W> {
     fn drop(&mut self) {
         trace!("session storage dropped");
-        self.die_notice.notify_one()
+        let _ = unsafe { ManuallyDrop::take(&mut self.die_notice) }
+            .send(());
     }
 }
 
@@ -93,20 +95,20 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
         factory: impl FnOnce(
             Arc<RwLock<State>>,
             W::Guard,
-            Arc<Notify>,
+            oneshot::Sender<()>,
         ) -> Self,
     ) -> Result<Self, SessionStorageError> {
         let state: State = io.read_session_file()
             .await?
             .into();
         let file_watch_guard = file_watcher.watch(path)?;
-        let die_notice = Arc::new(Notify::new());
+        let (die_notice_sender, die_notice_receiver) = oneshot::channel();
         let state = Arc::new(RwLock::new(state));
         spawn(
             Self::file_updates_watcher(
                 state.clone(),
                 io.clone(),
-                die_notice.clone(),
+                die_notice_receiver,
                 file_watch_guard.get_events(),
             )
         );
@@ -114,7 +116,7 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
             factory(
                 state,
                 file_watch_guard,
-                die_notice,
+                die_notice_sender,
             )
         )
     }
@@ -122,14 +124,15 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
     async fn file_updates_watcher(
         state: Arc<RwLock<State>>,
         io: Arc<Io>,
-        die_notice: Arc<Notify>,
+        mut die_notice: oneshot::Receiver<()>,
         events: impl Stream<Item=Result<Event, FileWatcherError>>,
     ) {
         trace!("watching session db updates");
         let mut events = Box::pin(events);
         loop {
             let _ = tokio::select! {
-                _ = die_notice.notified() => break,
+                biased;
+                _ = &mut die_notice => break,
                 maybe_event = events.next() => match maybe_event.expect("file event stream finished") {
                     Err(e) => match e {
                         FileWatcherError::Overflow(_) => Self
@@ -381,10 +384,10 @@ impl ProductionSessionStorage {
                 file_watcher,
                 move |state, file_watch_guard, die_notice| {
                     SessionStorageImpl {
+                        die_notice: ManuallyDrop::new(die_notice),
                         state,
                         io,
                         file_watch_guard,
-                        die_notice,
                     }
                 },
             )
