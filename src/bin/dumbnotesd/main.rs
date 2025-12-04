@@ -11,10 +11,13 @@ use clap::{crate_name, Parser};
 use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::error_exit;
 use dumbnotes::logging::init_daemon_logging;
+#[cfg(target_os = "openbsd")] use dumbnotes::pledge::pledge_init;
 use figment::Figment;
 use log::info;
 
 fn main() {
+    #[cfg(target_os = "openbsd")] pledge_init();
+
     let cli_config = CliConfig::parse();
     init_daemon_logging(
         cli_config.is_daemonizing(),

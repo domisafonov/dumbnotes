@@ -3,6 +3,25 @@ use std::ptr::null;
 use log::trace;
 use crate::error_exit;
 
+pub fn pledge_init() {
+    pledge(
+        Some("stdio rpath wpath cpath tmppath inet fattr unix proc exec ps id"),
+
+        // copied from authd
+        Some("stdio rpath wpath cpath flock unix ps"),
+    )
+}
+
+// TODO: does it make sense to repledge after the rocket starts serving?
+// TODO: repledge after self-forking too
+pub fn pledge_liftoff() {
+    trace!("pledging for continuous operation");
+    pledge(
+        Some("stdio rpath wpath cpath tmppath inet fattr"),
+        None,
+    )
+}
+
 // unix and ps is for initializing syslog
 pub fn pledge_authd_init() {
     pledge(
@@ -19,14 +38,6 @@ pub fn pledge_authd_normal() {
     )
 }
 
-pub fn pledge_init() {
-    // TODO
-}
-
-pub fn pledge_normal() {
-    // TODO
-}
-
 pub fn pledge_gen_init() {
     pledge(
         Some("stdio rpath wpath cpath tty"),
@@ -35,6 +46,7 @@ pub fn pledge_gen_init() {
 }
 
 pub fn pledge_gen_key() {
+    trace!("pledging for generating the keys");
     pledge(
         Some("stdio rpath wpath cpath"),
         None,
@@ -42,6 +54,7 @@ pub fn pledge_gen_key() {
 }
 
 pub fn pledge_gen_hash() {
+    trace!("pledging for generating a password hash");
     pledge(
         Some("stdio rpath tty"),
         None,

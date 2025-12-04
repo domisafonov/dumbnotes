@@ -1,22 +1,23 @@
+use crate::access_granter::{AccessGranter, ProductionAccessGranter};
+use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
+use async_trait::async_trait;
+use dumbnotes::access_token::AccessTokenDecoder;
+use dumbnotes::config::app_config::AppConfig;
+use dumbnotes::error_exit;
+use dumbnotes::ipc::socket::create_socket_pair;
+#[cfg(target_os = "openbsd")] use dumbnotes::pledge::pledge_liftoff;
+use dumbnotes::storage::NoteStorage;
+use josekit::jwk::Jwk;
+use log::{error, info};
+use rocket::fairing::{Fairing, Info};
+use rocket::{Build, Orbit, Rocket};
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::sync::Arc;
-use tokio::sync::{oneshot, Mutex};
-use async_trait::async_trait;
-use rocket::fairing::{Fairing, Info};
-use rocket::{Build, Orbit, Rocket};
-use dumbnotes::config::app_config::AppConfig;
 use tokio::net::UnixStream;
-use log::{error, info};
-use dumbnotes::error_exit;
-use dumbnotes::storage::NoteStorage;
-use josekit::jwk::Jwk;
-use dumbnotes::access_token::AccessTokenDecoder;
-use dumbnotes::ipc::socket::create_socket_pair;
-use crate::access_granter::{AccessGranter, ProductionAccessGranter};
-use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
+use tokio::sync::{oneshot, Mutex};
 
 pub struct AppSetupFairing {
     is_daemonizing: bool,
@@ -172,6 +173,7 @@ impl Fairing for AppSetupFairing {
         &self,
         rocket: &Rocket<Orbit>,
     ) {
+        #[cfg(target_os = "openbsd")] pledge_liftoff();
         let shutdown = rocket.shutdown();
         let auth_daemon_failure_notice = self.auth_daemon_failure_notice.clone();
         tokio::spawn(async move {
