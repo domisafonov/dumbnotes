@@ -2,19 +2,22 @@ use crate::cli::CliConfig;
 use clap::Parser;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::config::figment::FigmentExt;
+use dumbnotes::error_exit;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
-use jwt_key_generator::make_jwt_key;
+#[cfg(target_os = "openbsd")] use dumbnotes::pledge::{pledge_gen_init, pledge_gen_key, pledge_gen_hash};
 use figment::Figment;
+use jwt_key_generator::make_jwt_key;
+use log::{error, info, warn};
 use rpassword::prompt_password;
 use std::process::exit;
-use log::{error, info, warn};
-use dumbnotes::error_exit;
 
 mod cli;
 mod config;
 pub mod jwt_key_generator;
 
 fn main() {
+    #[cfg(target_os = "openbsd")] pledge_gen_init();
+
     env_logger::init();
 
     let cli_config = CliConfig::parse();
@@ -36,7 +39,7 @@ fn main() {
             info!("finishing due to a configuration error");
             exit(1)
         });
-    
+
     if cli_config.generate_jwt_key {
         generate_jwt_key(app_config)
     } else {
@@ -48,6 +51,8 @@ fn generate_hash(
     cli_config: CliConfig,
     app_config: AppConfig,
 ) {
+    #[cfg(target_os = "openbsd")] pledge_gen_hash();
+
     let hasher_config = app_config.hasher_config.try_into()
         .unwrap_or_else(|e| error_exit!("hasher config is invalid: {}", e));
     let hasher = ProductionHasher::new(
@@ -82,6 +87,8 @@ fn generate_hash(
 fn generate_jwt_key(
     app_config: AppConfig,
 ) {
+    #[cfg(target_os = "openbsd")] pledge_gen_key();
+
     make_jwt_key(&app_config.jwt_private_key, &app_config.jwt_public_key)
         .unwrap_or_else(|e| error_exit!("could not generate a jwt key: {e}"));
 }

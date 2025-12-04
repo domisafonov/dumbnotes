@@ -1,11 +1,62 @@
-#![cfg(target_os = "openbsd")]
-
 use std::ffi::{c_char, c_int, CString};
 use std::ptr::null;
 use log::trace;
 use crate::error_exit;
 
-unsafe fn pledge(
+// unix and ps is for initializing syslog
+pub fn pledge_authd_init() {
+    pledge(
+        Some("stdio rpath wpath cpath flock unix ps"),
+        None,
+    )
+}
+
+pub fn pledge_authd_normal() {
+    trace!("pledging for continuous operation");
+    pledge(
+        Some("stdio rpath wpath cpath flock"),
+        None,
+    )
+}
+
+pub fn pledge_init() {
+    // TODO
+}
+
+pub fn pledge_normal() {
+    // TODO
+}
+
+pub fn pledge_gen_init() {
+    pledge(
+        Some("stdio rpath wpath cpath tty"),
+        None,
+    )
+}
+
+pub fn pledge_gen_key() {
+    pledge(
+        Some("stdio rpath wpath cpath"),
+        None,
+    )
+}
+
+pub fn pledge_gen_hash() {
+    pledge(
+        Some("stdio rpath tty"),
+        None,
+    )
+}
+
+fn pledge(
+    promises: Option<&str>,
+    execpromises: Option<&str>,
+) {
+    unsafe { pledge_raw(promises, execpromises) }
+        .unwrap_or_else(|e| error_exit!("unable to pledge: {e}"));
+}
+
+unsafe fn pledge_raw(
     promises: Option<&str>,
     execpromises: Option<&str>,
 ) -> Result<(), std::io::Error> {
@@ -30,40 +81,4 @@ unsafe fn pledge(
         return Err(std::io::Error::last_os_error());
     }
     Ok(())
-}
-
-// unix and ps is for initializing syslog
-pub fn pledge_authd_init() {
-    unsafe {
-        pledge(
-            Some("stdio rpath wpath cpath flock unix ps"),
-            None,
-        )
-    }.unwrap_or_else(|e| error_exit!("unable to pledge: {e}"));
-}
-
-pub fn pledge_authd_normal() {
-    trace!("pledging for continuous operation");
-    unsafe {
-        pledge(
-            Some("stdio rpath wpath cpath flock"),
-            None,
-        )
-    }.unwrap_or_else(|e| error_exit!("unable to pledge: {e}"));
-}
-
-pub fn pledge_init() {
-    // TODO
-}
-
-pub fn pledge_normal() {
-    // TODO
-}
-
-pub fn pledge_gen_init() {
-    // TODO
-}
-
-pub fn pledge_gen_normal() {
-    // TODO
 }

@@ -58,6 +58,7 @@ async fn main() {
         message_stream::stream(read_socket),
         write_socket,
     );
+
     #[cfg(target_os = "openbsd")] pledge_authd_normal();
     let result = tokio::spawn(the_loop).await;
 
