@@ -59,8 +59,8 @@ impl ProductionUserDbIo {
 
         Ok(
             ProductionUserDbIo {
-                users,
                 die_notice: ManuallyDrop::new(die_notice_sender),
+                users,
             }
         )
     }

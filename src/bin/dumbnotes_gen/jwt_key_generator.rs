@@ -29,7 +29,7 @@ pub fn make_jwt_key(
     write(
         jwt_private_key,
         serde_json::to_string_pretty(&private_key)? + "\n",
-        Some(0o700),
+        Some(0o600),
     )?;
     write(
         jwt_public_key,

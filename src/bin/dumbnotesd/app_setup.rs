@@ -19,12 +19,14 @@ use crate::access_granter::{AccessGranter, ProductionAccessGranter};
 use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
 
 pub struct AppSetupFairing {
+    is_daemonizing: bool,
     auth_daemon_failure_notice: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
 }
 
 impl AppSetupFairing {
-    pub fn new() -> Self {
+    pub fn new(is_daemonizing: bool) -> Self {
         AppSetupFairing {
+            is_daemonizing,
             auth_daemon_failure_notice: Arc::new(Mutex::new(None)),
         }
     }
@@ -53,6 +55,13 @@ impl AppSetupFairing {
                         )?,
                 )
             );
+        if self.is_daemonizing {
+            if cfg!(debug_assertions) {
+                command.arg("--daemonize");
+            } else {
+                command.arg("--no-daemonize");
+            }
+        }
         let mut auth_child = command.spawn()
             .inspect_err(|e|
                 error!("failed to spawn dumbnotesd_auth process: {}", e)

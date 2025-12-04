@@ -61,7 +61,7 @@ impl Default for AppConfig {
             jwt_public_key: DEFAULT_JWT_PUBLIC_KEY.into(),
             max_note_size: DEFAULT_MAX_NOTE_LEN,
             max_note_name_size: DEFAULT_MAX_NOTE_NAME_LEN,
-            hasher_config: ProductionHasherConfigData::default(),
+            hasher_config: Default::default(),
         }
     }
 }

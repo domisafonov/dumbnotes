@@ -5,6 +5,14 @@ use clap::Parser;
 #[derive(Clone, Debug, Eq, Parser, PartialEq)]
 #[command(version, author, about = "internal auth subdaemon")]
 pub struct CliConfig {
+    #[cfg(not(debug_assertions))]
+    #[arg(long, short = 'd', default_value_t = false)]
+    pub no_daemonize: bool,
+
+    #[cfg(debug_assertions)]
+    #[arg(long, short = 'D', default_value_t = false)]
+    pub daemonize: bool,
+
     #[arg(long)]
     pub socket_fd: RawFd,
 
@@ -19,4 +27,16 @@ pub struct CliConfig {
 
     #[arg(long)]
     pub hasher_config: String,
+}
+
+impl CliConfig {
+    #[cfg(not(debug_assertions))]
+    pub fn is_daemonizing(&self) -> bool {
+        !self.no_daemonize
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn is_daemonizing(&self) -> bool {
+        self.daemonize
+    }
 }

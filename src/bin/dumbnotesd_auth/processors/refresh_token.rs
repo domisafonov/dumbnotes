@@ -56,11 +56,20 @@ async fn process_refresh_token_impl(
             &refresh_token,
             now + ACCESS_TOKEN_VALIDITY_TIME,
         )
-        .await?;
+        .await;
+    let session = match session {
+        Ok(session) => session,
+        Err(SessionStorageError::SessionNotFound) => return Ok(
+            RefreshTokenResponse(
+                Err(LoginError::LoginInvalidCredentials)
+            )
+        ),
+        Err(e) => return Err(e.into()),
+    };
     info!(
-            "refreshed session {} for user \"{username}\"",
-            session.session_id,
-        );
+        "refreshed session {} for user \"{username}\"",
+        session.session_id,
+    );
     let access_token = token_generator
         .generate_token(
             session.session_id,

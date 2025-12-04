@@ -13,7 +13,6 @@ clap = { version = "4.5.53", features = ["cargo", "derive"] }
 env_logger = "0.11.8"
 figment = { version = "0.10.19", features = ["toml", "env"] }
 futures = "0.3.31"
-josekit = { version = "0.10.3", features = ["vendored"] }
 libc = "0.2.177"
 log = { version = "0.4.28", features = ["max_level_debug", "release_max_level_info"] }
 notify = "8.2.0"
@@ -33,6 +32,12 @@ tokio = { version = "1.48.0", features = ["fs", "io-util", "process", "rt-multi-
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 toml = "0.9.8"
 uuid = { version = "1.18.1", features = ["v4", "fast-rng", "serde"] }
+
+[target.'cfg(target_os = "openbsd")'.dependencies]
+josekit = { version = "0.10.3", features = ["vendored"] }
+
+[target.'cfg(not(target_os = "openbsd"))'.dependencies]
+josekit = "0.10.3"
 
 [dev-dependencies]
 lazy_static = "1.5.0"

@@ -129,7 +129,10 @@ impl<W: notify::Watcher> Drop for FileWatchGuardImpl<W> {
         self.file_watcher
             .lock().expect("failed locking the file watcher")
             .watcher
-            .unwatch(&self.path).expect("failed to unwatch");
+            .unwatch(&self.path)
+            .unwrap_or_else(|e|
+                error!("failed to unwatch {}: {e}", self.path.display())
+            )
     }
 }
 
