@@ -182,6 +182,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "boolean-enums"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44539697f0f7d41f8a9f1e5bc68eaef925e47b6c9fd834b4840135ac74544352"
+
+[[package]]
 name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -361,6 +367,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "base64ct",
+ "boolean-enums",
  "clap",
  "env_logger",
  "figment",

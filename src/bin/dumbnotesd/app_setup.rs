@@ -66,17 +66,8 @@ impl AppSetupFairing {
             }
 
             if let Some(ref authd_user_group) = config.authd_user_group {
-                match get_user_and_group(authd_user_group)? {
-                    Some((uid, gid)) => {
-                        command.uid(uid).gid(gid);
-                    },
-                    None => return Err(
-                        io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("no user or group \"{authd_user_group}\" found")
-                        ).into()
-                    ),
-                }
+                let (uid, gid) = get_user_and_group(authd_user_group)?;
+                command.uid(uid).gid(gid);
             }
         }
         let mut auth_child = command.spawn()

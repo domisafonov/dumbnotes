@@ -6,6 +6,7 @@ use std::ops::Add;
 use std::os::unix::prelude::*;
 use std::path::PathBuf;
 use std::str::FromStr;
+use libc::mode_t;
 use time::UtcDateTime;
 use tokio::io;
 use tokio::io::AsyncReadExt;
@@ -27,7 +28,8 @@ use crate::storage::internal::io_trait::OpenFile;
 mod io_trait;
 #[cfg(test)] mod tests;
 
-const REQUIRED_UNIX_PERMISSIONS: u32 = 0o700;
+const REQUIRED_USER_PERMISSIONS: mode_t = 0o700;
+const REQUIRED_GROUP_PERMISSIONS: mode_t = 0o070;
 const HYPHENED_UUID_SIZE: usize = 36;
 const TMP_FILENAME_INFIX: &str = ".tmp.";
 
@@ -63,14 +65,15 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
             "creating note storage at {}",
             app_config.data_directory.display(),
         );
-        let meta = io.metadata(&app_config.data_directory).await?;
+        let notes_dir = app_config.data_directory.join("notes");
+        let meta = io.metadata(&notes_dir).await?;
         if !meta.is_dir {
-            return Err(StorageError::UserDirDoesNotExist);
+            return Err(StorageError::DataDirNotInitialized);
         }
-        validate_note_root_permissions(&io, &meta)?;
+        validate_notes_root_permissions(&io, &meta)?;
         Ok(NoteStorageImpl {
             io,
-            basedir: app_config.data_directory.clone(),
+            basedir: notes_dir,
             max_note_len: app_config.max_note_size,
             max_note_name_len: app_config.max_note_name_size,
         })
@@ -300,17 +303,22 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     }
 }
 
-pub fn validate_note_root_permissions(
+pub fn validate_notes_root_permissions(
     io: &impl NoteStorageIo,
     meta: &Metadata,
 ) -> Result<(), StorageError> {
-    let uid = io.getuid();
-    // TODO
-    // if meta.uid != uid
-    //     || meta.mode & REQUIRED_UNIX_PERMISSIONS != REQUIRED_UNIX_PERMISSIONS {
-    //     return Err(StorageError::Permission)
-    // }
-    Ok(())
+    let (uid, gid) = io.get_ids();
+    if meta.uid == uid
+        && meta.mode & REQUIRED_USER_PERMISSIONS == REQUIRED_USER_PERMISSIONS
+    {
+        return Ok(())
+    }
+    if meta.gid == gid
+        && meta.mode & REQUIRED_GROUP_PERMISSIONS == REQUIRED_GROUP_PERMISSIONS
+    {
+        return Ok(())
+    }
+    Err(StorageError::Permission)
 }
 
 async fn read_limited_utf8_lossy<R: io::AsyncRead + Unpin + Send>(

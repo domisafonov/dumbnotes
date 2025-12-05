@@ -17,13 +17,7 @@ pub fn clear_supplementary_groups() -> Result<(), io::Error> {
 
 pub fn set_user_and_group(user_group: &str) -> Result<(), io::Error> {
     debug!("setting user and group to \"{user_group}\"");
-    let (uid, gid) = get_user_and_group(user_group)?
-        .ok_or_else(||
-            io::Error::new(
-                ErrorKind::NotFound,
-                "user or group \"{user_group}\" not found"
-            )
-        )?;
+    let (uid, gid) = get_user_and_group(user_group)?;
 
     let res = unsafe { libc::setgid(gid) };
     if res == -1 {
@@ -38,7 +32,7 @@ pub fn set_user_and_group(user_group: &str) -> Result<(), io::Error> {
     Ok(())
 }
 
-pub fn get_user_and_group(user_group: &str) -> Result<Option<(uid_t, gid_t)>, io::Error> {
+pub fn get_user_and_group(user_group: &str) -> Result<(uid_t, gid_t), io::Error> {
     let split: Vec<&str> = user_group.split(':').collect();
     match split.len() {
         1 => getpwnam_r(split[0]),
@@ -58,6 +52,13 @@ pub fn get_user_and_group(user_group: &str) -> Result<Option<(uid_t, gid_t)>, io
             )
         ),
     }
+        .transpose()
+        .ok_or_else(||
+            io::Error::new(
+                ErrorKind::NotFound,
+                format!("no user or group \"{user_group}\" found")
+            )
+        )?
 }
 
 fn getpwnam_r(username: &str) -> Result<Option<(uid_t, gid_t)>, io::Error> {
@@ -67,14 +68,14 @@ fn getpwnam_r(username: &str) -> Result<Option<(uid_t, gid_t)>, io::Error> {
         return Err(io::Error::last_os_error())
     }
     let buf_size = buf_size as usize;
-    let mut buffer = vec![0; buf_size];
+    let mut buffer = Box::<[libc::c_char]>::new_uninit_slice(buf_size);
     let mut passwd = MaybeUninit::<libc::passwd>::uninit();
     let mut out_ptr = MaybeUninit::<*mut libc::passwd>::uninit();
     let res = unsafe {
         libc::getpwnam_r(
             username.as_ptr(),
             passwd.as_mut_ptr(),
-            buffer.as_mut_ptr(),
+            buffer.as_mut_ptr().cast(),
             buf_size,
             out_ptr.as_mut_ptr(),
         )
@@ -99,14 +100,14 @@ fn getgrnam_r(groupname: &str) -> Result<Option<gid_t>, io::Error> {
         return Err(io::Error::last_os_error())
     }
     let buf_size = buf_size as usize;
-    let mut buffer = vec![0; buf_size];
+    let mut buffer = Box::<[libc::c_char]>::new_uninit_slice(buf_size);
     let mut group = MaybeUninit::<libc::group>::uninit();
     let mut out_ptr = MaybeUninit::<*mut libc::group>::uninit();
     let res = unsafe {
         libc::getgrnam_r(
             groupname.as_ptr(),
             group.as_mut_ptr(),
-            buffer.as_mut_ptr(),
+            buffer.as_mut_ptr().cast(),
             buf_size,
             out_ptr.as_mut_ptr(),
         )

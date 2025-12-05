@@ -2,8 +2,10 @@ use crate::rng::make_uuid;
 use async_trait::async_trait;
 use std::os::unix::prelude::*;
 use std::path::Path;
+use libc::{gid_t, mode_t, uid_t};
 use tokio::{fs, io};
 use uuid::Uuid;
+use crate::util::get_ids;
 
 #[async_trait]
 pub trait NoteStorageIo: Send + Sync
@@ -43,15 +45,16 @@ pub trait NoteStorageIo: Send + Sync
         path: impl AsRef<Path> + Send,
     ) -> io::Result<fs::ReadDir>;
 
-    fn getuid(&self) -> u32;
+    fn get_ids(&self) -> (uid_t, gid_t);
     
     fn generate_uuid(&self) -> Uuid;
 }
 
 pub struct Metadata {
     pub is_dir: bool,
-    pub uid: u32,
-    pub mode: u32,
+    pub uid: uid_t,
+    pub gid: gid_t,
+    pub mode: mode_t,
 }
 
 pub struct OpenFile<F: io::AsyncRead + Unpin + Send + Sync> {
@@ -78,7 +81,8 @@ impl NoteStorageIo for ProductionNoteStorageIo {
         Ok(Metadata {
             is_dir: meta.is_dir(),
             uid: meta.uid(),
-            mode: meta.mode(),
+            gid: meta.gid(),
+            mode: meta.mode() as mode_t,
         })
     }
 
@@ -127,9 +131,8 @@ impl NoteStorageIo for ProductionNoteStorageIo {
         fs::read_dir(path).await
     }
 
-    fn getuid(&self) -> u32 {
-        // SAFETY: a libc call
-        unsafe { libc::getuid() }
+    fn get_ids(&self) -> (uid_t, gid_t) {
+        get_ids()
     }
     
     fn generate_uuid(&self) -> Uuid {

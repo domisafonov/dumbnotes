@@ -36,7 +36,7 @@ impl Drop for ProductionUserDbIo {
 
 impl ProductionUserDbIo {
     pub async fn new(
-        user_db_path: impl AsRef<Path> + Send,
+        user_db_path: impl AsRef<Path> + Send, // TODO: check not world readable/writeable (recursively)
         file_watcher: ProductionFileWatcher,
     ) -> Result<Self, UserDbError> {
         trace!("creating user storage");

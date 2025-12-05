@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
+use libc::{gid_t, uid_t};
 use rand::prelude::StdRng;
 use tokio::fs::{read_dir, ReadDir};
 use tokio::io;
@@ -251,15 +252,15 @@ impl NoteStorageIo for TestStorageIo {
         path: impl AsRef<Path> + Send,
     ) -> io::Result<Metadata> {
         match self.get_spec(path) {
-            FileSpec::Dir => Ok(Metadata { is_dir: true, uid: 1, mode: 0o700 }),
+            FileSpec::Dir => Ok(Metadata { is_dir: true, uid: 1, gid: 1, mode: 0o700 }),
             FileSpec::MetadataError(err) => Err(err()),
-            FileSpec::NotEnoughPermsDir => Ok(Metadata { is_dir: false, uid: 1, mode: 0o600 }),
-            FileSpec::OtherOwnerDir => Ok(Metadata { is_dir: true, uid: 2, mode: 0o700 }),
+            FileSpec::NotEnoughPermsDir => Ok(Metadata { is_dir: false, uid: 1, gid: 1, mode: 0o600 }),
+            FileSpec::OtherOwnerDir => Ok(Metadata { is_dir: true, uid: 2, gid: 1, mode: 0o700 }),
 
             FileSpec::File {..}
                 | FileSpec::CantOpen
                 | FileSpec::CantRead
-            => Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 }),
+            => Ok(Metadata { is_dir: false, uid: 1, gid: 1, mode: 0o700 }),
 
             FileSpec::WriteTmpFile => {
                 let written_to = self.events.lock().await
@@ -272,7 +273,7 @@ impl NoteStorageIo for TestStorageIo {
                     )
                     .is_some();
                 if written_to {
-                    Ok(Metadata { is_dir: false, uid: 1, mode: 0o700 })
+                    Ok(Metadata { is_dir: false, uid: 1, gid: 1, mode: 0o700 })
                 } else {
                     Err(io::Error::from(io::ErrorKind::NotFound))
                 }
@@ -401,8 +402,8 @@ impl NoteStorageIo for TestStorageIo {
         }
     }
 
-    fn getuid(&self) -> u32 {
-        1
+    fn get_ids(&self) -> (uid_t, gid_t) {
+        (1, 1)
     }
 
     fn generate_uuid(&self) -> Uuid {

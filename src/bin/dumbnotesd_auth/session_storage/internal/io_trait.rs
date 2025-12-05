@@ -3,6 +3,7 @@ use dumbnotes::rng::make_uuid;
 use rand::RngCore;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use boolean_enums::gen_boolean_enum;
 use log::{debug, trace};
 use time::OffsetDateTime;
 use tokio::fs::File;
@@ -50,7 +51,10 @@ impl ProductionSessionStorageIo {
             session_file_path.as_ref().display(),
         );
         let path = PathBuf::from(session_file_path.as_ref());
-        let file = Self::open_file(&path)?;
+        let file = Self::open_file(
+            &path,
+            CreateIfDoesNotExist::Yes,
+        )?;
         debug!("opened the session db file at {}", path.display());
         file.try_lock().map_err(SessionStorageError::LockingFailed)?;
         debug!("locked the session db file at {}", path.display());
@@ -70,10 +74,13 @@ impl ProductionSessionStorageIo {
         )
     }
 
-    fn open_file(session_file_path: &Path) -> Result<std::fs::File, SessionStorageError> {
+    fn open_file(
+        session_file_path: &Path,
+        create_if_does_not_exist: CreateIfDoesNotExist,
+    ) -> Result<std::fs::File, SessionStorageError> {
         Ok(
             std::fs::File::options()
-                .create(true)
+                .create(create_if_does_not_exist.into())
                 .read(true)
                 .write(true)
                 .truncate(false)
@@ -93,7 +100,10 @@ impl SessionStorageIo for ProductionSessionStorageIo {
         );
         let db_file_ino = tokio::fs::metadata(&self.session_file_path).await?.ino();
         trace!("the file on session db path has ino {db_file_ino}");
-        let db_file = Self::open_file(&self.session_file_path)?;
+        let db_file = Self::open_file(
+            &self.session_file_path,
+            CreateIfDoesNotExist::No,
+        )?;
         let mut stored_file = self.db_file.lock().await;
         if db_file_ino != stored_file.ino {
             debug!(
@@ -163,3 +173,5 @@ impl SessionStorageIo for ProductionSessionStorageIo {
         make_uuid(&mut rand::rng())
     }
 }
+
+gen_boolean_enum!(CreateIfDoesNotExist);

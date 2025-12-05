@@ -367,7 +367,7 @@ pub type ProductionSessionStorage = SessionStorageImpl<
 >;
 
 impl ProductionSessionStorage {
-    // TODO: check permissions
+    // TODO: check parent directory is rx by us, the file is not world-readable or writeable (recursively)
     pub async fn new(
         data_directory: &Path,
         file_watcher: ProductionFileWatcher,

@@ -10,6 +10,7 @@ use jwt_key_generator::make_jwt_key;
 use log::{error, info, warn};
 use rpassword::prompt_password;
 use std::process::exit;
+use dumbnotes::sandbox::umask::set_umask;
 
 mod cli;
 mod config;
@@ -17,6 +18,7 @@ pub mod jwt_key_generator;
 
 fn main() {
     #[cfg(target_os = "openbsd")] pledge_gen_init();
+    set_umask();
 
     env_logger::init();
 
@@ -89,6 +91,10 @@ fn generate_jwt_key(
 ) {
     #[cfg(target_os = "openbsd")] pledge_gen_key();
 
-    make_jwt_key(&app_config.jwt_private_key, &app_config.jwt_public_key)
+    make_jwt_key(
+        &app_config.jwt_private_key,
+        &app_config.jwt_public_key,
+        app_config.authd_user_group.as_deref(),
+    )
         .unwrap_or_else(|e| error_exit!("could not generate a jwt key: {e}"));
 }

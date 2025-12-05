@@ -5,17 +5,10 @@ use crate::error_exit;
 
 pub fn pledge_init() {
     pledge(
-        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec ps id"),
+        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec id"),
 
         // copied from authd, except for "id"
         Some("stdio rpath wpath cpath flock unix ps id"),
-    )
-}
-
-pub fn pledge_logger_initialized() {
-    pledge(
-        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec id"),
-        None,
     )
 }
 
@@ -29,10 +22,10 @@ pub fn pledge_liftoff() {
     )
 }
 
-// unix and ps is for initializing syslog
+// unix is for initializing syslog
 pub fn pledge_authd_init() {
     pledge(
-        Some("stdio rpath wpath cpath flock unix ps"),
+        Some("stdio rpath wpath cpath flock unix getpw"),
         None,
     )
 }

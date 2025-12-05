@@ -28,11 +28,13 @@ use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
+use dumbnotes::sandbox::umask::set_umask;
 use user_db::ProductionUserDb;
 
 #[tokio::main]
 async fn main() {
     #[cfg(target_os = "openbsd")] pledge_authd_init();
+    set_umask();
 
     let config = CliConfig::parse();
     init_daemon_logging(config.is_daemonizing());
@@ -118,7 +120,7 @@ fn make_token_generator(
 fn read_jwt_key(
     path: &Path,
 ) -> Result<Jwk, Box<dyn Error>> {
-    // TODO
+    // TODO: check not world readable, writeable (recursively)
     // test_permissions(
     //     path,
     //     |p| p == 0o600 || p == 0o400,

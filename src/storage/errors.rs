@@ -4,8 +4,8 @@ use tokio::io::Error as IoError;
 
 #[derive(Debug, Error)]
 pub enum StorageError {
-    #[error("user directory does not exist")]
-    UserDirDoesNotExist,
+    #[error("data directory is not initialized properly")]
+    DataDirNotInitialized,
 
     #[error(transparent)]
     Io(#[from] IoError),
