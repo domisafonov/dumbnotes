@@ -4,7 +4,7 @@ use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::error_exit;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
-#[cfg(target_os = "openbsd")] use dumbnotes::pledge::{pledge_gen_init, pledge_gen_key, pledge_gen_hash};
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_gen_init, pledge_gen_key, pledge_gen_hash};
 use figment::Figment;
 use jwt_key_generator::make_jwt_key;
 use log::{error, info, warn};

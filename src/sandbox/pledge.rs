@@ -5,10 +5,17 @@ use crate::error_exit;
 
 pub fn pledge_init() {
     pledge(
-        Some("stdio rpath wpath cpath tmppath inet fattr unix proc exec ps id"),
+        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec ps id"),
 
-        // copied from authd
-        Some("stdio rpath wpath cpath flock unix ps"),
+        // copied from authd, except for "id"
+        Some("stdio rpath wpath cpath flock unix ps id"),
+    )
+}
+
+pub fn pledge_logger_initialized() {
+    pledge(
+        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec id"),
+        None,
     )
 }
 
@@ -89,8 +96,6 @@ unsafe fn pledge_raw(
         )
     };
     if res == -1 {
-        // SAFETY: raw_os_error always returns some on last_os_error result
-        //  by the docs
         return Err(std::io::Error::last_os_error());
     }
     Ok(())

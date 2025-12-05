@@ -15,4 +15,4 @@ pub mod logging;
 pub mod access_token;
 pub mod protobuf;
 pub mod ipc;
-#[cfg(target_os = "openbsd")] pub mod pledge;
+pub mod sandbox;

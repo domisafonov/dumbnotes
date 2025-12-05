@@ -15,7 +15,7 @@ use dumbnotes::error_exit;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::ipc::auth::message_stream;
 use dumbnotes::logging::init_daemon_logging;
-#[cfg(target_os = "openbsd")] use dumbnotes::pledge::{pledge_authd_init, pledge_authd_normal};
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_authd_init, pledge_authd_normal};
 use file_watcher::ProductionFileWatcher;
 use josekit::jwk::Jwk;
 use log::info;
@@ -118,22 +118,23 @@ fn make_token_generator(
 fn read_jwt_key(
     path: &Path,
 ) -> Result<Jwk, Box<dyn Error>> {
-    test_permissions(
-        path,
-        |p| p == 0o600 || p == 0o400,
-        &format!(
-            "{} must be owned by TODO and have mode of 600 or 400",
-            path.to_string_lossy(),
-        )
-    )?;
-    test_permissions(
-        path.parent().expect("path has no parent"),
-        |p| p & 0o022 == 0,
-        &format!(
-            "{} must be owned by TODO and not be writeable by group or other",
-            path.to_string_lossy(),
-        ),
-    )?;
+    // TODO
+    // test_permissions(
+    //     path,
+    //     |p| p == 0o600 || p == 0o400,
+    //     &format!(
+    //         "{} must be owned by TODO and have mode of 600 or 400",
+    //         path.to_string_lossy(),
+    //     )
+    // )?;
+    // test_permissions(
+    //     path.parent().expect("path has no parent"),
+    //     |p| p & 0o022 == 0,
+    //     &format!(
+    //         "{} must be owned by TODO and not be writeable by group or other",
+    //         path.to_string_lossy(),
+    //     ),
+    // )?;
     Ok(
         Jwk::from_bytes(
             std::fs::read(path)?

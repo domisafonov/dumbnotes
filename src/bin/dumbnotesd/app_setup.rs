@@ -5,7 +5,7 @@ use dumbnotes::access_token::AccessTokenDecoder;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::error_exit;
 use dumbnotes::ipc::socket::create_socket_pair;
-#[cfg(target_os = "openbsd")] use dumbnotes::pledge::pledge_liftoff;
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_liftoff;
 use dumbnotes::storage::NoteStorage;
 use josekit::jwk::Jwk;
 use log::{error, info};
@@ -13,11 +13,13 @@ use rocket::fairing::{Fairing, Info};
 use rocket::{Build, Orbit, Rocket};
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
+use std::io;
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::net::UnixStream;
 use tokio::sync::{oneshot, Mutex};
+use dumbnotes::sandbox::user_group::{clear_supplementary_groups, get_user_and_group, set_user_and_group};
 
 pub struct AppSetupFairing {
     is_daemonizing: bool,
@@ -61,6 +63,20 @@ impl AppSetupFairing {
                 command.arg("--daemonize");
             } else {
                 command.arg("--no-daemonize");
+            }
+
+            if let Some(ref authd_user_group) = config.authd_user_group {
+                match get_user_and_group(authd_user_group)? {
+                    Some((uid, gid)) => {
+                        command.uid(uid).gid(gid);
+                    },
+                    None => return Err(
+                        io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("no user or group \"{authd_user_group}\" found")
+                        ).into()
+                    ),
+                }
             }
         }
         let mut auth_child = command.spawn()
@@ -129,11 +145,25 @@ impl Fairing for AppSetupFairing {
             }
         );
 
+        ok_or_bail!(
+            rocket,
+            clear_supplementary_groups(),
+            |e| error!("failed to clear up supplementary groups: {e}")
+        );
+
         let socket_to_auth = ok_or_bail!(
             rocket,
             self.launch_authd(&config).await,
-            |e| error!("failed to launch dumbnotesd_auth: {}", e)
+            |e| error!("failed to launch dumbnotesd_auth: {e}")
         );
+
+        if self.is_daemonizing && let Some(ref user_group) = config.user_group {
+            ok_or_bail!(
+                rocket,
+                set_user_and_group(user_group),
+                |e| error!("failed to set user and group: {e}")
+            )
+        }
 
         let storage: NoteStorage = ok_or_bail!(
             rocket,

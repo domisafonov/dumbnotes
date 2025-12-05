@@ -1,3 +1,5 @@
+use syslog::{BasicLogger, Facility};
+
 pub fn init_tool_logging() {
     init_logging_env()
 }
@@ -11,16 +13,22 @@ pub fn init_daemon_logging(is_daemonizing: bool) {
 }
 
 fn init_logging_syslog() {
-    use syslog::BasicLogger;
-
     log
         ::set_boxed_logger(
             Box::new(
                 BasicLogger::new(
                     syslog::unix(
-                        // for some reason, only 3164 has log crate
-                        // integration at the moment
-                        syslog::Formatter3164::default(),
+                        syslog::Formatter3164 {
+                            facility: Facility::LOG_USER,
+                            hostname: None,
+                            process: std::env::args_os()
+                                .next()
+                                .map(|name|
+                                    name.into_string().unwrap_or("".into())
+                                )
+                                .unwrap_or("".into()),
+                            pid: std::process::id(),
+                        }
                     ).expect("syslog initialization failed")
                 )
             )

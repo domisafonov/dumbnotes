@@ -6,6 +6,12 @@ use crate::lib_constants::{DEFAULT_MAX_NOTE_LEN, DEFAULT_MAX_NOTE_NAME_LEN};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AppConfig {
+    #[serde(default)]
+    pub user_group: Option<String>,
+
+    #[serde(default)]
+    pub authd_user_group: Option<String>,
+
     #[serde(default = "app_config_default_data_dir")]
     pub data_directory: PathBuf,
 
@@ -55,6 +61,8 @@ pub fn app_config_default_max_note_name_size() -> u64 {
 impl Default for AppConfig {
     fn default() -> Self {
         AppConfig {
+            user_group: Default::default(),
+            authd_user_group: Default::default(),
             data_directory: DEFAULT_DATA_DIR.into(),
             user_db: DEFAULT_USER_DB.into(),
             jwt_private_key: DEFAULT_JWT_PRIVATE_KEY.into(),
