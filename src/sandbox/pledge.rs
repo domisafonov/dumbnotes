@@ -8,7 +8,7 @@ pub fn pledge_init() {
         Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec id"),
 
         // copied from authd, except for "id"
-        Some("stdio rpath wpath cpath flock unix ps id"),
+        Some("stdio rpath wpath cpath flock unix getpw"),
     )
 }
 

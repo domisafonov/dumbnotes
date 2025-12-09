@@ -1,5 +1,6 @@
 use std::io::Error as IoError;
 use thiserror::Error;
+use dumbnotes::nix::CheckAccessError;
 use crate::file_watcher::FileWatcherError;
 
 #[derive(Debug, Error)]
@@ -21,6 +22,9 @@ pub enum SessionStorageError {
 
     #[error("failed to watch session file: {0}")]
     SessionFileWatch(#[from] FileWatcherError),
+    
+    #[error(transparent)]
+    AccessCheck(#[from] CheckAccessError),
 }
 
 impl From<std::fs::TryLockError> for SessionStorageError {

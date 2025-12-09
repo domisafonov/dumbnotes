@@ -14,6 +14,7 @@ use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
 use figment::Figment;
 use log::info;
+use dumbnotes::nix::is_root;
 use dumbnotes::sandbox::umask::set_umask;
 
 fn main() {
@@ -26,6 +27,10 @@ fn main() {
     );
 
     info!("{} starting up", crate_name!());
+
+    if cli_config.is_daemonizing() && !is_root() {
+        error_exit!("cannot be daemonizing from a non-root user")
+    }
 
     if !cli_config.config_file.exists() {
         error_exit!(

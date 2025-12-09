@@ -8,9 +8,8 @@ use josekit::jwk::alg::ed::EdCurve;
 use josekit::jwk::Jwk;
 use libc::{gid_t, uid_t};
 use thiserror::Error;
+use dumbnotes::nix::{get_ids, ChownExt};
 use dumbnotes::sandbox::user_group::get_user_and_group;
-use dumbnotes::util::{get_ids, ChownExt};
-
 #[derive(Debug, Error)]
 pub enum MakeJwtKeyError {
     #[error("failed generating jwt key")]

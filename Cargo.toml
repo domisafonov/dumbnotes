@@ -41,6 +41,7 @@ josekit = { version = "0.10.3", features = ["vendored"] }
 josekit = "0.10.3"
 
 [dev-dependencies]
+assert_fs = "1.1.3"
 lazy_static = "1.5.0"
 
 [build-dependencies]

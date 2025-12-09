@@ -28,6 +28,7 @@ use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
+use dumbnotes::nix::check_secret_file_ro_access;
 use dumbnotes::sandbox::umask::set_umask;
 use user_db::ProductionUserDb;
 
@@ -120,54 +121,12 @@ fn make_token_generator(
 fn read_jwt_key(
     path: &Path,
 ) -> Result<Jwk, Box<dyn Error>> {
-    // TODO: check not world readable, writeable (recursively)
-    // test_permissions(
-    //     path,
-    //     |p| p == 0o600 || p == 0o400,
-    //     &format!(
-    //         "{} must be owned by TODO and have mode of 600 or 400",
-    //         path.to_string_lossy(),
-    //     )
-    // )?;
-    // test_permissions(
-    //     path.parent().expect("path has no parent"),
-    //     |p| p & 0o022 == 0,
-    //     &format!(
-    //         "{} must be owned by TODO and not be writeable by group or other",
-    //         path.to_string_lossy(),
-    //     ),
-    // )?;
+    check_secret_file_ro_access(path)?;
     Ok(
         Jwk::from_bytes(
             std::fs::read(path)?
         )?
     )
-}
-
-#[cfg(not(debug_assertions))]
-fn test_permissions(
-    path: &Path,
-    is_valid: impl FnOnce(u32) -> bool,
-    message: &str,
-) -> Result<(), Box<dyn Error>> {
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
-
-    let metadata = std::fs::metadata(path)?;
-    let permissions = metadata.permissions().mode() & 0o777;
-    // TODO: if metadata.uid() != <configured user> || !is_valid(permissions) {
-    if !is_valid(permissions) {
-        error_exit!("{message}")
-    }
-    Ok(())
-}
-
-#[cfg(debug_assertions)]
-fn test_permissions(
-    _path: &Path,
-    _is_valid: impl FnOnce(u32) -> bool,
-    _message: &str,
-) -> Result<(), Box<dyn Error>> {
-    Ok(())
 }
 
 async fn make_user_db(
@@ -176,11 +135,11 @@ async fn make_user_db(
     watcher: ProductionFileWatcher,
 ) -> ProductionUserDb {
     ProductionUserDb
-    ::new(
-        &config.user_db_path,
-        hasher,
-        watcher.clone(),
-    )
+        ::new(
+            &config.user_db_path,
+            hasher,
+            watcher.clone(),
+        )
         .await
         .unwrap_or_else(|e|
             error_exit!("could not initialize the user DB: {e}")
@@ -192,10 +151,10 @@ async fn make_session_storage(
     watcher: ProductionFileWatcher,
 ) -> ProductionSessionStorage {
     ProductionSessionStorage
-    ::new(
-        &config.data_directory,
-        watcher,
-    )
+        ::new(
+            &config.data_directory,
+            watcher,
+        )
         .await
         .unwrap_or_else(|e|
             error_exit!("could not initialize the session DB: {e}")

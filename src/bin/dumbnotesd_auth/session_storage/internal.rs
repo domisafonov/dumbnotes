@@ -10,6 +10,7 @@ use time::OffsetDateTime;
 use tokio::spawn;
 use tokio::sync::{oneshot, RwLock, RwLockWriteGuard};
 use uuid::Uuid;
+use dumbnotes::nix::check_secret_file_rw_access;
 use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
 use crate::file_watcher::Event;
 use crate::file_watcher::FileWatcherError;
@@ -367,7 +368,6 @@ pub type ProductionSessionStorage = SessionStorageImpl<
 >;
 
 impl ProductionSessionStorage {
-    // TODO: check parent directory is rx by us, the file is not world-readable or writeable (recursively)
     pub async fn new(
         data_directory: &Path,
         file_watcher: ProductionFileWatcher,
@@ -375,6 +375,7 @@ impl ProductionSessionStorage {
         let mut path = data_directory.to_path_buf();
         trace!("creating session storage at {}", path.display());
         path.push(SESSION_STORAGE_PATH);
+        check_secret_file_rw_access(&path)?;
         let io = Arc::new(ProductionSessionStorageIo::new(&path).await?);
         let io2 = io.clone();
         SessionStorageImpl

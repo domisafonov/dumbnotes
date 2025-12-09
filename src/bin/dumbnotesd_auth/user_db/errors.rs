@@ -1,5 +1,6 @@
 use std::io::Error as IoError;
 use thiserror::Error;
+use dumbnotes::nix::CheckAccessError;
 use crate::file_watcher::FileWatcherError;
 
 #[derive(Debug, Error)]
@@ -12,4 +13,7 @@ pub enum UserDbError {
     
     #[error("failed to watch the db file: $0")]
     Watch(#[from] FileWatcherError),
+    
+    #[error(transparent)]
+    CheckAccessError(#[from] CheckAccessError),
 }

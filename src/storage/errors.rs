@@ -1,6 +1,7 @@
 use thiserror::Error;
 use time::error::ComponentRange;
 use tokio::io::Error as IoError;
+use crate::nix::CheckAccessError;
 
 #[derive(Debug, Error)]
 pub enum StorageError {
@@ -21,4 +22,7 @@ pub enum StorageError {
     
     #[error("note not found")]
     NoteNotFound,
+
+    #[error(transparent)]
+    CheckAccessError(CheckAccessError),
 }

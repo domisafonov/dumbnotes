@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use log::trace;
 use tokio::task::spawn_blocking;
 use dumbnotes::hasher::{Hasher, ProductionHasher};
+use dumbnotes::nix::check_secret_file_ro_access;
 use dumbnotes::username_string::UsernameStr;
 use crate::file_watcher::ProductionFileWatcher;
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};
@@ -71,6 +72,7 @@ impl ProductionUserDb {
         hasher: ProductionHasher,
         file_watcher: ProductionFileWatcher,
     ) -> Result<ProductionUserDb, UserDbError> {
+        check_secret_file_ro_access(user_db_path)?;
         Ok(
             UserDbImpl {
                 hasher: Arc::new(hasher),

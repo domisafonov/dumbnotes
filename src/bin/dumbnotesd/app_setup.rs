@@ -13,7 +13,6 @@ use rocket::fairing::{Fairing, Info};
 use rocket::{Build, Orbit, Rocket};
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
-use std::io;
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::sync::Arc;
@@ -136,11 +135,13 @@ impl Fairing for AppSetupFairing {
             }
         );
 
-        ok_or_bail!(
-            rocket,
-            clear_supplementary_groups(),
-            |e| error!("failed to clear up supplementary groups: {e}")
-        );
+        if self.is_daemonizing {
+            ok_or_bail!(
+                rocket,
+                clear_supplementary_groups(),
+                |e| error!("failed to clear up supplementary groups: {e}")
+            );
+        }
 
         let socket_to_auth = ok_or_bail!(
             rocket,
