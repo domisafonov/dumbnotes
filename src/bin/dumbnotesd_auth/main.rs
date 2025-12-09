@@ -29,7 +29,7 @@ use std::path::Path;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
 use dumbnotes::nix::check_secret_file_ro_access;
-use dumbnotes::sandbox::umask::set_umask;
+use dumbnotes::nix::set_umask;
 use user_db::ProductionUserDb;
 
 #[tokio::main]

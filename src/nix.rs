@@ -6,6 +6,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use libc::{gid_t, uid_t};
 use thiserror::Error;
+use crate::lib_constants::UMASK;
 
 pub fn get_ids() -> (uid_t, gid_t) {
     // SAFETY: a libc call
@@ -211,4 +212,9 @@ pub enum CheckAccessError {
 
 pub fn is_root() -> bool {
     (unsafe { libc::getuid() }) == 0
+}
+
+pub fn set_umask() {
+    let default = unsafe { libc::umask(UMASK) };
+    unsafe { libc::umask(default | UMASK) };
 }

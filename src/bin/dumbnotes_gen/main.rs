@@ -10,7 +10,7 @@ use jwt_key_generator::make_jwt_key;
 use log::{error, info, warn};
 use rpassword::prompt_password;
 use std::process::exit;
-use dumbnotes::sandbox::umask::set_umask;
+use dumbnotes::nix::set_umask;
 
 mod cli;
 mod config;

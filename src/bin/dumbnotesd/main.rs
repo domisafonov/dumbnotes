@@ -15,13 +15,19 @@ use dumbnotes::logging::init_daemon_logging;
 use figment::Figment;
 use log::info;
 use dumbnotes::nix::is_root;
-use dumbnotes::sandbox::umask::set_umask;
+use dumbnotes::nix::set_umask;
+use dumbnotes::sandbox::daemonize::daemonize;
 
 fn main() {
     #[cfg(target_os = "openbsd")] pledge_init();
     set_umask();
 
     let cli_config = CliConfig::parse();
+
+    if cli_config.is_daemonizing() {
+        unsafe { daemonize() }
+    }
+
     init_daemon_logging(
         cli_config.is_daemonizing(),
     );
