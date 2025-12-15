@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+use std::path::PathBuf;
 use syslog::{BasicLogger, Facility};
 
 pub fn init_tool_logging() {
@@ -21,10 +23,15 @@ fn init_logging_syslog() {
                         syslog::Formatter3164 {
                             facility: Facility::LOG_USER,
                             hostname: None,
-                            process: std::env::args_os()
+                            process: std::env::args()
                                 .next()
-                                .map(|name|
-                                    name.into_string().unwrap_or("".into())
+                                .and_then(|name|
+                                    PathBuf::from(name)
+                                        .file_name()
+                                        .map(|n|
+                                            OsStr::to_string_lossy(n)
+                                                .into_owned()
+                                        )
                                 )
                                 .unwrap_or("".into()),
                             pid: std::process::id(),

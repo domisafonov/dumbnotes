@@ -15,6 +15,10 @@ pub struct CliConfig {
     #[cfg(debug_assertions)]
     #[arg(long, short = 'D', default_value_t = false)]
     pub daemonize: bool,
+
+    #[cfg(debug_assertions)]
+    #[arg(long, default_value_t = false)]
+    pub no_fork: bool,
 }
 
 impl CliConfig {
@@ -26,5 +30,15 @@ impl CliConfig {
     #[cfg(debug_assertions)]
     pub fn is_daemonizing(&self) -> bool {
         self.daemonize
+    }
+
+    #[cfg(not(debug_assertions))]
+    pub fn is_not_forking(&self) -> bool {
+        false
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn is_not_forking(&self) -> bool {
+        self.no_fork
     }
 }

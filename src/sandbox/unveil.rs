@@ -12,7 +12,7 @@ pub fn unveil(
     permissions: Permissions,
 ) {
     trace!("unveiling path {}", path.display());
-    unsafe { unveil_raw(Some(path), permissions) }
+    unsafe { unveil_raw(Some(path), Some(permissions)) }
         .unwrap_or_else(|e|
             error_exit!(
                 "unable to unveil path \"{}\": {e}",
@@ -23,13 +23,13 @@ pub fn unveil(
 
 pub fn seal_unveil() {
     trace!("sealing the unveil");
-    unsafe { unveil_raw(None, Permissions::empty()) }
+    unsafe { unveil_raw(None, None) }
         .unwrap_or_else(|e| error_exit!("unable to finalize unveil: {e}"))
 }
 
 unsafe fn unveil_raw(
     path: Option<&Path>,
-    permissions: Permissions,
+    permissions: Option<Permissions>,
 ) -> Result<(), std::io::Error> {
     unsafe extern "C" {
         pub fn unveil(
@@ -41,11 +41,7 @@ unsafe fn unveil_raw(
     let path = path.map(|p|
         CString::new(p.as_os_str().as_bytes()).unwrap()
     );
-    let permissions = if permissions.is_empty() {
-        None
-    } else {
-        Some(permissions.into_raw())
-    };
+    let permissions = permissions.map(Permissions::into_raw);
 
     let res = unsafe {
         unveil(

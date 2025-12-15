@@ -6,6 +6,7 @@ use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::error_exit;
 use dumbnotes::ipc::socket::create_socket_pair;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_liftoff;
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};
 use dumbnotes::storage::NoteStorage;
 use josekit::jwk::Jwk;
 use log::{error, info};
@@ -14,7 +15,7 @@ use rocket::{Build, Orbit, Rocket};
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
 use std::os::fd::AsRawFd;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::net::UnixStream;
 use tokio::sync::{oneshot, Mutex};
@@ -22,13 +23,18 @@ use dumbnotes::sandbox::user_group::{clear_supplementary_groups, get_user_and_gr
 
 pub struct AppSetupFairing {
     is_daemonizing: bool,
+    authd_path: PathBuf,
     auth_daemon_failure_notice: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
 }
 
 impl AppSetupFairing {
-    pub fn new(is_daemonizing: bool) -> Self {
+    pub fn new(
+        is_daemonizing: bool,
+        authd_path: impl ToOwned<Owned=PathBuf>,
+    ) -> Self {
         AppSetupFairing {
             is_daemonizing,
+            authd_path: authd_path.to_owned(),
             auth_daemon_failure_notice: Arc::new(Mutex::new(None)),
         }
     }
@@ -42,7 +48,7 @@ impl AppSetupFairing {
                 )
             )?;
 
-        let mut command = tokio::process::Command::new("dumbnotesd_auth");
+        let mut command = tokio::process::Command::new(&self.authd_path);
         command
             .arg(format!("--socket-fd={}", auth_childs_socket.as_raw_fd()))
             .arg(path_arg("private-key-file", &config.jwt_private_key))
@@ -148,6 +154,22 @@ impl Fairing for AppSetupFairing {
             self.launch_authd(&config).await,
             |e| error!("failed to launch dumbnotesd_auth: {e}")
         );
+
+        #[cfg(target_os = "openbsd")] {
+            unveil(
+                &NoteStorage::get_notes_dir(&config),
+                Permissions::R | Permissions::W,
+            );
+            unveil(
+                &config.user_db,
+                Permissions::R,
+            );
+            unveil(
+                &config.jwt_public_key,
+                Permissions::R,
+            );
+            seal_unveil()
+        }
 
         if self.is_daemonizing && let Some(ref user_group) = config.user_group {
             ok_or_bail!(

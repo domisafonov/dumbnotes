@@ -7,9 +7,11 @@ use libc::c_int;
 ///
 /// # Safety
 /// call before creating any async runtimes or other threads
-pub unsafe fn daemonize() {
-    unsafe { fork() };
-    setsid();
+pub unsafe fn daemonize(no_fork: bool) {
+    if !no_fork {
+        unsafe { fork() };
+        setsid();
+    }
     let nfd = unsafe { OwnedFd::from_raw_fd(open_null()) };
     std::env::set_current_dir("/").expect("cannot change working directory");
     unsafe { replace_fd(&nfd, libc::STDIN_FILENO) };

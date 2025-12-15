@@ -46,23 +46,30 @@ impl NoteStorage {
         app_config: &AppConfig,
     ) -> Result<NoteStorage, StorageError> {
         Self::new_internal(
-            app_config,
+            Self::get_notes_dir(app_config),
+            app_config.max_note_size,
+            app_config.max_note_name_size,
             ProductionNoteStorageIo::new(),
         ).await
+    }
+
+    pub fn get_notes_dir(app_config: &AppConfig) -> PathBuf {
+        app_config.data_directory.join("notes")
     }
 }
 
 #[allow(private_bounds)]
 impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     async fn new_internal(
-        app_config: &AppConfig,
+        notes_dir: PathBuf,
+        max_note_size: u64,
+        max_note_name_size: u64,
         io: Io,
     ) -> Result<NoteStorageImpl<Io>, StorageError> {
         debug!(
             "creating note storage at {}",
-            app_config.data_directory.display(),
+            notes_dir.display(),
         );
-        let notes_dir = app_config.data_directory.join("notes");
         match io.validate_notes_path(&notes_dir) {
             Ok(_) => {},
             Err(CheckAccessError::NotFound) =>
@@ -72,8 +79,8 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
         Ok(NoteStorageImpl {
             io,
             basedir: notes_dir,
-            max_note_len: app_config.max_note_size,
-            max_note_name_len: app_config.max_note_name_size,
+            max_note_len: max_note_size,
+            max_note_name_len: max_note_name_size,
         })
     }
 
