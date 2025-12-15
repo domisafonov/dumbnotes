@@ -430,6 +430,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "base64ct",
+ "bitflags 2.10.0",
  "boolean-enums",
  "clap",
  "env_logger",

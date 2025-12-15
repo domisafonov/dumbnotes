@@ -34,7 +34,11 @@ fn main() {
 
     info!("{} starting up", crate_name!());
 
-    if cli_config.is_daemonizing() && !is_root() {
+    let is_root = is_root();
+    if !cli_config.is_daemonizing() && is_root {
+        error_exit!("daemonizing is required when launching from root")
+    }
+    if cli_config.is_daemonizing() && !is_root {
         error_exit!("cannot be daemonizing from a non-root user")
     }
 

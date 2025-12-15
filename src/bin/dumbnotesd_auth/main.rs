@@ -16,6 +16,7 @@ use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
 use dumbnotes::ipc::auth::message_stream;
 use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_authd_init, pledge_authd_normal};
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};
 use file_watcher::ProductionFileWatcher;
 use josekit::jwk::Jwk;
 use log::info;
@@ -38,6 +39,26 @@ async fn main() {
     set_umask();
 
     let config = CliConfig::parse();
+    #[cfg(target_os = "openbsd")] {
+        unveil(
+            &std::path::PathBuf::from("/dev/log"),
+            Permissions::W,
+        );
+        unveil(
+            &config.private_key_file,
+            Permissions::R,
+        );
+        unveil(
+            &config.user_db_path,
+            Permissions::R,
+        );
+        unveil(
+            &ProductionSessionStorage::get_storage_path(&config.data_directory),
+            Permissions::R | Permissions::W | Permissions::C,
+        );
+        seal_unveil();
+    }
+
     init_daemon_logging(config.is_daemonizing());
 
     info!("{} starting up", crate_name!());

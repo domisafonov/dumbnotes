@@ -5,6 +5,7 @@ use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::error_exit;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_gen_init, pledge_gen_key, pledge_gen_hash};
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};
 use figment::Figment;
 use jwt_key_generator::make_jwt_key;
 use log::{error, info, warn};
@@ -23,6 +24,11 @@ fn main() {
     env_logger::init();
 
     let cli_config = CliConfig::parse();
+
+    #[cfg(target_os = "openbsd")] unveil(
+        &cli_config.config_file,
+        Permissions::R,
+    );
 
     if !cli_config.config_file.exists() {
         error_exit!(
@@ -53,7 +59,10 @@ fn generate_hash(
     cli_config: CliConfig,
     app_config: AppConfig,
 ) {
-    #[cfg(target_os = "openbsd")] pledge_gen_hash();
+    #[cfg(target_os = "openbsd")] {
+        seal_unveil();
+        pledge_gen_hash();
+    }
 
     let hasher_config = app_config.hasher_config.try_into()
         .unwrap_or_else(|e| error_exit!("hasher config is invalid: {}", e));
@@ -89,7 +98,18 @@ fn generate_hash(
 fn generate_jwt_key(
     app_config: AppConfig,
 ) {
-    #[cfg(target_os = "openbsd")] pledge_gen_key();
+    #[cfg(target_os = "openbsd")] {
+        unveil(
+            &app_config.jwt_private_key,
+            Permissions::C | Permissions::W,
+        );
+        unveil(
+            &app_config.jwt_public_key,
+            Permissions::C | Permissions::W,
+        );
+        seal_unveil();
+        pledge_gen_key();
+    }
 
     make_jwt_key(
         &app_config.jwt_private_key,

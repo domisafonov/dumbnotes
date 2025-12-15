@@ -76,30 +76,34 @@ pub fn check_secret_file_rw_access(
             Err(CheckAccessError::NotFile)
         }
     )?;
-    check_secret_at_least(
-        path.parent().unwrap(),
-        7,
-        |m| if m.is_dir() {
-            Ok(())
-        } else {
-            Err(CheckAccessError::NotDirectory)
-        }
-    )?;
+    // TODO: currently unveil prevents the checks
+    //  collect paths from the components, validate them, and then unveil
+    if cfg!(not(target_os = "openbsd")) {
+        check_secret_at_least(
+            path.parent().unwrap(),
+            7,
+            |m| if m.is_dir() {
+                Ok(())
+            } else {
+                Err(CheckAccessError::NotDirectory)
+            }
+        )?;
+    }
     recursive_check_secret_parent_access(path.parent())
 }
 
 fn check_secret_at_least(
     path: &Path,
-    at_least: u32,
+    required: u32,
     type_checker: impl FnOnce(&Metadata) -> Result<(), CheckAccessError>,
 ) -> Result<(), CheckAccessError> {
     let metadata = path.metadata().map_err(map_permissions_error)?;
     type_checker(&metadata)?;
     let EffectiveMode { our, others } = get_effective_mode(metadata);
-    if our & at_least != at_least {
+    if our & required != required {
         return Err(CheckAccessError::InsufficientPermissions)
     }
-    if our != at_least || others != 0 {
+    if our != required || others != 0 {
         return Err(CheckAccessError::TooPermissive)
     }
     Ok(())
@@ -108,6 +112,12 @@ fn check_secret_at_least(
 fn recursive_check_secret_parent_access(
     path: Option<&Path>,
 ) -> Result<(), CheckAccessError> {
+    // TODO: currently unveil prevents the checks
+    //  collect paths from the components, validate them, and then unveil
+    if cfg!(target_os = "openbsd") {
+        return Ok(())
+    }
+
     let path = match path {
         Some(path) => path,
         None => return Ok(()),
@@ -160,6 +170,9 @@ fn get_effective_mode(metadata: Metadata) -> EffectiveMode {
     let (uid, gid) = get_ids();
     let mut our = 0;
     let mut others = 0;
+    if uid == 0 {
+        our |= 7;
+    }
     if metadata.uid() == uid {
         our |= (mode >> 6) & 7
     } else if metadata.uid() != 0 {

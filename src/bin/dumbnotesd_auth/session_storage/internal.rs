@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use dumbnotes::username_string::{UsernameStr, UsernameString};
 use std::collections::HashMap;
 use std::mem::ManuallyDrop;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use futures::{Stream, StreamExt};
 use log::{error, info, trace};
@@ -372,9 +372,8 @@ impl ProductionSessionStorage {
         data_directory: &Path,
         file_watcher: ProductionFileWatcher,
     ) -> Result<ProductionSessionStorage, SessionStorageError> {
-        let mut path = data_directory.to_path_buf();
-        trace!("creating session storage at {}", path.display());
-        path.push(SESSION_STORAGE_PATH);
+        trace!("creating session storage at {}", data_directory.display());
+        let path = Self::get_storage_path(data_directory);
         check_secret_file_rw_access(&path)?;
         let io = Arc::new(ProductionSessionStorageIo::new(&path).await?);
         let io2 = io.clone();
@@ -393,5 +392,11 @@ impl ProductionSessionStorage {
                 },
             )
             .await
+    }
+    
+    pub fn get_storage_path(data_directory: &Path) -> PathBuf {
+        let mut path = data_directory.to_path_buf();
+        path.push(SESSION_STORAGE_PATH);
+        path
     }
 }

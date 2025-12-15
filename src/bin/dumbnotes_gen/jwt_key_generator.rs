@@ -1,7 +1,7 @@
 use std::io;
-use std::fs::OpenOptions;
+use std::fs::{OpenOptions, Permissions};
 use std::io::Write;
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use josekit::JoseError;
 use josekit::jwk::alg::ed::EdCurve;
@@ -10,6 +10,7 @@ use libc::{gid_t, uid_t};
 use thiserror::Error;
 use dumbnotes::nix::{get_ids, ChownExt};
 use dumbnotes::sandbox::user_group::get_user_and_group;
+
 #[derive(Debug, Error)]
 pub enum MakeJwtKeyError {
     #[error("failed generating jwt key")]
@@ -18,7 +19,7 @@ pub enum MakeJwtKeyError {
     #[error("jwt key serialization failed")]
     Serialization(#[from] serde_json::Error),
 
-    #[error("failed writing generated jwt key")]
+    #[error("failed writing generated jwt key: {0}")]
     Io(#[from] io::Error),
 }
 
@@ -35,7 +36,7 @@ pub fn make_jwt_key(
         serde_json::to_string_pretty(&private_key)? + "\n",
         uid,
         gid,
-        Some(0o640),
+        Some(0o440),
     )?;
     write(
         jwt_public_key,
@@ -74,10 +75,14 @@ fn write(
         options.mode(mode);
     }
     let mut file = options
+        .read(false)
         .write(true)
         .create(true)
         .truncate(true)
         .open(path)?;
+    if let Some(mode) = mode {
+        file.set_permissions(Permissions::from_mode(mode))?;
+    }
     file.chown(uid, gid)?;
     file.write_all(contents.as_ref().as_bytes())?;
     Ok(())

@@ -5,10 +5,10 @@ use crate::error_exit;
 
 pub fn pledge_init() {
     pledge(
-        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec id"),
+        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec id unveil"),
 
-        // copied from authd, except for "id"
-        Some("stdio rpath wpath cpath flock unix getpw"),
+        // copied from authd
+        Some("stdio rpath wpath cpath flock unix getpw unveil"),
     )
 }
 
@@ -25,7 +25,7 @@ pub fn pledge_liftoff() {
 // unix is for initializing syslog
 pub fn pledge_authd_init() {
     pledge(
-        Some("stdio rpath wpath cpath flock unix getpw"),
+        Some("stdio rpath wpath cpath flock unix getpw unveil"),
         None,
     )
 }
@@ -40,7 +40,7 @@ pub fn pledge_authd_normal() {
 
 pub fn pledge_gen_init() {
     pledge(
-        Some("stdio rpath wpath cpath tty"),
+        Some("stdio rpath wpath cpath tty getpw chown fattr unveil"),
         None,
     )
 }
@@ -48,7 +48,7 @@ pub fn pledge_gen_init() {
 pub fn pledge_gen_key() {
     trace!("pledging for generating the keys");
     pledge(
-        Some("stdio rpath wpath cpath"),
+        Some("stdio rpath wpath cpath getpw chown fattr"),
         None,
     )
 }
