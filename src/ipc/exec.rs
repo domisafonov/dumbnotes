@@ -1,26 +1,36 @@
 use std::path::PathBuf;
+use thiserror::Error;
 use which::which;
 
-/// Get executable path for authd
-///
-/// # Safety
-/// panics on errors, call only during process startup
-pub unsafe fn get_authd_executable_path() -> PathBuf {
+pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
     if cfg!(all(target_os = "openbsd", not(debug_assertions))) {
-        PathBuf::from("/usr/local/libexec/dumbnotesd/dumbnotesd_auth")
+        Ok(PathBuf::from("/usr/local/libexec/dumbnotesd/dumbnotesd_auth"))
     } else {
         // TODO: have a configured path for linux too
 
         let exec_name = std::env::args()
-            .next().expect("no path to executable");
+            .next()
+            .ok_or(GetExecPathError::NoPathToSelf)?;
         let exec_name = PathBuf::from(exec_name);
         let exec_name = exec_name.parent()
-            .expect("no parent directory for executable path");
+            .ok_or(GetExecPathError::NoSelfParent)?;
         if exec_name.exists() {
-            exec_name.to_owned()
+            Ok(exec_name.to_owned())
         } else {
             which("dumbnotesd_auth")
-                .expect("dumbnotesd_auth not found")
+                .map_err(GetExecPathError::from)
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum GetExecPathError {
+    #[error(transparent)]
+    Which(#[from] which::Error),
+    
+    #[error("no path to self")]
+    NoPathToSelf,
+    
+    #[error("no parent exists for self executable path")]
+    NoSelfParent,
 }

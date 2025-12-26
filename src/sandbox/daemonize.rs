@@ -1,7 +1,6 @@
 use std::ffi::CString;
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
-use libc::c_int;
 
 /// Daemonize
 ///
@@ -12,7 +11,7 @@ pub unsafe fn daemonize(no_fork: bool) {
         unsafe { fork() };
         setsid();
     }
-    let nfd = unsafe { OwnedFd::from_raw_fd(open_null()) };
+    let nfd = open_null();
     std::env::set_current_dir("/").expect("cannot change working directory");
     unsafe { replace_fd(&nfd, libc::STDIN_FILENO) };
     unsafe { replace_fd(&nfd, libc::STDOUT_FILENO) };
@@ -36,13 +35,13 @@ fn setsid() {
     }
 }
 
-fn open_null() -> c_int {
+fn open_null() -> OwnedFd {
     let dev_null_path = CString::new("/dev/null").unwrap();
     let res = unsafe { libc::open(dev_null_path.as_ptr(), libc::O_RDWR ) };
     if res == -1 {
         panic!("opening /dev/null failed: {}", io::Error::last_os_error());
     }
-    res
+    unsafe { OwnedFd::from_raw_fd(res) }
 }
 
 unsafe fn replace_fd(nfd: &impl AsRawFd, fd: RawFd) {

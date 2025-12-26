@@ -4,6 +4,7 @@ mod routes;
 pub mod access_granter;
 pub mod http;
 mod app_setup;
+mod execute;
 
 use crate::cli::CliConfig;
 use app_setup::AppSetupFairing;
@@ -12,7 +13,6 @@ use dumbnotes::config::figment::FigmentExt;
 use dumbnotes::error_exit;
 use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
-#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil};
 use figment::Figment;
 use log::info;
 use dumbnotes::nix::is_root;
@@ -29,9 +29,10 @@ fn main() {
         unsafe { daemonize(cli_config.is_not_forking()) }
     }
 
-    let authd_path = unsafe {
-        dumbnotes::ipc::exec::get_authd_executable_path()
-    };
+    let authd_path = dumbnotes::ipc::exec::get_authd_executable_path()
+        .unwrap_or_else(|e|
+            error_exit!("failed to get authd executable path: {e}")
+        );
 
     init_daemon_logging(
         cli_config.is_daemonizing(),
@@ -62,9 +63,10 @@ fn main() {
         )
         .setup_app_config(&cli_config.config_file);
 
-    let result = rocket::execute(
-        rocket
-            ::custom(figment)
+    let result = execute::execute(
+        figment,
+        |fig| rocket
+            ::custom(fig)
             .attach(
                 AppSetupFairing::new(
                     cli_config.is_daemonizing(),
