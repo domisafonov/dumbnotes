@@ -1,15 +1,12 @@
 use std::io;
-use std::fs::{OpenOptions, Permissions};
 use std::io::Write;
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use josekit::JoseError;
 use josekit::jwk::alg::ed::EdCurve;
 use josekit::jwk::Jwk;
-use libc::{gid_t, uid_t};
 use thiserror::Error;
-use dumbnotes::nix::{get_ids, ChownExt};
-use dumbnotes::sandbox::user_group::get_user_and_group;
+use file_write::{get_ids_for_chown, write};
+use crate::file_write;
 
 #[derive(Debug, Error)]
 pub enum MakeJwtKeyError {
@@ -45,45 +42,5 @@ pub fn make_jwt_key(
         None,
         None,
     )?;
-    Ok(())
-}
-
-fn get_ids_for_chown(
-    owner_user_group: Option<&str>,
-) -> Result<(Option<uid_t>, Option<gid_t>), MakeJwtKeyError> {
-    let owner_user_group = match owner_user_group {
-        Some(value) => value,
-        None => return Ok((None, None)),
-    };
-    let (expected_uid, expected_gid) = get_user_and_group(owner_user_group)?;
-    let (uid, gid) = get_ids();
-    Ok((
-        Some(expected_uid).filter(|e| *e != uid),
-        Some(expected_gid).filter(|e| *e != gid),
-    ))
-}
-
-fn write(
-    path: &Path,
-    contents: impl AsRef<str>,
-    uid: Option<uid_t>,
-    gid: Option<gid_t>,
-    mode: Option<u32>,
-) -> Result<(), io::Error> {
-    let mut options = OpenOptions::new();
-    if let Some(mode) = mode {
-        options.mode(mode);
-    }
-    let mut file = options
-        .read(false)
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(path)?;
-    if let Some(mode) = mode {
-        file.set_permissions(Permissions::from_mode(mode))?;
-    }
-    file.chown(uid, gid)?;
-    file.write_all(contents.as_ref().as_bytes())?;
     Ok(())
 }

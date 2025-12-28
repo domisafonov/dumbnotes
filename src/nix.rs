@@ -1,9 +1,12 @@
+use std::ffi::CString;
 use std::fs::Metadata;
 use std::io;
 use std::io::ErrorKind;
+use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use std::sync::LazyLock;
 use libc::{gid_t, uid_t};
 use thiserror::Error;
 use crate::lib_constants::UMASK;
@@ -51,11 +54,7 @@ pub fn check_secret_file_ro_access(
     check_secret_at_least(
         path,
         4,
-        |m| if m.is_file() {
-            Ok(())
-        } else {
-            Err(CheckAccessError::NotFile)
-        }
+        CheckType::File,
     )?;
     recursive_check_secret_parent_access(path.parent())
 }
@@ -70,11 +69,7 @@ pub fn check_secret_file_rw_access(
     check_secret_at_least(
         path,
         6,
-        |m| if m.is_file() {
-            Ok(())
-        } else {
-            Err(CheckAccessError::NotFile)
-        }
+        CheckType::File,
     )?;
     // TODO: currently unveil prevents the checks
     //  collect paths from the components, validate them, and then unveil
@@ -82,11 +77,7 @@ pub fn check_secret_file_rw_access(
         check_secret_at_least(
             path.parent().unwrap(),
             7,
-            |m| if m.is_dir() {
-                Ok(())
-            } else {
-                Err(CheckAccessError::NotDirectory)
-            }
+            CheckType::Directory,
         )?;
     }
     recursive_check_secret_parent_access(path.parent())
@@ -95,18 +86,35 @@ pub fn check_secret_file_rw_access(
 fn check_secret_at_least(
     path: &Path,
     required: u32,
-    type_checker: impl FnOnce(&Metadata) -> Result<(), CheckAccessError>,
+    check_type: CheckType,
 ) -> Result<(), CheckAccessError> {
     let metadata = path.metadata().map_err(map_permissions_error)?;
-    type_checker(&metadata)?;
+    match check_type {
+        CheckType::File => if !metadata.is_file() {
+            return Err(CheckAccessError::NotFile)
+        },
+        CheckType::Directory => if !metadata.is_dir() {
+            return Err(CheckAccessError::NotDirectory)
+        },
+    }
     let EffectiveMode { our, others } = get_effective_mode(metadata);
     if our & required != required {
         return Err(CheckAccessError::InsufficientPermissions)
     }
     if our != required || others != 0 {
-        return Err(CheckAccessError::TooPermissive)
+        return Err(
+            match check_type {
+                CheckType::File => CheckAccessError::FileTooPermissive,
+                CheckType::Directory => CheckAccessError::DirectoryHierarchyTooPermissive,
+            }
+        )
     }
     Ok(())
+}
+#[derive(Debug)]
+enum CheckType {
+    File,
+    Directory,
 }
 
 fn recursive_check_secret_parent_access(
@@ -117,7 +125,6 @@ fn recursive_check_secret_parent_access(
     if cfg!(target_os = "openbsd") {
         return Ok(())
     }
-
     let path = match path {
         Some(path) => path,
         None => return Ok(()),
@@ -127,9 +134,8 @@ fn recursive_check_secret_parent_access(
         path.metadata().map_err(map_permissions_error)?,
     );
     if others & 2 != 0 {
-        return Err(CheckAccessError::TooPermissive)
+        return Err(CheckAccessError::DirectoryHierarchyTooPermissive)
     }
-
     recursive_check_secret_parent_access(path.parent())
 }
 
@@ -180,7 +186,9 @@ fn get_effective_mode(metadata: Metadata) -> EffectiveMode {
     }
     if metadata.gid() == gid {
         our |= (mode >> 3) & 7
-    } else if metadata.gid() != 0 {
+    } else if metadata.gid() != 0
+        && STAFF_GID.map(|gid| gid != metadata.gid()).unwrap_or(true)
+    {
         others |= (mode >> 3) & 7
     }
     our |= mode & 7;
@@ -190,6 +198,18 @@ fn get_effective_mode(metadata: Metadata) -> EffectiveMode {
         others,
     }
 }
+
+static STAFF_GID: LazyLock<Option<gid_t>> = LazyLock::new(|| {
+    if cfg!(target_os = "macos") {
+        Some(
+            getgrnam_r("staff")
+                .expect("getgrnam_r failed")
+                .expect("no group \"staff\"")
+        )
+    } else {
+        None
+    }
+});
 
 fn map_permissions_error(e: io::Error) -> CheckAccessError {
     match e.kind() {
@@ -214,7 +234,10 @@ pub enum CheckAccessError {
     InsufficientPermissions,
 
     #[error("too permissive")]
-    TooPermissive,
+    FileTooPermissive,
+
+    #[error("directory hierarchy too permissive")]
+    DirectoryHierarchyTooPermissive,
 
     #[error("not an absolute path")]
     PathNotAbsolute,
@@ -230,4 +253,68 @@ pub fn is_root() -> bool {
 pub fn set_umask() {
     let default = unsafe { libc::umask(UMASK) };
     unsafe { libc::umask(default | UMASK) };
+}
+
+pub fn getpwnam_r(username: &str) -> Result<Option<(uid_t, gid_t)>, io::Error> {
+    let username = CString::new(username)?;
+    let buf_size = unsafe { libc::sysconf(libc::_SC_GETPW_R_SIZE_MAX) };
+    if buf_size == -1 {
+        return Err(io::Error::last_os_error())
+    }
+    let buf_size = buf_size as usize;
+    let mut buffer = Box::<[libc::c_char]>::new_uninit_slice(buf_size);
+    let mut passwd = MaybeUninit::<libc::passwd>::uninit();
+    let mut out_ptr = MaybeUninit::<*mut libc::passwd>::uninit();
+    let res = unsafe {
+        libc::getpwnam_r(
+            username.as_ptr(),
+            passwd.as_mut_ptr(),
+            buffer.as_mut_ptr().cast(),
+            buf_size,
+            out_ptr.as_mut_ptr(),
+        )
+    };
+    if res != 0 {
+        return Err(io::Error::from_raw_os_error(res))
+    }
+    Ok(
+        if unsafe { out_ptr.assume_init() }.is_null() {
+            None
+        } else {
+            let passwd = unsafe { passwd.assume_init() };
+            Some((passwd.pw_uid, passwd.pw_gid))
+        }
+    )
+}
+
+pub fn getgrnam_r(groupname: &str) -> Result<Option<gid_t>, io::Error> {
+    let groupname = CString::new(groupname)?;
+    let buf_size = unsafe { libc::sysconf(libc::_SC_GETGR_R_SIZE_MAX) };
+    if buf_size == -1 {
+        return Err(io::Error::last_os_error())
+    }
+    let buf_size = buf_size as usize;
+    let mut buffer = Box::<[libc::c_char]>::new_uninit_slice(buf_size);
+    let mut group = MaybeUninit::<libc::group>::uninit();
+    let mut out_ptr = MaybeUninit::<*mut libc::group>::uninit();
+    let res = unsafe {
+        libc::getgrnam_r(
+            groupname.as_ptr(),
+            group.as_mut_ptr(),
+            buffer.as_mut_ptr().cast(),
+            buf_size,
+            out_ptr.as_mut_ptr(),
+        )
+    };
+    if res != 0 {
+        return Err(io::Error::from_raw_os_error(res))
+    }
+    Ok(
+        if unsafe { out_ptr.assume_init() }.is_null() {
+            None
+        } else {
+            let group = unsafe { group.assume_init() };
+            Some(group.gr_gid)
+        }
+    )
 }

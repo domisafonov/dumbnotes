@@ -1,5 +1,6 @@
 use std::io::Error as IoError;
 use thiserror::Error;
+use dumbnotes::hasher::HasherError;
 use dumbnotes::nix::CheckAccessError;
 use crate::file_watcher::FileWatcherError;
 
@@ -15,5 +16,8 @@ pub enum UserDbError {
     Watch(#[from] FileWatcherError),
     
     #[error(transparent)]
-    CheckAccessError(#[from] CheckAccessError),
+    CheckAccess(#[from] CheckAccessError),
+    
+    #[error("hashing failed: {0}")]
+    Hashing(#[from] HasherError),
 }

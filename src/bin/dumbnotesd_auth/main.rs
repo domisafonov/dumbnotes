@@ -39,6 +39,7 @@ async fn main() {
     set_umask();
 
     let config = CliConfig::parse();
+    let hasher_config = parse_hasher_config(&config);
     #[cfg(target_os = "openbsd")] {
         unveil(
             &std::path::PathBuf::from("/dev/log"),
@@ -50,6 +51,10 @@ async fn main() {
         );
         unveil(
             &config.user_db_path,
+            Permissions::R,
+        );
+        unveil(
+            &hasher_config.pepper_path,
             Permissions::R,
         );
         unveil(
@@ -66,7 +71,7 @@ async fn main() {
     let (read_socket, write_socket) = make_sockets(&config);
     let watcher = ProductionFileWatcher::new()
         .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
-    let hasher = make_hasher(&config);
+    let hasher = make_hasher(hasher_config);
 
     let the_loop = eventloop::process_commands(
         make_token_generator(&config),
@@ -93,20 +98,25 @@ async fn main() {
     info!("{} terminating normally", crate_name!());
 }
 
-fn make_hasher(
-    config: &CliConfig,
-) -> ProductionHasher {
-    let hasher_config: ProductionHasherConfigData = serde_json
+fn parse_hasher_config(config: &CliConfig) -> ProductionHasherConfigData {
+    serde_json
     ::from_str(&config.hasher_config)
         .unwrap_or_else(|e|
             error_exit!("hasher config is invalid: {e}")
-        );
-    let hasher_config: argon2::Params = hasher_config.clone().try_into().unwrap_or_else(|e| {
+        )
+}
+
+fn make_hasher(
+    hasher_config: ProductionHasherConfigData,
+) -> ProductionHasher {
+    let params: argon2::Params = hasher_config.make_params().unwrap_or_else(|e| {
         error_exit!("hasher config read failed: {e}")
     });
-    ProductionHasher::new(
-        ProductionHasherConfig::new(hasher_config),
-    )
+    ProductionHasher
+        ::new(ProductionHasherConfig::new(params, hasher_config.pepper_path))
+        .unwrap_or_else(|e|
+            error_exit!("failed to initialize the hasher {e}")
+        )
 }
 
 fn make_sockets(

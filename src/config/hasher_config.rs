@@ -17,7 +17,6 @@ pub struct ProductionHasherConfigData {
     #[serde(default = "production_hasher_config_default_argon2_output_len")]
     pub argon2_output_len: Option<usize>,
 
-    // TODO: actually use
     #[serde(default = "production_hasher_config_default_pepper_path")]
     pub pepper_path: PathBuf,
 }
@@ -42,14 +41,13 @@ pub fn production_hasher_config_default_pepper_path() -> PathBuf {
     DEFAULT_PEPPER_PATH.into()
 }
 
-impl TryFrom<ProductionHasherConfigData> for argon2::Params {
-    type Error = argon2::Error;
-    fn try_from(value: ProductionHasherConfigData) -> Result<Self, Self::Error> {
+impl ProductionHasherConfigData {
+    pub fn make_params(&self) -> Result<argon2::Params, argon2::Error> {
         argon2::Params::new(
-            value.argon2_m_cost,
-            value.argon2_p_cost,
-            value.argon2_t_cost,
-            value.argon2_output_len,
+            self.argon2_m_cost,
+            self.argon2_p_cost,
+            self.argon2_t_cost,
+            self.argon2_output_len,
         )
     }
 }

@@ -10,7 +10,7 @@ pub fn stream<I: prost::Message + Default>(
     socket: OwnedReadHalf,
 ) -> impl Stream<Item=I> {
     let mut socket = BufReader::new(socket);
-    let mut buffer = [0; IPC_MESSAGE_MAX_SIZE];
+    let mut buffer = [0u8; IPC_MESSAGE_MAX_SIZE];
     stream! { loop {
         let message_size = match socket.read_u64().await {
             Ok(size) => size,

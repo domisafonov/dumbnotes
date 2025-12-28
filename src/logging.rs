@@ -47,5 +47,13 @@ fn init_logging_syslog() {
 }
 
 fn init_logging_env() {
-    env_logger::init()
+    env_logger::builder()
+        .filter_level(
+            if cfg!(debug_assertions) {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            }
+        )
+        .init()
 }

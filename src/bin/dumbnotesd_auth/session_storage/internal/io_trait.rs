@@ -160,7 +160,7 @@ impl SessionStorageIo for ProductionSessionStorageIo {
     }
 
     fn gen_refresh_token(&self) -> Vec<u8> {
-        let mut token = vec![0; REFRESH_TOKEN_SIZE];
+        let mut token = vec![0u8; REFRESH_TOKEN_SIZE];
         rand::rng().fill_bytes(token.as_mut_slice());
         token
     }

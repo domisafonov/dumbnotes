@@ -57,7 +57,7 @@ impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
                                 user.hash.password_hash(),
                                 &password
                             )
-                    ).await.unwrap()
+                    ).await.unwrap()?
                 )
             }
         }

@@ -11,6 +11,9 @@ pub struct CliConfig {
     #[arg(long, short = 'y', default_value_t = false)]
     pub no_repeat: bool,
     
-    #[arg(long, default_value_t = false)]
+    #[arg(group = "gen", long, default_value_t = false)]
     pub generate_jwt_key: bool,
+
+    #[arg(group = "gen", long, default_value_t = false)]
+    pub generate_pepper: bool,
 }

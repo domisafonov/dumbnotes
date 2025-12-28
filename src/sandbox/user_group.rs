@@ -1,9 +1,8 @@
-use std::ffi::CString;
 use std::io;
 use std::io::ErrorKind;
-use std::mem::MaybeUninit;
 use libc::{gid_t, uid_t};
 use log::debug;
+use crate::nix;
 
 pub fn clear_supplementary_groups() -> Result<(), io::Error> {
     let supplementary_groups: [gid_t; 0] = [0; 0];
@@ -35,10 +34,10 @@ pub fn set_user_and_group(user_group: &str) -> Result<(), io::Error> {
 pub fn get_user_and_group(user_group: &str) -> Result<(uid_t, gid_t), io::Error> {
     let split: Vec<&str> = user_group.split(':').collect();
     match split.len() {
-        1 => getpwnam_r(split[0]),
+        1 => nix::getpwnam_r(split[0]),
         2 => {
-            let uid = getpwnam_r(split[0])?;
-            let gid = getgrnam_r(split[1])?;
+            let uid = nix::getpwnam_r(split[0])?;
+            let gid = nix::getgrnam_r(split[1])?;
             Ok(
                 uid.and_then(|(uid, _)|
                     gid.map(|gid| (uid, gid))
@@ -59,68 +58,4 @@ pub fn get_user_and_group(user_group: &str) -> Result<(uid_t, gid_t), io::Error>
                 format!("no user or group \"{user_group}\" found")
             )
         )?
-}
-
-fn getpwnam_r(username: &str) -> Result<Option<(uid_t, gid_t)>, io::Error> {
-    let username = CString::new(username)?;
-    let buf_size = unsafe { libc::sysconf(libc::_SC_GETPW_R_SIZE_MAX) };
-    if buf_size == -1 {
-        return Err(io::Error::last_os_error())
-    }
-    let buf_size = buf_size as usize;
-    let mut buffer = Box::<[libc::c_char]>::new_uninit_slice(buf_size);
-    let mut passwd = MaybeUninit::<libc::passwd>::uninit();
-    let mut out_ptr = MaybeUninit::<*mut libc::passwd>::uninit();
-    let res = unsafe {
-        libc::getpwnam_r(
-            username.as_ptr(),
-            passwd.as_mut_ptr(),
-            buffer.as_mut_ptr().cast(),
-            buf_size,
-            out_ptr.as_mut_ptr(),
-        )
-    };
-    if res != 0 {
-        return Err(io::Error::from_raw_os_error(res))
-    }
-    Ok(
-        if unsafe { out_ptr.assume_init() }.is_null() {
-            None
-        } else {
-            let passwd = unsafe { passwd.assume_init() };
-            Some((passwd.pw_uid, passwd.pw_gid))
-        }
-    )
-}
-
-fn getgrnam_r(groupname: &str) -> Result<Option<gid_t>, io::Error> {
-    let groupname = CString::new(groupname)?;
-    let buf_size = unsafe { libc::sysconf(libc::_SC_GETGR_R_SIZE_MAX) };
-    if buf_size == -1 {
-        return Err(io::Error::last_os_error())
-    }
-    let buf_size = buf_size as usize;
-    let mut buffer = Box::<[libc::c_char]>::new_uninit_slice(buf_size);
-    let mut group = MaybeUninit::<libc::group>::uninit();
-    let mut out_ptr = MaybeUninit::<*mut libc::group>::uninit();
-    let res = unsafe {
-        libc::getgrnam_r(
-            groupname.as_ptr(),
-            group.as_mut_ptr(),
-            buffer.as_mut_ptr().cast(),
-            buf_size,
-            out_ptr.as_mut_ptr(),
-        )
-    };
-    if res != 0 {
-        return Err(io::Error::from_raw_os_error(res))
-    }
-    Ok(
-        if unsafe { out_ptr.assume_init() }.is_null() {
-            None
-        } else {
-            let group = unsafe { group.assume_init() };
-            Some(group.gr_gid)
-        }
-    )
 }
