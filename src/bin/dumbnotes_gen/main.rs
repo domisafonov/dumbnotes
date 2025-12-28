@@ -1,16 +1,15 @@
 use crate::cli::CliConfig;
 use clap::Parser;
 use dumbnotes::config::app_config::AppConfig;
-use dumbnotes::config::figment::FigmentExt;
+use dumbnotes::config::figment::{read_app_config, ReadConfig};
 use dumbnotes::error_exit;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_gen_init, pledge_gen_key, pledge_gen_hash};
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};
 use figment::Figment;
 use jwt_key_generator::make_jwt_key;
-use log::{error, info, warn};
+use log::warn;
 use rpassword::prompt_password;
-use std::process::exit;
 use dumbnotes::nix::set_umask;
 
 mod cli;
@@ -37,15 +36,12 @@ fn main() {
         )
     }
 
-    let app_config: AppConfig = Figment::new()
-        .setup_app_config(&cli_config.config_file)
-        .extract()
+    let ReadConfig {
+        app_config,
+        ..
+    } = read_app_config(&cli_config.config_file, Figment::new())
         .unwrap_or_else(|e| {
-            for e in e {
-                error!("{e}");
-            }
-            info!("finishing due to a configuration error");
-            exit(1)
+            error_exit!("finishing due to a configuration error: {e}");
         });
 
     if cli_config.generate_jwt_key {

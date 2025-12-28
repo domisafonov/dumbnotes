@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::bin_constants::DEFAULT_PEPPER_PATH;
 use crate::lib_constants::{DEFAULT_ARGON2_M_COST, DEFAULT_ARGON2_OUTPUT_LEN, DEFAULT_ARGON2_P_COST, DEFAULT_ARGON2_T_COST};
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ProductionHasherConfigData {
     #[serde(default = "production_hasher_config_default_argon2_m_cost")]
     pub argon2_m_cost: u32,
@@ -68,13 +68,11 @@ impl Default for ProductionHasherConfigData {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_json_eq;
     use super::*;
 
     #[test]
     fn hasher_config_defaults_match() {
-        assert_eq!(
-            ProductionHasherConfigData::default(),
-            serde_json::de::from_str("{}").unwrap(),
-        )
+        assert_json_eq!(ProductionHasherConfigData::default(), "{}")
     }
 }

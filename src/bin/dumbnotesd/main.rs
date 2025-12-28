@@ -9,7 +9,7 @@ mod execute;
 use crate::cli::CliConfig;
 use app_setup::AppSetupFairing;
 use clap::{crate_name, Parser};
-use dumbnotes::config::figment::FigmentExt;
+use dumbnotes::config::figment::{read_app_config, ReadConfig};
 use dumbnotes::error_exit;
 use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
@@ -54,21 +54,29 @@ fn main() {
             cli_config.config_file.display()
         )
     }
-    let figment = Figment
-        ::from(
+    let ReadConfig {
+        app_config,
+        rocket_figment,
+    } = read_app_config(
+        &cli_config.config_file,
+        Figment::from(
             rocket::Config {
                 cli_colors: !cli_config.is_daemonizing(),
                 .. Default::default()
             }
-        )
-        .setup_app_config(&cli_config.config_file);
+        ),
+    )
+        .unwrap_or_else(|e| 
+            error_exit!("failed to read app configuration: {e}")
+        );
 
     let result = execute::execute(
-        figment,
+        rocket_figment,
         |fig| rocket
             ::custom(fig)
             .attach(
                 AppSetupFairing::new(
+                    app_config,
                     cli_config.is_daemonizing(),
                     authd_path,
                 )

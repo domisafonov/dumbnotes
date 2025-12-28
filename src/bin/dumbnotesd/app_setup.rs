@@ -22,6 +22,7 @@ use tokio::sync::{oneshot, Mutex};
 use dumbnotes::sandbox::user_group::{clear_supplementary_groups, get_user_and_group, set_user_and_group};
 
 pub struct AppSetupFairing {
+    app_config: AppConfig,
     is_daemonizing: bool,
     authd_path: PathBuf,
     auth_daemon_failure_notice: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
@@ -29,10 +30,12 @@ pub struct AppSetupFairing {
 
 impl AppSetupFairing {
     pub fn new(
+        app_config: AppConfig,
         is_daemonizing: bool,
         authd_path: impl ToOwned<Owned=PathBuf>,
     ) -> Self {
         AppSetupFairing {
+            app_config,
             is_daemonizing,
             authd_path: authd_path.to_owned(),
             auth_daemon_failure_notice: Arc::new(Mutex::new(None)),
@@ -130,17 +133,6 @@ impl Fairing for AppSetupFairing {
         &self,
         rocket: Rocket<Build>,
     ) -> rocket::fairing::Result {
-        let config: AppConfig = ok_or_bail!(
-            rocket,
-            rocket.figment().extract(),
-            |e| {
-                for e in e {
-                    error!("{e}");
-                }
-                info!("finishing due to a config parse error");
-            }
-        );
-
         if self.is_daemonizing {
             ok_or_bail!(
                 rocket,
@@ -151,27 +143,29 @@ impl Fairing for AppSetupFairing {
 
         let socket_to_auth = ok_or_bail!(
             rocket,
-            self.launch_authd(&config).await,
+            self.launch_authd(&self.app_config).await,
             |e| error!("failed to launch dumbnotesd_auth: {e}")
         );
 
         #[cfg(target_os = "openbsd")] {
             unveil(
-                &NoteStorage::get_notes_dir(&config),
+                &NoteStorage::get_notes_dir(&self.app_config),
                 Permissions::R | Permissions::W,
             );
             unveil(
-                &config.user_db,
+                &self.app_config.user_db,
                 Permissions::R,
             );
             unveil(
-                &config.jwt_public_key,
+                &self.app_config.jwt_public_key,
                 Permissions::R,
             );
             seal_unveil()
         }
 
-        if self.is_daemonizing && let Some(ref user_group) = config.user_group {
+        if self.is_daemonizing
+            && let Some(ref user_group) = self.app_config.user_group
+        {
             ok_or_bail!(
                 rocket,
                 set_user_and_group(user_group),
@@ -181,13 +175,13 @@ impl Fairing for AppSetupFairing {
 
         let storage: NoteStorage = ok_or_bail!(
             rocket,
-            NoteStorage::new(&config).await,
+            NoteStorage::new(&self.app_config).await,
             |e| error!("note storage initialization failed: {e}")
         );
 
         let jwt_public_key = ok_or_bail!(
             rocket,
-            read_jwt_key(&config.jwt_public_key),
+            read_jwt_key(&self.app_config.jwt_public_key),
             |e| error!("failed reading the public jwt key: {e}")
         );
         let access_token_decoder = ok_or_bail!(
@@ -206,7 +200,7 @@ impl Fairing for AppSetupFairing {
         Ok(
             rocket
                 .manage(storage)
-                .manage(config)
+                .manage(self.app_config.clone())
                 .manage(access_granter)
                 .install_dumbnotes_api()
                 .install_dumbnotes_web()

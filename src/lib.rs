@@ -17,3 +17,4 @@ pub mod protobuf;
 pub mod ipc;
 pub mod sandbox;
 pub mod nix;
+#[cfg(test)] pub mod test;
