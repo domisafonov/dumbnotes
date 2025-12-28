@@ -26,7 +26,7 @@ fn main() {
     let cli_config = CliConfig::parse();
 
     if cli_config.is_daemonizing() {
-        unsafe { daemonize(cli_config.is_not_forking()) }
+        unsafe { daemonize(cli_config.is_not_forking().into()) }
     }
 
     let authd_path = dumbnotes::ipc::exec::get_authd_executable_path()
@@ -35,7 +35,7 @@ fn main() {
         );
 
     init_daemon_logging(
-        cli_config.is_daemonizing(),
+        cli_config.is_daemonizing().into(),
     );
 
     info!("{} starting up", crate_name!());
@@ -77,7 +77,7 @@ fn main() {
             .attach(
                 AppSetupFairing::new(
                     app_config,
-                    cli_config.is_daemonizing(),
+                    cli_config.is_daemonizing().into(),
                     authd_path,
                 )
             )

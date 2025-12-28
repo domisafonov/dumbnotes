@@ -17,6 +17,7 @@ use std::ffi::{OsStr, OsString};
 use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use boolean_enums::gen_boolean_enum;
 use tokio::net::UnixStream;
 use tokio::sync::{oneshot, Mutex};
 use dumbnotes::sandbox::user_group::{clear_supplementary_groups, get_user_and_group, set_user_and_group};
@@ -31,12 +32,12 @@ pub struct AppSetupFairing {
 impl AppSetupFairing {
     pub fn new(
         app_config: AppConfig,
-        is_daemonizing: bool,
+        is_daemonizing: IsDaemonizing,
         authd_path: impl ToOwned<Owned=PathBuf>,
     ) -> Self {
         AppSetupFairing {
             app_config,
-            is_daemonizing,
+            is_daemonizing: is_daemonizing.into(),
             authd_path: authd_path.to_owned(),
             auth_daemon_failure_notice: Arc::new(Mutex::new(None)),
         }
@@ -227,6 +228,7 @@ impl Fairing for AppSetupFairing {
         });
     }
 }
+gen_boolean_enum!(pub IsDaemonizing);
 
 fn read_jwt_key(path: &Path) -> Result<Jwk, Box<dyn Error>> {
     Ok(Jwk::from_bytes(std::fs::read(path)?)?)

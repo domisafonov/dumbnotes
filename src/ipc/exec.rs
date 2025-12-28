@@ -13,7 +13,8 @@ pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
             .ok_or(GetExecPathError::NoPathToSelf)?;
         let exec_name = PathBuf::from(exec_name);
         let exec_name = exec_name.parent()
-            .ok_or(GetExecPathError::NoSelfParent)?;
+            .ok_or(GetExecPathError::NoSelfParent)?
+            .join("dumbnotesd_auth");
         if exec_name.exists() {
             Ok(exec_name.to_owned())
         } else {

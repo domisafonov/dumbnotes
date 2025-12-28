@@ -1,13 +1,14 @@
 use std::ffi::CString;
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use boolean_enums::gen_boolean_enum;
 
 /// Daemonize
 ///
 /// # Safety
 /// call before creating any async runtimes or other threads
-pub unsafe fn daemonize(no_fork: bool) {
-    if !no_fork {
+pub unsafe fn daemonize(no_fork: NoFork) {
+    if (!no_fork).into() {
         unsafe { fork() };
         setsid();
     }
@@ -17,6 +18,7 @@ pub unsafe fn daemonize(no_fork: bool) {
     unsafe { replace_fd(&nfd, libc::STDOUT_FILENO) };
     unsafe { replace_fd(&nfd, libc::STDERR_FILENO) };
 }
+gen_boolean_enum!(pub NoFork);
 
 unsafe fn fork() {
     let res = unsafe { libc::fork() };

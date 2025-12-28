@@ -59,7 +59,7 @@ async fn main() {
         seal_unveil();
     }
 
-    init_daemon_logging(config.is_daemonizing());
+    init_daemon_logging(config.is_daemonizing().into());
 
     info!("{} starting up", crate_name!());
 
