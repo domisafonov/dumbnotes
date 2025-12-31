@@ -1,7 +1,7 @@
 use std::fs::{OpenOptions, Permissions};
 use std::io;
 use std::io::Write;
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use libc::{gid_t, uid_t};
 use dumbnotes::nix::{get_ids, ChownExt};
@@ -39,10 +39,15 @@ pub fn write(
         .create(true)
         .truncate(true)
         .open(path)?;
+    let metadata = file.metadata()?;
+    let (written_uid, written_gid) = (metadata.uid(), metadata.gid());
     if let Some(mode) = mode {
         file.set_permissions(Permissions::from_mode(mode))?;
     }
-    file.chown(uid, gid)?;
+    file.chown(
+        uid.filter(|uid| *uid != written_uid),
+        gid.filter(|gid| *gid != written_gid),
+    )?;
     file.write_all(contents.as_ref().as_bytes())?;
     Ok(())
 }

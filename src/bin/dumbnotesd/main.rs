@@ -9,7 +9,7 @@ mod execute;
 use crate::cli::CliConfig;
 use app_setup::AppSetupFairing;
 use clap::{crate_name, Parser};
-use dumbnotes::config::figment::{read_app_config, ReadConfig};
+use dumbnotes::config::read::{read_app_config, ReadConfig};
 use dumbnotes::error_exit;
 use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;

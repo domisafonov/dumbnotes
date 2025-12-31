@@ -26,7 +26,7 @@ fn async_main<R, F>(
     let workers: usize = figment.extract_inner(Config::WORKERS).unwrap_or_else(|e| config_bail!(e));
     let max_blocking: usize = figment.extract_inner(Config::MAX_BLOCKING).unwrap_or_else(|e| config_bail!(e));
     let force: ForceEnd = figment.focus(Config::SHUTDOWN).extract_inner::<bool>("force").unwrap_or_else(|e| config_bail!(e)).into();
-    async_run(fut(figment), workers, max_blocking, force.into(), "rocket-worker-thread")
+    async_run(fut(figment), workers, max_blocking, force, "rocket-worker-thread")
 }
 
 fn async_run<F, R>(
