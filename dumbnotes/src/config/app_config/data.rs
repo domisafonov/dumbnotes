@@ -1,8 +1,8 @@
-use std::path::PathBuf;
-use rocket::serde::{Deserialize, Serialize};
 use crate::bin_constants::{DEFAULT_DATA_DIR, DEFAULT_JWT_PRIVATE_KEY, DEFAULT_JWT_PUBLIC_KEY, DEFAULT_USER_DB};
 use crate::config::hasher_config::ProductionHasherConfigData;
 use crate::lib_constants::{DEFAULT_MAX_NOTE_LEN, DEFAULT_MAX_NOTE_NAME_LEN};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

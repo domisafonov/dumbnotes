@@ -1,0 +1,4 @@
+[submodule "josekit-rs"]
+	path = josekit-rs
+	url = https://github.com/domisafonov/josekit-rs.git
+	branch = libressl

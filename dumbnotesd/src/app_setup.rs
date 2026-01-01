@@ -81,7 +81,7 @@ impl AppSetupFairing {
         }
         let mut auth_child = command.spawn()
             .inspect_err(|e|
-                error!("failed to spawn dumbnotesd_auth process: {}", e)
+                error!("failed to spawn dumbnotesd-auth process: {}", e)
             )?;
         drop(auth_childs_socket);
 
@@ -91,11 +91,11 @@ impl AppSetupFairing {
             let status = auth_child.wait().await;
             let send_result = match status {
                 Ok(status) => {
-                    info!("dumbnotesd_auth child finished with {status}");
+                    info!("dumbnotesd-auth child finished with {status}");
                     auth_failed_sender.send(())
                 },
                 Err(e) => {
-                    error!("waiting for dumbnotesd_auth failed: {}", e);
+                    error!("waiting for dumbnotesd-auth failed: {}", e);
                     auth_failed_sender.send(())
                 }
             };
@@ -145,7 +145,7 @@ impl Fairing for AppSetupFairing {
         let socket_to_auth = ok_or_bail!(
             rocket,
             self.launch_authd(&self.app_config).await,
-            |e| error!("failed to launch dumbnotesd_auth: {e}")
+            |e| error!("failed to launch dumbnotesd-auth: {e}")
         );
 
         #[cfg(target_os = "openbsd")] {

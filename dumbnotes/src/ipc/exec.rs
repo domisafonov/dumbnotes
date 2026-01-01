@@ -4,7 +4,7 @@ use which::which;
 
 pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
     if cfg!(all(target_os = "openbsd", not(debug_assertions))) {
-        Ok(PathBuf::from("/usr/local/libexec/dumbnotesd/dumbnotesd_auth"))
+        Ok(PathBuf::from("/usr/local/libexec/dumbnotesd/dumbnotesd-auth"))
     } else {
         // TODO: have a configured path for linux too
 
@@ -14,11 +14,11 @@ pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
         let exec_name = PathBuf::from(exec_name);
         let exec_name = exec_name.parent()
             .ok_or(GetExecPathError::NoSelfParent)?
-            .join("dumbnotesd_auth");
+            .join("dumbnotesd-auth");
         if exec_name.exists() {
             Ok(exec_name.to_owned())
         } else {
-            which("dumbnotesd_auth")
+            which("dumbnotesd-auth")
                 .map_err(GetExecPathError::from)
         }
     }
