@@ -42,6 +42,7 @@ which = "8.0.0"
 josekit = "0.10.3"
 assert_fs = "1.1.3"
 prost-build = "0.14.1"
+cargo_metadata = "0.23.1"
 
 [patch.crates-io]
 josekit.path = "josekit-rs"
