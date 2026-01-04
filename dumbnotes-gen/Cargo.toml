@@ -20,4 +20,5 @@ dumbnotes.path = "../dumbnotes"
 
 [dev-dependencies]
 assert_fs.workspace = true
+predicates.workspace = true
 test-utils.path = "../test-utils"

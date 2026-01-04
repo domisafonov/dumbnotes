@@ -1,15 +1,45 @@
+use std::path::Path;
 use std::process::Command;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
+use predicates::prelude::*;
 use test_utils::build_bin;
+use test_utils::predicates::file_mode;
 
-// TODO: the actual tests
+// TODO: ownership, format, overwriting, default paths (requires chroot)
+// TODO: password hashing
+
 #[test]
-fn test_poc() {
+fn create_jwt_key() {
     let dir = setup_config();
-    let bin_path = build_bin("dumbnotes-gen")
-        .unwrap();
-    let result = Command::new(&bin_path)
+    let bin_path = build_bin("dumbnotes-gen").unwrap();
+    call(&dir, &bin_path, "--generate-jwt-key");
+    dir.child("etc/dumbnotes/private/jwt_private_key.json")
+        .assert(
+            predicates::path::is_file()
+                .and(file_mode(0o400, 0o337))
+        );
+    dir.child("etc/dumbnotes/jwt_public_key.json")
+        .assert(
+            predicates::path::is_file()
+                .and(file_mode(0o440, 0o133))
+        );
+}
+
+#[test]
+fn create_pepper() {
+    let dir = setup_config();
+    let bin_path = build_bin("dumbnotes-gen").unwrap();
+    call(&dir, &bin_path, "--generate-pepper");
+    dir.child("etc/dumbnotes/private/pepper.b64")
+        .assert(
+            predicates::path::is_file()
+                .and(file_mode(0o400, 0o337))
+        );
+}
+
+fn call(dir: &TempDir, bin_path: &Path, arg: &str) {
+    let result = Command::new(bin_path)
         .arg(
             format!(
                 "--config-file={}",
@@ -17,7 +47,7 @@ fn test_poc() {
                     .to_str().expect("failed to get config path")
             )
         )
-        .arg("--generate-jwt-key")
+        .arg(arg)
         .spawn()
         .unwrap()
         .wait()
@@ -25,7 +55,6 @@ fn test_poc() {
     assert!(result.success());
 }
 
-// TODO: chrooting
 fn setup_config() -> TempDir {
     let root = TempDir::new().unwrap();
     let config_dir = root.child("etc/dumbnotes");

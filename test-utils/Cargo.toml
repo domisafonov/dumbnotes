@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-assert_fs.workspace = true
 cargo_metadata.workspace = true
+predicates.workspace = true
 thiserror.workspace = true
