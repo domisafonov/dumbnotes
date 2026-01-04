@@ -1,18 +1,22 @@
-use std::path::Path;
-use std::process::Command;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use predicates::prelude::*;
+use rexpect::process::wait::WaitStatus;
+use rexpect::reader::Options;
+use rexpect::ReadUntil;
+use std::path::Path;
+use std::process::Command;
 use test_utils::build_bin;
 use test_utils::predicates::file_mode;
 
-// TODO: ownership, format, overwriting, default paths (requires chroot)
-// TODO: password hashing
+// TODO: format, warnings
+// TODO: ownership, overwriting, default paths (requires chroot)
 
 #[test]
 fn create_jwt_key() {
     let dir = setup_config();
-    let bin_path = build_bin("dumbnotes-gen").unwrap();
+    let bin_path = build_bin("dumbnotes-gen")
+        .expect("build failed");
     call(&dir, &bin_path, "--generate-jwt-key");
     dir.child("etc/dumbnotes/private/jwt_private_key.json")
         .assert(
@@ -29,13 +33,57 @@ fn create_jwt_key() {
 #[test]
 fn create_pepper() {
     let dir = setup_config();
-    let bin_path = build_bin("dumbnotes-gen").unwrap();
+    let bin_path = build_bin("dumbnotes-gen")
+        .expect("build failed");
     call(&dir, &bin_path, "--generate-pepper");
     dir.child("etc/dumbnotes/private/pepper.b64")
         .assert(
             predicates::path::is_file()
                 .and(file_mode(0o400, 0o337))
         );
+}
+
+// TODO: no-repeat, unmatched passwords, empty password
+#[test]
+fn hash_password() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = setup_config();
+    let bin_path = build_bin("dumbnotes-gen")
+        .expect("build failed");
+
+    // TODO: ship ready-made files
+    call(&dir, &bin_path, "--generate-jwt-key");
+    call(&dir, &bin_path, "--generate-pepper");
+
+    let mut command = Command::new(bin_path);
+    command
+        .arg(
+            format!(
+                "--config-file={}",
+                dir.join("etc/dumbnotes/dumbnotes.toml")
+                    .to_str().expect("failed to get config path")
+            )
+        );
+    let mut child = rexpect::spawn_with_options(
+        command,
+        Options {
+            timeout_ms: Some(1000),
+            ..Options::default()
+        },
+    )?;
+    child.exp_string("Enter the password:")?;
+    child.send_line("123")?;
+    child.exp_string("Repeat the password:")?;
+    child.send_line("123")?;
+    let (_, output) = child.reader.read_until(&ReadUntil::EOF)?;
+    let output = output.trim();
+    assert!(output.starts_with("$argon2id$")); // TODO: parse
+    let result = child.process.wait()?;
+    let exit_code = match result {
+        WaitStatus::Exited(_, exit_code) => Some(exit_code),
+        _ => None,
+    };
+    assert_eq!(Some(0), exit_code);
+    Ok(())
 }
 
 fn call(dir: &TempDir, bin_path: &Path, arg: &str) {
@@ -49,7 +97,7 @@ fn call(dir: &TempDir, bin_path: &Path, arg: &str) {
         )
         .arg(arg)
         .spawn()
-        .unwrap()
+        .expect("failed to execute process")
         .wait()
         .unwrap();
     assert!(result.success());
