@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 base64ct.workspace = true
 clap.workspace = true
-env_logger.workspace = true
 figment.workspace = true
 libc.workspace = true
 log.workspace = true
@@ -19,7 +18,9 @@ josekit.workspace = true
 dumbnotes.path = "../dumbnotes"
 
 [dev-dependencies]
+argon2.workspace = true
 assert_fs.workspace = true
+boolean-enums.workspace = true
 predicates.workspace = true
 rexpect.workspace = true
 test-utils.path = "../test-utils"

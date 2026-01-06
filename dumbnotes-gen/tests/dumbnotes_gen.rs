@@ -9,12 +9,16 @@ use rexpect::ReadUntil;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::LazyLock;
+use argon2::{Algorithm, Argon2, PasswordHash, PasswordVerifier, Version};
+use argon2::password_hash::Encoding;
+use boolean_enums::gen_boolean_enum;
 use rexpect::session::PtySession;
+use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use test_utils::build_bin;
-use test_utils::data::{MOCK_JWT_PRIVATE_KEY, MOCK_JWT_PUBLIC_KEY, MOCK_PEPPER};
+use test_utils::data::{MOCK_JWT_PRIVATE_KEY_STR, MOCK_JWT_PUBLIC_KEY_STR, MOCK_PEPPER, MOCK_PEPPER_STR};
 use test_utils::predicates::file_mode;
 
-// TODO: format, warnings
+// TODO: generated files' format
 // TODO: ownership, overwriting, default paths (requires chroot)
 
 static GEN_BIN: LazyLock<PathBuf> = LazyLock::new(|| {
@@ -111,7 +115,7 @@ fn hash_password() -> Result<(), Box<dyn Error>> {
     child.send_line("123")?;
     let (_, output) = child.reader.read_until(&ReadUntil::EOF)?;
     let output = output.trim();
-    assert!(output.starts_with("$argon2id$")); // TODO: parse
+    validate_hash(output.trim(), "123")?;
     child.assert_exit_success()?;
 
     Ok(())
@@ -125,16 +129,75 @@ fn hash_password_no_repeat() -> Result<(), Box<dyn Error>> {
         .arg("--no-repeat")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?;
     child.stdin.as_mut()
         .expect("failed to get stdin")
         .write_all("123".as_bytes())?;
     let result = child.wait_with_output()?;
     let output = String::from_utf8(result.stdout)?;
-    assert!(output.trim().starts_with("$argon2id$")); // TODO: parse
+    let errors = String::from_utf8(result.stderr)?;
+    assert!(errors.is_empty());
+    validate_hash(output.trim(), "123")?;
 
     Ok(())
 }
+
+#[test]
+fn hash_password_no_repeat_empty() -> Result<(), Box<dyn Error>> {
+    let dir = setup_config_with_keys();
+
+    let mut child = new_command(&dir)
+        .arg("--no-repeat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child.stdin.take();
+    let result = child.wait_with_output()?;
+    let output = String::from_utf8(result.stdout)?;
+    let err = String::from_utf8(result.stderr)?;
+    assert!(output.is_empty());
+    assert!(err.contains("ERROR"));
+    assert!(!result.status.success());
+
+    Ok(())
+}
+
+#[test]
+fn hash_password_spaces_warning() -> Result<(), Box<dyn Error>> {
+    let dir = setup_config_with_keys();
+    hash_password_spaces_impl(&dir, " 123", MustWarn::Yes)?;
+    hash_password_spaces_impl(&dir, "1 \t23", MustWarn::No)?;
+    hash_password_spaces_impl(&dir, "123 ", MustWarn::Yes)?;
+    Ok(())
+}
+
+fn hash_password_spaces_impl(
+    dir: &TempDir,
+    password: &str,
+    must_warn: MustWarn,
+) -> Result<(), Box<dyn Error>> {
+    let mut child = new_command(dir)
+        .arg("--no-repeat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child.stdin.take().unwrap().write_all(password.as_bytes())?;
+    let result = child.wait_with_output()?;
+    let output = String::from_utf8(result.stdout)?;
+    let err = String::from_utf8(result.stderr)?;
+    validate_hash(output.trim(), password)?;
+    if must_warn.into() {
+        assert!(err.contains("the password has leading or trailing whitespace characters"));
+    } else {
+        assert!(err.is_empty());
+    }
+    assert!(result.status.success());
+    Ok(())
+}
+gen_boolean_enum!(MustWarn);
 
 fn call_create(
     dir: &TempDir,
@@ -189,12 +252,12 @@ pepper_path = "{}"
 fn setup_config_with_keys() -> TempDir {
     let root = setup_config();
     root.child("etc/dumbnotes/private/jwt_private_key.json")
-        .write_str(MOCK_JWT_PRIVATE_KEY).unwrap();
+        .write_str(MOCK_JWT_PRIVATE_KEY_STR).unwrap();
     root.child("etc/dumbnotes/private/pepper.b64")
-        .write_str(MOCK_PEPPER)
+        .write_str(MOCK_PEPPER_STR)
         .unwrap();
     root.child("etc/dumbnotes/jwt_public_key.json")
-        .write_str(MOCK_JWT_PUBLIC_KEY).unwrap();
+        .write_str(MOCK_JWT_PUBLIC_KEY_STR).unwrap();
     root
 }
 
@@ -234,4 +297,19 @@ impl PtySessionExt for PtySession {
             _ => panic!("failed to get exit code"),
         }
     }
+}
+
+fn validate_hash(hash: &str, password: &str) -> Result<(), Box<dyn Error>> {
+    let hasher = Argon2::new_with_secret(
+        &MOCK_PEPPER,
+        Algorithm::Argon2id,
+        Version::V0x13,
+        ProductionHasherConfigData::default().make_params()?,
+    )?;
+    hasher
+        .verify_password(
+            password.as_bytes(),
+            &PasswordHash::parse(hash, Encoding::B64)?
+        )?;
+    Ok(())
 }

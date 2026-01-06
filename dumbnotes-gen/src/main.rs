@@ -11,6 +11,7 @@ use figment::Figment;
 use jwt_key_generator::make_jwt_key;
 use log::warn;
 use rpassword::prompt_password;
+use dumbnotes::logging::init_tool_logging;
 use dumbnotes::nix::set_umask;
 use crate::pepper_generator::make_pepper;
 
@@ -24,7 +25,7 @@ fn main() {
     #[cfg(target_os = "openbsd")] pledge_gen_init();
     set_umask();
 
-    env_logger::init();
+    init_tool_logging();
 
     let cli_config = CliConfig::parse();
 
