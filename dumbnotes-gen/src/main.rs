@@ -1,3 +1,4 @@
+use std::io::stdin;
 use crate::cli::CliConfig;
 use clap::Parser;
 use dumbnotes::config::app_config::AppConfig;
@@ -113,7 +114,7 @@ fn generate_hash(
     }
 
     let hasher_config = app_config.hasher_config.make_params()
-        .unwrap_or_else(|e| error_exit!("hasher config is invalid: {}", e));
+        .unwrap_or_else(|e| error_exit!("hasher config is invalid: {e}"));
     let hasher = ProductionHasher
         ::new(
             ProductionHasherConfig {
@@ -125,19 +126,29 @@ fn generate_hash(
             error_exit!("invalid hasher configuration: {e}")
         );
 
-    let read_value = prompt_password("Enter the password: ")
-        .unwrap_or_else(|e| error_exit!("could not read password: {}", e));
-    if read_value.is_empty() {
-        error_exit!("entered password is empty")
-    }
+    let read_value = if cli_config.no_repeat {
+        let mut read_value = String::new();
+        stdin().read_line(&mut read_value)
+            .unwrap_or_else(|e| error_exit!("cannot read from stdin: {e}"));
+        if read_value.is_empty() {
+            error_exit!("entered password is empty")
+        }
+        read_value
+    } else {
+        let read_value = prompt_password("Enter the password: ")
+            .unwrap_or_else(|e| error_exit!("could not read password: {e}"));
+        if read_value.is_empty() {
+            error_exit!("entered password is empty")
+        }
 
-    if !cli_config.no_repeat {
         let confirmation_value = prompt_password("Repeat the password: ")
-            .unwrap_or_else(|e| error_exit!("could not read password: {}", e));
+            .unwrap_or_else(|e| error_exit!("could not read password: {e}"));
         if confirmation_value != read_value {
             error_exit!("the passwords do not match")
         }
-    }
+
+        read_value
+    };
 
     if read_value.trim() != read_value {
         warn!("the password has leading or trailing whitespace characters");
