@@ -2,3 +2,7 @@
 	path = josekit-rs
 	url = https://github.com/domisafonov/josekit-rs.git
 	branch = libressl
+[submodule "rexpect"]
+	path = rexpect
+	url = https://github.com/domisafonov/rexpect.git
+	branch = openbsd
