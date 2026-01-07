@@ -34,3 +34,15 @@ pub static MOCK_PEPPER: LazyLock<Box<[u8]>> = LazyLock::new(||
         .expect("failed to decode mock pepper")
         .into()
 );
+
+#[cfg(test)]
+mod tests {
+    use std::error::Error;
+    use super::*;
+
+    #[test]
+    fn mock_jwt_keys_are_coherent() -> Result<(), Box<dyn Error>> {
+        assert_eq!(MOCK_JWT_PUBLIC_KEY.to_public_key()?, *MOCK_JWT_PUBLIC_KEY);
+        Ok(())
+    }
+}

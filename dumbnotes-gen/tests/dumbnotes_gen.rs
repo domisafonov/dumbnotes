@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fs;
 use std::io::Write;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
@@ -11,14 +12,15 @@ use std::process::{Command, Stdio};
 use std::sync::LazyLock;
 use argon2::{Algorithm, Argon2, PasswordHash, PasswordVerifier, Version};
 use argon2::password_hash::Encoding;
+use base64ct::{Base64, Encoding as Base64Encoding};
 use boolean_enums::gen_boolean_enum;
+use josekit::jwk::Jwk;
 use rexpect::session::PtySession;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use test_utils::build_bin;
 use test_utils::data::{MOCK_JWT_PRIVATE_KEY_STR, MOCK_JWT_PUBLIC_KEY_STR, MOCK_PEPPER, MOCK_PEPPER_STR};
 use test_utils::predicates::file_mode;
 
-// TODO: generated files' format
 // TODO: ownership, overwriting, default paths (requires chroot)
 
 static GEN_BIN: LazyLock<PathBuf> = LazyLock::new(|| {
@@ -29,29 +31,73 @@ static GEN_BIN: LazyLock<PathBuf> = LazyLock::new(|| {
 #[test]
 fn create_jwt_key() -> Result<(), Box<dyn Error>> {
     let dir = setup_config();
+
     call_create(&dir, "--generate-jwt-key")?;
-    dir.child("etc/dumbnotes/private/jwt_private_key.json")
+    let private_key = dir.child("etc/dumbnotes/private/jwt_private_key.json");
+    let public_key = dir.child("etc/dumbnotes/jwt_public_key.json");
+    private_key
         .assert(
             predicates::path::is_file()
                 .and(file_mode(0o400, 0o337))
         );
-    dir.child("etc/dumbnotes/jwt_public_key.json")
+    public_key
         .assert(
             predicates::path::is_file()
                 .and(file_mode(0o440, 0o133))
         );
+
+    let private_key = Jwk::from_bytes(fs::read_to_string(&private_key)?)?;
+    let public_key = Jwk::from_bytes(fs::read_to_string(&public_key)?)?;
+    assert_ne!(private_key.to_public_key()?, private_key);
+    assert_eq!(private_key.to_public_key()?, public_key);
+
     Ok(())
 }
 
 #[test]
 fn create_pepper() -> Result<(), Box<dyn Error>> {
     let dir = setup_config();
+
     call_create(&dir, "--generate-pepper")?;
-    dir.child("etc/dumbnotes/private/pepper.b64")
+    let pepper = dir.child("etc/dumbnotes/private/pepper.b64");
+    pepper
         .assert(
             predicates::path::is_file()
                 .and(file_mode(0o400, 0o337))
         );
+
+    Base64::decode_vec(fs::read_to_string(&pepper)?.trim())?;
+
+    Ok(())
+}
+
+#[test]
+fn hash_with_created_secrets() -> Result<(), Box<dyn Error>> {
+    let dir = setup_config();
+
+    call_create(&dir, "--generate-pepper")?;
+    let pepper = Base64::decode_vec(
+        fs::read_to_string(
+            dir.child("etc/dumbnotes/private/pepper.b64")
+        )?.trim()
+    )?;
+
+    let mut result = new_command(&dir)
+        .arg("--no-repeat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    result.stdin.take().expect("failed to get stdin")
+        .write_all("123".as_bytes())?;
+    let result = result.wait_with_output()?;
+    let stdout = String::from_utf8(result.stdout)?;
+    let stderr = String::from_utf8(result.stderr)?;
+    assert!(result.status.success(), "status: {}", result.status);
+    assert!(stderr.is_empty(), "stderr: {stderr}");
+    validate_hash_custom_pepper(&pepper, stdout.trim(), "123")?;
+
     Ok(())
 }
 
@@ -137,7 +183,7 @@ fn hash_password_no_repeat() -> Result<(), Box<dyn Error>> {
     let result = child.wait_with_output()?;
     let output = String::from_utf8(result.stdout)?;
     let errors = String::from_utf8(result.stderr)?;
-    assert!(errors.is_empty());
+    assert!(errors.is_empty(), "stderr: {errors}");
     validate_hash(output.trim(), "123")?;
 
     Ok(())
@@ -157,9 +203,9 @@ fn hash_password_no_repeat_empty() -> Result<(), Box<dyn Error>> {
     let result = child.wait_with_output()?;
     let output = String::from_utf8(result.stdout)?;
     let err = String::from_utf8(result.stderr)?;
-    assert!(output.is_empty());
-    assert!(err.contains("ERROR"));
-    assert!(!result.status.success());
+    assert!(output.is_empty(), "stdout: {output}");
+    assert!(err.contains("ERROR"), "stderr: {err}");
+    assert!(!result.status.success(), "status: {}", result.status);
 
     Ok(())
 }
@@ -184,17 +230,22 @@ fn hash_password_spaces_impl(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
-    child.stdin.take().unwrap().write_all(password.as_bytes())?;
+    child.stdin.take()
+        .expect("failed to get stdin")
+        .write_all(password.as_bytes())?;
     let result = child.wait_with_output()?;
     let output = String::from_utf8(result.stdout)?;
     let err = String::from_utf8(result.stderr)?;
     validate_hash(output.trim(), password)?;
     if must_warn.into() {
-        assert!(err.contains("the password has leading or trailing whitespace characters"));
+        assert!(
+            err.contains("the password has leading or trailing whitespace characters"),
+            "stderr: {err}",
+        );
     } else {
-        assert!(err.is_empty());
+        assert!(err.is_empty(), "stderr: {err}");
     }
-    assert!(result.status.success());
+    assert!(result.status.success(), "status: {}", result.status);
     Ok(())
 }
 gen_boolean_enum!(MustWarn);
@@ -207,7 +258,7 @@ fn call_create(
         .arg(arg)
         .spawn()?
         .wait()?;
-    assert!(result.success());
+    assert!(result.success(), "status: {result}");
     Ok(())
 }
 
@@ -299,9 +350,25 @@ impl PtySessionExt for PtySession {
     }
 }
 
-fn validate_hash(hash: &str, password: &str) -> Result<(), Box<dyn Error>> {
-    let hasher = Argon2::new_with_secret(
+
+fn validate_hash(
+    hash: &str,
+    password: &str,
+) -> Result<(), Box<dyn Error>> {
+    validate_hash_custom_pepper(
         &MOCK_PEPPER,
+        hash,
+        password,
+    )
+}
+
+fn validate_hash_custom_pepper(
+    pepper: &[u8],
+    hash: &str,
+    password: &str,
+) -> Result<(), Box<dyn Error>> {
+    let hasher = Argon2::new_with_secret(
+        pepper,
         Algorithm::Argon2id,
         Version::V0x13,
         ProductionHasherConfigData::default().make_params()?,
