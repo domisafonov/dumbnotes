@@ -1,4 +1,7 @@
+use std::clone::Clone;
 use std::env;
+use std::env::JoinPathsError;
+use std::ffi::OsString;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
@@ -13,10 +16,15 @@ pub static GEN_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         .unwrap_or_else(|e| panic!("build failed: {e}"))
 });
 
-pub static DAEMON_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
+pub static DAEMON_BIN_PATHS: LazyLock<Vec<PathBuf>> = LazyLock::new(||
     build_bin(&["dumbnotesd", "dumbnotesd-auth"])
-        .map(|v| v.into_iter().next().unwrap())
         .expect("failed to build dumbnotesd")
+);
+pub static DAEMON_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
+    DAEMON_BIN_PATHS[0].clone()
+);
+pub static AUTHD_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
+    DAEMON_BIN_PATHS[1].clone()
 );
 
 pub fn build_bin(names: &[&str]) -> Result<Vec<PathBuf>, BuildBinError> {
@@ -83,6 +91,23 @@ fn get_build_path(
         .ok_or(BuildBinError::NoBinFound)
 }
 
+pub fn make_path_for_bins(
+    paths: &[impl AsRef<Path>],
+) -> Result<OsString, BuildBinError> {
+    let mut process_path: Vec<_> = env::split_paths(&env::var("PATH")?)
+        .collect();
+    for path in paths {
+        let Some(path) = path.as_ref().parent() else {
+            continue
+        };
+        if process_path.iter().any(|v| *v == path) {
+            continue
+        }
+        process_path.push(path.to_owned());
+    }
+    Ok(env::join_paths(&process_path)?)
+}
+
 #[derive(Debug, Error)]
 pub enum BuildBinError {
     #[error(transparent)]
@@ -99,6 +124,9 @@ pub enum BuildBinError {
 
     #[error("no executable found")]
     NoBinFound,
+
+    #[error("failed to form PATH for child processes: {0}")]
+    JoinPaths(#[from] JoinPathsError),
 }
 
 pub fn new_configured_command(bin_path: &Path, dir: &TempDir) -> Command {
