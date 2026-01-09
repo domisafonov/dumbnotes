@@ -4,8 +4,8 @@ use std::io::Write;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use libc::{gid_t, uid_t};
-use dumbnotes::nix::{get_ids, ChownExt};
 use dumbnotes::sandbox::user_group::get_user_and_group;
+use unix::{get_ids, ChownExt};
 
 pub fn get_ids_for_chown(
     owner_user_group: Option<&str>,

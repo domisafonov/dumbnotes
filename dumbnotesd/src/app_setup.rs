@@ -67,17 +67,17 @@ impl AppSetupFairing {
                         )?,
                 )
             );
-        if self.is_daemonizing {
-            if cfg!(debug_assertions) {
-                command.arg("--daemonize");
-            } else {
-                command.arg("--no-daemonize");
-            }
-
-            if let Some(ref authd_user_group) = config.authd_user_group {
-                let (uid, gid) = get_user_and_group(authd_user_group)?;
-                command.uid(uid).gid(gid);
-            }
+        if self.is_daemonizing && cfg!(debug_assertions) {
+            command.arg("--daemonize");
+        }
+        if !self.is_daemonizing && !cfg!(debug_assertions) {
+            command.arg("--no-daemonize");
+        }
+        if self.is_daemonizing &&
+            let Some(ref authd_user_group) = config.authd_user_group
+        {
+            let (uid, gid) = get_user_and_group(authd_user_group)?;
+            command.uid(uid).gid(gid);
         }
         let mut auth_child = command.spawn()
             .inspect_err(|e|

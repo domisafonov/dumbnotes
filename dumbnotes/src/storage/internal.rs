@@ -17,12 +17,12 @@ use crate::data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
 use crate::util::{send_fut_lifetime_workaround, StrExt};
 
+use crate::lib_constants::NOTES_DIRECTORY_PATH;
+use crate::storage::internal::io_trait::OpenFile;
 use crate::username_string::UsernameStr;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
-use crate::lib_constants::NOTES_DIRECTORY_PATH;
-use crate::nix::CheckAccessError;
-use crate::storage::internal::io_trait::OpenFile;
+use unix::errors::CheckAccessError;
 
 mod io_trait;
 #[cfg(test)] mod tests;

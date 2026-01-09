@@ -6,7 +6,9 @@ edition = "2024"
 [dependencies]
 base64ct.workspace = true
 clap.workspace = true
+dumbnotes.path = "../dumbnotes"
 figment.workspace = true
+josekit.workspace = true
 libc.workspace = true
 log.workspace = true
 rand.workspace = true
@@ -14,8 +16,7 @@ rpassword.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-josekit.workspace = true
-dumbnotes.path = "../dumbnotes"
+unix.path = "../unix"
 
 [dev-dependencies]
 argon2.workspace = true

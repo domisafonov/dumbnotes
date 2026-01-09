@@ -7,8 +7,10 @@ edition = "2024"
 async-trait.workspace = true
 boolean-enums.workspace = true
 clap.workspace = true
+dumbnotes.path = "../dumbnotes"
 figment.workspace = true
 futures.workspace = true
+josekit.workspace = true
 log.workspace = true
 prost.workspace = true
 rocket.workspace = true
@@ -16,9 +18,13 @@ serde_json.workspace = true
 thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true
+unix.path = "../unix"
 uuid.workspace = true
-josekit.workspace = true
-dumbnotes.path = "../dumbnotes"
+
+[dev-dependencies]
+assert_fs.workspace = true
+rexpect.workspace = true
+test-utils.path = "../test-utils"
 
 [build-dependencies]
 prost-build.workspace = true

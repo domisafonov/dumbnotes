@@ -15,5 +15,3 @@ pub const DEFAULT_ARGON2_OUTPUT_LEN: Option<usize> = Some(32);
 
 // relative to the data directory
 pub const NOTES_DIRECTORY_PATH: &str = "notes";
-
-pub const UMASK: mode_t = 0o027;

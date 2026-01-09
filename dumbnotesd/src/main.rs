@@ -15,9 +15,8 @@ use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
 use figment::Figment;
 use log::info;
-use dumbnotes::nix::is_root;
-use dumbnotes::nix::set_umask;
 use dumbnotes::sandbox::daemonize::daemonize;
+use unix::{is_root, set_umask};
 
 fn main() {
     #[cfg(target_os = "openbsd")] pledge_init();

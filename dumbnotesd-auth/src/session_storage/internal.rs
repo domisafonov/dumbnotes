@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 use tokio::spawn;
 use tokio::sync::{oneshot, RwLock, RwLockWriteGuard};
 use uuid::Uuid;
-use dumbnotes::nix::check_secret_file_rw_access;
+use unix::check_secret_file_rw_access;
 use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
 use crate::file_watcher::Event;
 use crate::file_watcher::FileWatcherError;

@@ -5,7 +5,8 @@ use std::path::Path;
 use libc::{gid_t, uid_t};
 use tokio::{fs, io};
 use uuid::Uuid;
-use crate::nix::{check_dir_rw_access, CheckAccessError};
+use unix::check_dir_rw_access;
+use unix::errors::CheckAccessError;
 
 #[async_trait]
 pub trait NoteStorageIo: Send + Sync

@@ -1,7 +1,7 @@
 use thiserror::Error;
 use time::error::ComponentRange;
 use tokio::io::Error as IoError;
-use crate::nix::CheckAccessError;
+use unix::errors::CheckAccessError;
 
 #[derive(Debug, Error)]
 pub enum StorageError {

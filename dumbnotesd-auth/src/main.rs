@@ -29,8 +29,7 @@ use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::UnixStream;
-use dumbnotes::nix::check_secret_file_ro_access;
-use dumbnotes::nix::set_umask;
+use unix::{check_secret_file_ro_access, set_umask};
 use user_db::ProductionUserDb;
 
 #[tokio::main]

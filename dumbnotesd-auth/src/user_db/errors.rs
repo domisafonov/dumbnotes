@@ -1,7 +1,7 @@
 use std::io::Error as IoError;
 use thiserror::Error;
 use dumbnotes::hasher::HasherError;
-use dumbnotes::nix::CheckAccessError;
+use unix::errors::CheckAccessError;
 use crate::file_watcher::FileWatcherError;
 
 #[derive(Debug, Error)]

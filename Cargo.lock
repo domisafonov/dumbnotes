@@ -538,6 +538,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "toml 0.9.8",
+ "unix",
  "uuid",
  "which",
 ]
@@ -564,12 +565,14 @@ dependencies = [
  "serde_json",
  "test-utils",
  "thiserror",
+ "unix",
 ]
 
 [[package]]
 name = "dumbnotesd"
 version = "0.1.0"
 dependencies = [
+ "assert_fs",
  "async-trait",
  "boolean-enums",
  "clap",
@@ -580,11 +583,14 @@ dependencies = [
  "log",
  "prost",
  "prost-build",
+ "rexpect",
  "rocket",
  "serde_json",
+ "test-utils",
  "thiserror",
  "time",
  "tokio",
+ "unix",
  "uuid",
 ]
 
@@ -614,6 +620,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "toml 0.9.8",
+ "unix",
  "uuid",
 ]
 
@@ -2244,11 +2251,14 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 name = "test-utils"
 version = "0.1.0"
 dependencies = [
+ "assert_fs",
  "base64ct",
  "cargo_metadata",
  "josekit",
  "predicates",
+ "rexpect",
  "thiserror",
+ "unix",
 ]
 
 [[package]]
@@ -2554,6 +2564,14 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unix"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "thiserror",
+]
 
 [[package]]
 name = "utf8parse"

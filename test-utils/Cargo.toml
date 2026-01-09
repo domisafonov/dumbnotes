@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+assert_fs.workspace = true
 base64ct.workspace = true
 cargo_metadata.workspace = true
 josekit.workspace = true
 predicates.workspace = true
+rexpect.workspace = true
 thiserror.workspace = true
+unix.path = "../unix"

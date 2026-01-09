@@ -2,7 +2,7 @@ use std::io;
 use std::io::ErrorKind;
 use libc::{gid_t, uid_t};
 use log::debug;
-use crate::nix;
+use unix::{getgrnam_r, getpwnam_r};
 
 pub fn clear_supplementary_groups() -> Result<(), io::Error> {
     let supplementary_groups: [gid_t; 0] = [0; 0];
@@ -34,10 +34,10 @@ pub fn set_user_and_group(user_group: &str) -> Result<(), io::Error> {
 pub fn get_user_and_group(user_group: &str) -> Result<(uid_t, gid_t), io::Error> {
     let split: Vec<&str> = user_group.split(':').collect();
     match split.len() {
-        1 => nix::getpwnam_r(split[0]),
+        1 => getpwnam_r(split[0]),
         2 => {
-            let uid = nix::getpwnam_r(split[0])?;
-            let gid = nix::getgrnam_r(split[1])?;
+            let uid = getpwnam_r(split[0])?;
+            let gid = getgrnam_r(split[1])?;
             Ok(
                 uid.and_then(|(uid, _)|
                     gid.map(|gid| (uid, gid))

@@ -4,12 +4,16 @@ use std::io;
 use std::io::ErrorKind;
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::sync::LazyLock;
-use libc::{gid_t, uid_t};
-use thiserror::Error;
-use crate::lib_constants::UMASK;
+use libc::{gid_t, mode_t, uid_t};
+use crate::constants::UMASK;
+use crate::errors::CheckAccessError;
+
+mod constants;
+pub mod errors;
 
 pub fn get_ids() -> (uid_t, gid_t) {
     // SAFETY: a libc call
@@ -219,33 +223,6 @@ fn map_permissions_error(e: io::Error) -> CheckAccessError {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum CheckAccessError {
-    #[error(transparent)]
-    Io(io::Error),
-
-    #[error("not a directory")]
-    NotDirectory,
-
-    #[error("not a file")]
-    NotFile,
-
-    #[error("insufficient permissions")]
-    InsufficientPermissions,
-
-    #[error("too permissive")]
-    FileTooPermissive,
-
-    #[error("directory hierarchy too permissive")]
-    DirectoryHierarchyTooPermissive,
-
-    #[error("not an absolute path")]
-    PathNotAbsolute,
-
-    #[error("not found")]
-    NotFound,
-}
-
 pub fn is_root() -> bool {
     (unsafe { libc::getuid() }) == 0
 }
@@ -317,4 +294,13 @@ pub fn getgrnam_r(groupname: &str) -> Result<Option<gid_t>, io::Error> {
             Some(group.gr_gid)
         }
     )
+}
+
+pub fn chmod(path: &Path, mode: mode_t) -> Result<(), io::Error> {
+    let path = CString::new(path.as_os_str().as_bytes())?;
+    if unsafe { libc::chmod(path.as_ptr(), mode) } == -1 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
 }

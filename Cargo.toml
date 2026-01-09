@@ -6,6 +6,7 @@ members = [
   "dumbnotesd-auth",
   "dumbnotes-gen",
   "test-utils",
+  "unix",
 ]
 
 [workspace.dependencies]
