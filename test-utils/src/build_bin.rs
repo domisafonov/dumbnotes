@@ -8,35 +8,44 @@ use cargo_metadata::{CrateType, Message};
 use thiserror::Error;
 
 pub static GEN_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    build_bin("dumbnotes-gen")
+    build_bin(&["dumbnotes-gen"])
+        .map(|v| v.into_iter().next().unwrap())
         .unwrap_or_else(|e| panic!("build failed: {e}"))
 });
 
 pub static DAEMON_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
-    build_bin("dumbnotesd-auth")
-        .and_then(|_| build_bin("dumbnotesd"))
+    build_bin(&["dumbnotesd", "dumbnotesd-auth"])
+        .map(|v| v.into_iter().next().unwrap())
         .expect("failed to build dumbnotesd")
 );
 
-pub fn build_bin(name: &str) -> Result<PathBuf, BuildBinError> {
-    let build_output = call_build(name)?;
-    get_build_path(name, &build_output)
+pub fn build_bin(names: &[&str]) -> Result<Vec<PathBuf>, BuildBinError> {
+    let build_output = call_build(names)?;
+    let (ok, err): (Vec<_>, Vec<_>) = names.iter()
+        .map(|name| get_build_path(name, &build_output))
+        .partition(Result::is_ok);
+    match err.into_iter().next() {
+        Some(err) => Err(err.unwrap_err()),
+        None => Ok(ok.into_iter().map(Result::unwrap).collect())
+    }
 }
 
-fn call_build(name: &str) -> Result<Vec<Message>, BuildBinError> {
+fn call_build(names: &[&str]) -> Result<Vec<Message>, BuildBinError> {
     let manifest_dir = AsRef::<Path>
     ::as_ref(&env::var("CARGO_MANIFEST_DIR")?)
         .parent().expect("no parent for CARGO_MANIFEST_DIR")
         .to_owned();
-    let mut child = Command
-    ::new(env::var("CARGO")?)
+    let mut command = Command::new(env::var("CARGO")?);
+    command
         .arg("build")
         .arg("--release")
-        .arg(format!("--bin={name}"))
         .arg("--message-format=json")
         .stdout(Stdio::piped())
-        .current_dir(manifest_dir)
-        .spawn()?;
+        .current_dir(manifest_dir);
+    for name in names {
+        command.arg(format!("--bin={name}"));
+    }
+    let mut child = command.spawn()?;
 
     let build_output = Message
     ::parse_stream(
