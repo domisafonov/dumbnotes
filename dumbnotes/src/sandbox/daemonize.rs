@@ -1,6 +1,6 @@
 use std::ffi::CString;
 use std::io;
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 use boolean_enums::gen_boolean_enum;
 
 /// Daemonize
@@ -17,6 +17,12 @@ pub unsafe fn daemonize(no_fork: NoFork) {
     unsafe { replace_fd(&nfd, libc::STDIN_FILENO) };
     unsafe { replace_fd(&nfd, libc::STDOUT_FILENO) };
     unsafe { replace_fd(&nfd, libc::STDERR_FILENO) };
+    if nfd.as_raw_fd() == libc::STDIN_FILENO
+        && nfd.as_raw_fd() == libc::STDOUT_FILENO
+        && nfd.as_raw_fd() == libc::STDERR_FILENO
+    {
+        let _ = nfd.into_raw_fd();
+    }
 }
 gen_boolean_enum!(pub NoFork);
 

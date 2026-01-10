@@ -264,7 +264,7 @@ fn spawn(
     let mut child = rexpect::spawn_with_options(
         new_gen_command(dir),
         Options {
-            timeout_ms: Some(1000),
+            timeout_ms: Some(5000),
             ..Options::default()
         },
     )?;

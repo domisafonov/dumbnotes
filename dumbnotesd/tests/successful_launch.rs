@@ -21,13 +21,13 @@ fn launch_and_stop() -> Result<(), Box<dyn Error>> {
 
 fn new_command(dir: &TempDir) -> Command {
     let mut command = new_configured_command(&DAEMON_BIN_PATH, dir);
-    command.arg("--no-daemonize");
-    command.env(
-        "PATH",
-        make_path_for_bins(&DAEMON_BIN_PATHS)
-            .unwrap_or_else(|e|
-                panic!("failed to create new PATH: {e}")
-            )
-    );
+    command.arg("--no-daemonize")
+        .env(
+            "PATH",
+            make_path_for_bins(&DAEMON_BIN_PATHS)
+                .unwrap_or_else(|e|
+                    panic!("failed to create new PATH: {e}")
+                )
+        );
     command
 }

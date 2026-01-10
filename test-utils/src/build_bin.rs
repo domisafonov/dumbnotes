@@ -47,6 +47,12 @@ fn call_build(names: &[&str]) -> Result<Vec<Message>, BuildBinError> {
     command
         .arg("build")
         .arg("--release")
+        .arg("--config").arg(
+            r#"build.rustflags = [
+  "--cfg=integration_test",
+  "--codegen", "opt-level=0",
+  "--codegen", "debug-assertions=off",
+]"#)
         .arg("--message-format=json")
         .stdout(Stdio::piped())
         .current_dir(manifest_dir);
@@ -103,7 +109,7 @@ pub fn make_path_for_bins(
         if process_path.iter().any(|v| *v == path) {
             continue
         }
-        process_path.push(path.to_owned());
+        process_path.insert(0, path.to_owned());
     }
     Ok(env::join_paths(&process_path)?)
 }

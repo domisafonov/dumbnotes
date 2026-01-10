@@ -3,7 +3,7 @@ use thiserror::Error;
 use which::which;
 
 pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
-    if cfg!(all(target_os = "openbsd", not(debug_assertions))) {
+    if cfg!(all(target_os = "openbsd", not(debug_assertions), not(integration_test))) {
         Ok(PathBuf::from("/usr/local/libexec/dumbnotesd/dumbnotesd-auth"))
     } else {
         // TODO: have a configured path for linux too

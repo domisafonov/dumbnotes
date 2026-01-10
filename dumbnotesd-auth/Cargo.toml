@@ -1,7 +1,7 @@
 [package]
 name = "dumbnotesd-auth"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 argon2.workspace = true
@@ -28,3 +28,6 @@ tokio-stream.workspace = true
 toml.workspace = true
 unix.path = "../unix"
 uuid.workspace = true
+
+[lints]
+workspace = true

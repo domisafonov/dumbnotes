@@ -9,6 +9,10 @@ members = [
   "unix",
 ]
 
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
 [workspace.dependencies]
 argon2 = "0.6.0-rc.1" # using rc to get rid of the old rand_core 0.6.x dep
 async-stream = "0.3.6"
@@ -50,3 +54,6 @@ rexpect = "0.6.2"
 [patch.crates-io]
 josekit.path = "josekit-rs"
 rexpect.path = "rexpect"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(integration_test)'] }

@@ -1,7 +1,7 @@
 [package]
 name = "dumbnotes-gen"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 base64ct.workspace = true
@@ -25,3 +25,6 @@ boolean-enums.workspace = true
 predicates.workspace = true
 rexpect.workspace = true
 test-utils.path = "../test-utils"
+
+[lints]
+workspace = true
