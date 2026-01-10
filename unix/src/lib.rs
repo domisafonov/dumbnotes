@@ -7,6 +7,7 @@ use std::os::fd::AsRawFd;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use std::process::Child;
 use std::sync::LazyLock;
 use libc::{gid_t, mode_t, uid_t};
 use crate::constants::UMASK;
@@ -302,5 +303,17 @@ pub fn chmod(path: &Path, mode: mode_t) -> Result<(), io::Error> {
         Err(io::Error::last_os_error())
     } else {
         Ok(())
+    }
+}
+
+pub trait ChildExt {
+    fn kill_term(&self) -> Result<(), io::Error>;
+}
+impl ChildExt for Child {
+    fn kill_term(&self) -> Result<(), io::Error> {
+        match unsafe { libc::kill(self.id().cast_signed(), libc::SIGTERM) } {
+            -1 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
+        }
     }
 }
