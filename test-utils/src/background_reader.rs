@@ -2,6 +2,7 @@ use std::{io, thread};
 use std::io::Read;
 use std::mem::replace;
 use std::os::fd::AsRawFd;
+use std::string::FromUtf8Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -81,7 +82,10 @@ impl<R: Reader> BackgroundReader<R> {
                     && e.kind() != io::ErrorKind::Interrupted
                 => return Err(BackgroundReaderError::Io(e)),
 
-                Err(_) => thread::sleep(BACKGROUND_READER_CHECK_INTERVAL),
+                Err(_) => {
+                    drop(mutables);
+                    thread::sleep(BACKGROUND_READER_CHECK_INTERVAL)
+                },
             }
         }
     }
@@ -92,7 +96,7 @@ impl<R: Reader> BackgroundReader<R> {
         replace(&mut mutables.buf, Vec::with_capacity(16 * 1024))
     }
 
-    pub fn read_to_end(mut self) -> Result<Vec<u8>, BackgroundReaderError> {
+    pub fn read_to_end_bytes(mut self) -> Result<Vec<u8>, BackgroundReaderError> {
         let Some(thread) = self.thread.take() else {
             return Ok(Vec::new())
         };
@@ -108,10 +112,15 @@ impl<R: Reader> BackgroundReader<R> {
         )
     }
 
-    pub fn wait_until(
+    pub fn read_to_end(self) -> Result<String, BackgroundReaderError> {
+        String::from_utf8(self.read_to_end_bytes()?)
+            .map_err(BackgroundReaderError::from)
+    }
+
+    pub fn wait_until_bytes(
         &mut self,
         bytes: &[u8],
-    ) -> Result<Box<[u8]>, BackgroundReaderError> {
+    ) -> Result<Vec<u8>, BackgroundReaderError> {
         let mut current_pos = 0usize;
         let time = Instant::now();
 
@@ -134,16 +143,25 @@ impl<R: Reader> BackgroundReader<R> {
                 let mut new_buf = Vec::<u8>::with_capacity(16 * 1024);
                 new_buf.extend_from_slice(&mutables.buf[pos + bytes.len()..]);
                 std::mem::swap(&mut new_buf, &mut mutables.buf);
-                return Ok(new_buf.into_boxed_slice());
+                new_buf.truncate(pos + bytes.len());
+                return Ok(new_buf);
             }
             drop(mutables);
             if let Some(ref timeout) = self.inner.timeout
                 && time.elapsed() > *timeout
             {
-                return Err(BackgroundReaderError::Timeout)
+                panic!("timeout expired")
             }
             thread::sleep(BACKGROUND_READER_CHECK_INTERVAL);
         }
+    }
+
+    pub fn wait_until(
+        &mut self,
+        string: &str,
+    ) -> Result<String, BackgroundReaderError> {
+        String::from_utf8(self.wait_until_bytes(string.as_bytes())?)
+            .map_err(BackgroundReaderError::from)
     }
 }
 
@@ -166,6 +184,6 @@ pub enum BackgroundReaderError {
     #[error(transparent)]
     Io(io::Error),
 
-    #[error("timeout expired")]
-    Timeout,
+    #[error(transparent)]
+    FromUtf8(#[from] FromUtf8Error),
 }
