@@ -3,12 +3,12 @@
 use std::error::Error;
 use std::io;
 use std::io::Read;
-use std::process::{Child, ChildStderr, Command, Stdio};
+use std::process::{ChildStderr, Command, Stdio};
 use assert_fs::TempDir;
 use reqwest::blocking as rq;
 use rexpect::spawn_stream;
-use test_utils::{make_path_for_bins, new_configured_command, setup_basic_config_with_keys_and_data, BackgroundReader, DAEMON_BIN_PATH, DAEMON_BIN_PATHS};
-use unix::ChildExt;
+use test_utils::{make_path_for_bins, new_configured_command, setup_basic_config_with_keys_and_data, BackgroundReader, ChildKillOnDropExt, KillOnDropChild, DAEMON_BIN_PATH, DAEMON_BIN_PATHS};
+use unix::ChildKillTermExt;
 
 const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
 
@@ -34,15 +34,15 @@ fn launch_and_stop() -> Result<(), Box<dyn Error>> {
 #[test]
 fn request_processed_without_errors() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
-    let (mut child, mut reader) = spawn_daemon(&dir)?;
+    let (mut child, reader) = spawn_daemon(&dir)?;
     let client = rq::Client::new();
     let mut response = String::new();
     client.get("http://localhost:8000/api/version")
         .send()?.read_to_string(&mut response)?;
     assert_eq!(response, "1");
     child.kill_term()?;
+    let log = String::from_utf8(reader.read_to_end()?)?;
     assert!(child.wait()?.success());
-    let log = String::from_utf8(reader.take())?;
     assert!(
         !log.contains("ERROR"),
         "errors in the log: {log}",
@@ -52,8 +52,8 @@ fn request_processed_without_errors() -> Result<(), Box<dyn Error>> {
 
 fn spawn_daemon(
     dir: &TempDir,
-) -> Result<(Child, BackgroundReader<ChildStderr>), Box<dyn Error>> {
-    let mut child = new_command(dir).spawn()?;
+) -> Result<(KillOnDropChild, BackgroundReader<ChildStderr>), Box<dyn Error>> {
+    let mut child = new_command(dir).spawn()?.kill_on_drop();
     let stderr = child.stderr.take()
         .expect("failed to get stderr");
     let mut reader = BackgroundReader::new(stderr, Some(30000))?;

@@ -14,7 +14,7 @@ use boolean_enums::gen_boolean_enum;
 use josekit::jwk::Jwk;
 use rexpect::session::PtySession;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
-use test_utils::{new_configured_command, setup_basic_config, setup_basic_config_with_keys, PtySessionExt, GEN_BIN_PATH};
+use test_utils::{new_configured_command, setup_basic_config, setup_basic_config_with_keys, ChildKillOnDropExt, PtySessionExt, GEN_BIN_PATH};
 use test_utils::data::MOCK_PEPPER;
 use test_utils::predicates::file_mode;
 
@@ -79,11 +79,12 @@ fn hash_with_created_secrets() -> Result<(), Box<dyn Error>> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn()?
+        .kill_on_drop();
 
     result.stdin.take().expect("failed to get stdin")
         .write_all("123".as_bytes())?;
-    let result = result.wait_with_output()?;
+    let result = result.into_child().wait_with_output()?;
     let stdout = String::from_utf8(result.stdout)?;
     let stderr = String::from_utf8(result.stderr)?;
     assert!(result.status.success(), "status: {}", result.status);
@@ -168,11 +169,12 @@ fn hash_password_no_repeat() -> Result<(), Box<dyn Error>> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn()?
+        .kill_on_drop();
     child.stdin.as_mut()
         .expect("failed to get stdin")
         .write_all("123".as_bytes())?;
-    let result = child.wait_with_output()?;
+    let result = child.into_child().wait_with_output()?;
     let output = String::from_utf8(result.stdout)?;
     let errors = String::from_utf8(result.stderr)?;
     assert!(errors.is_empty(), "stderr: {errors}");
@@ -190,9 +192,10 @@ fn hash_password_no_repeat_empty() -> Result<(), Box<dyn Error>> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn()?
+        .kill_on_drop();
     child.stdin.take();
-    let result = child.wait_with_output()?;
+    let result = child.into_child().wait_with_output()?;
     let output = String::from_utf8(result.stdout)?;
     let err = String::from_utf8(result.stderr)?;
     assert!(output.is_empty(), "stdout: {output}");
@@ -221,11 +224,12 @@ fn hash_password_spaces_impl(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn()?
+        .kill_on_drop();
     child.stdin.take()
         .expect("failed to get stdin")
         .write_all(password.as_bytes())?;
-    let result = child.wait_with_output()?;
+    let result = child.into_child().wait_with_output()?;
     let output = String::from_utf8(result.stdout)?;
     let err = String::from_utf8(result.stderr)?;
     validate_hash(output.trim(), password)?;

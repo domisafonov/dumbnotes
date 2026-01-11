@@ -306,10 +306,10 @@ pub fn chmod(path: &Path, mode: mode_t) -> Result<(), io::Error> {
     }
 }
 
-pub trait ChildExt {
+pub trait ChildKillTermExt {
     fn kill_term(&self) -> Result<(), io::Error>;
 }
-impl ChildExt for Child {
+impl ChildKillTermExt for Child {
     fn kill_term(&self) -> Result<(), io::Error> {
         match unsafe { libc::kill(self.id().cast_signed(), libc::SIGTERM) } {
             -1 => Err(io::Error::last_os_error()),
