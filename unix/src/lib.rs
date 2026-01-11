@@ -3,13 +3,13 @@ use std::fs::Metadata;
 use std::io;
 use std::io::ErrorKind;
 use std::mem::MaybeUninit;
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::process::Child;
 use std::sync::LazyLock;
-use libc::{gid_t, mode_t, uid_t};
+use libc::{c_int, gid_t, mode_t, uid_t};
 use crate::constants::UMASK;
 use crate::errors::CheckAccessError;
 
@@ -315,5 +315,42 @@ impl ChildExt for Child {
             -1 => Err(io::Error::last_os_error()),
             _ => Ok(()),
         }
+    }
+}
+
+pub trait FdNonblockExt {
+    fn is_nonblock(&self) -> Result<bool, io::Error>;
+    fn set_nonblock(&self, is_nonblock: bool) -> Result<(), io::Error>;
+}
+impl<T: AsRawFd> FdNonblockExt for T {
+    fn is_nonblock(&self) -> Result<bool, io::Error> {
+        Ok(
+            unsafe { fcntl_raw_int(self.as_raw_fd(), libc::F_GETFL, 0)? }
+                & libc::O_NONBLOCK != 0
+        )
+    }
+
+    fn set_nonblock(&self, is_nonblock: bool) -> Result<(), io::Error> {
+        let flags = unsafe {
+            fcntl_raw_int(self.as_raw_fd(), libc::F_GETFL, 0)?
+        };
+        let flags = if is_nonblock {
+            flags | libc::O_NONBLOCK
+        } else {
+            flags & !libc::O_NONBLOCK
+        };
+        unsafe { fcntl_raw_int(self.as_raw_fd(), libc::F_SETFL, flags)? };
+        Ok(())
+    }
+}
+
+unsafe fn fcntl_raw_int(
+    fd: RawFd,
+    op: c_int,
+    arg1: c_int,
+) -> Result<c_int, io::Error> {
+    match unsafe { libc::fcntl(fd, op, arg1) } {
+        -1 => Err(io::Error::last_os_error()),
+        res => Ok(res),
     }
 }

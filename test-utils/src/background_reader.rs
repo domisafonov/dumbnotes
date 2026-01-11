@@ -1,0 +1,170 @@
+use std::{io, thread};
+use std::io::Read;
+use std::mem::replace;
+use std::os::fd::AsRawFd;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
+use thiserror::Error;
+use unix::FdNonblockExt;
+
+pub trait Reader: AsRawFd + Read + Send + Sync + 'static {}
+impl<T: AsRawFd + Read + Send + Sync + 'static> Reader for T {}
+
+pub struct BackgroundReader<R: Reader> {
+    thread: Option<JoinHandle<Result<(), BackgroundReaderError>>>,
+    inner: Arc<Inner<R>>,
+}
+
+struct Inner<R: Reader> {
+    mutable: Mutex<InnerMut<R>>,
+    shutdown_notice: AtomicBool,
+    timeout: Option<Duration>,
+}
+
+struct InnerMut<R: Reader> {
+    reader: R,
+    buf: Vec<u8>,
+}
+
+impl<R: Reader> BackgroundReader<R> {
+    pub fn new(
+        reader: R,
+        timeout: Option<u64>,
+    ) -> Result<Self, BackgroundReaderError> {
+        let inner = Arc::new(
+            Inner {
+                mutable: Mutex::new(
+                    InnerMut {
+                        reader,
+                        buf: Vec::with_capacity(16 * 1024),
+                    }
+                ),
+                shutdown_notice: AtomicBool::new(false),
+                timeout: timeout.map(Duration::from_millis),
+            }
+        );
+        let inner2 = inner.clone();
+        let thread = thread::spawn(move || Self::read_loop(inner2));
+        Ok(
+            Self {
+                thread: Some(thread),
+                inner,
+            }
+        )
+    }
+
+    fn read_loop(inner: Arc<Inner<R>>) -> Result<(), BackgroundReaderError> {
+        let mut read_buf = [0u8; 16 * 1024];
+
+        inner.mutable.lock()
+            .expect("couldn't lock the reader's state")
+            .reader
+            .set_nonblock(true)
+            .map_err(BackgroundReaderError::Io)?;
+
+        loop {
+            if inner.shutdown_notice.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            let mut mutables = inner.mutable.lock()
+                .expect("couldn't lock the reader's state");
+            match mutables.reader.read(&mut read_buf) {
+                Ok(0) => return Ok(()),
+
+                Ok(bytes_read)
+                => mutables.buf.extend_from_slice(&read_buf[..bytes_read]),
+
+                Err(e) if e.kind() != io::ErrorKind::WouldBlock
+                    && e.kind() != io::ErrorKind::Interrupted
+                => return Err(BackgroundReaderError::Io(e)),
+
+                Err(_) => thread::sleep(Duration::from_millis(100)),
+            }
+        }
+    }
+
+    pub fn take(&mut self) -> Vec<u8> {
+        let mut mutables = self.inner.mutable.lock()
+            .expect("couldn't lock the reader's state");
+        replace(&mut mutables.buf, Vec::with_capacity(16 * 1024))
+    }
+
+    pub fn read_to_end(mut self) -> Result<Vec<u8>, BackgroundReaderError> {
+        let Some(thread) = self.thread.take() else {
+            return Ok(Vec::new())
+        };
+        thread.join().expect("background reader thread panicked")?;
+        Ok(
+            std::mem::take(
+                &mut self.inner.mutable.lock()
+                    .unwrap_or_else(|e|
+                        panic!("background reader thread panicked: {e}")
+                    )
+                    .buf
+            )
+        )
+    }
+
+    pub fn wait_until(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<Box<[u8]>, BackgroundReaderError> {
+        let mut current_pos = 0usize;
+        let time = Instant::now();
+
+        loop {
+            let mut mutables = self.inner.mutable.lock()
+                .unwrap_or_else(|e|
+                    panic!("background reader thread panicked: {e}")
+                );
+            let buf = &mutables.buf[current_pos..];
+            let mut found = None;
+            for w in buf.windows(bytes.len()) {
+                if w == bytes {
+                    found = Some(current_pos);
+                    break;
+                } else {
+                    current_pos += 1;
+                }
+            }
+            if let Some(pos) = found {
+                let mut new_buf = Vec::<u8>::with_capacity(16 * 1024);
+                new_buf.extend_from_slice(&mutables.buf[pos + bytes.len()..]);
+                std::mem::swap(&mut new_buf, &mut mutables.buf);
+                return Ok(new_buf.into_boxed_slice());
+            }
+            drop(mutables);
+            if let Some(ref timeout) = self.inner.timeout
+                && time.elapsed() > *timeout
+            {
+                return Err(BackgroundReaderError::Timeout)
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+}
+
+impl<R: Reader> Drop for BackgroundReader<R> {
+    fn drop(&mut self) {
+        let Some(thread) = self.thread.take() else {
+            return
+        };
+        self.inner.shutdown_notice.store(true, Ordering::Relaxed);
+        thread.join()
+            .expect("background reader thread panicked")
+            .unwrap_or_else(|e|
+                panic!("background reader thread failed: {e}")
+            )
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum BackgroundReaderError {
+    #[error(transparent)]
+    Io(io::Error),
+
+    #[error("timeout expired")]
+    Timeout,
+}

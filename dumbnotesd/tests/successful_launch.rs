@@ -1,31 +1,64 @@
+//! Happy path tests
+
 use std::error::Error;
-use std::process::{Command, Stdio};
+use std::io;
+use std::io::Read;
+use std::process::{Child, ChildStderr, Command, Stdio};
 use assert_fs::TempDir;
+use reqwest::blocking as rq;
 use rexpect::spawn_stream;
-use test_utils::{make_path_for_bins, new_configured_command, setup_basic_config_with_keys_and_data, DAEMON_BIN_PATH, DAEMON_BIN_PATHS};
+use test_utils::{make_path_for_bins, new_configured_command, setup_basic_config_with_keys_and_data, BackgroundReader, DAEMON_BIN_PATH, DAEMON_BIN_PATHS};
 use unix::ChildExt;
+
+const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
 
 #[test]
 fn launch_and_stop() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let mut child = new_command(&dir).spawn()?;
-    let stdin = child.stdin.take()
-        .expect("failed to get stdin");
     let stderr = child.stderr.take()
         .expect("failed to get stderr");
-    let mut session = spawn_stream(stderr, stdin, Some(5000));
-    let prev = session.exp_string("Rocket has launched from")?;
+    let mut session = spawn_stream(stderr, io::empty(), Some(5000));
+    let prev = session.exp_string(ROCKET_STARTED_STRING)?;
     let authd_listening_str = "dumbnotesd-auth listening to commands";
     if !prev.contains(authd_listening_str) {
         session.exp_string(authd_listening_str)?;
     }
     child.kill_term()?;
     let remaining_output = session.exp_eof()?;
-    let exit_code = child.wait()?.code()
-        .expect("failed to get exit code");
-    assert_eq!(exit_code, 0);
+    assert!(child.wait()?.success());
     assert!(!remaining_output.contains("ERROR"));
     Ok(())
+}
+
+#[test]
+fn request_processed_without_errors() -> Result<(), Box<dyn Error>> {
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, mut reader) = spawn_daemon(&dir)?;
+    let client = rq::Client::new();
+    let mut response = String::new();
+    client.get("http://localhost:8000/api/version")
+        .send()?.read_to_string(&mut response)?;
+    assert_eq!(response, "1");
+    child.kill_term()?;
+    assert!(child.wait()?.success());
+    let log = String::from_utf8(reader.take())?;
+    assert!(
+        !log.contains("ERROR"),
+        "errors in the log: {log}",
+    );
+    Ok(())
+}
+
+fn spawn_daemon(
+    dir: &TempDir,
+) -> Result<(Child, BackgroundReader<ChildStderr>), Box<dyn Error>> {
+    let mut child = new_command(dir).spawn()?;
+    let stderr = child.stderr.take()
+        .expect("failed to get stderr");
+    let mut reader = BackgroundReader::new(stderr, Some(30000))?;
+    reader.wait_until(ROCKET_STARTED_STRING.as_bytes())?;
+    Ok((child, reader))
 }
 
 fn new_command(dir: &TempDir) -> Command {
@@ -38,7 +71,8 @@ fn new_command(dir: &TempDir) -> Command {
                     panic!("failed to create new PATH: {e}")
                 )
         )
-        .stdin(Stdio::piped())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
         .stderr(Stdio::piped());
     command
 }
