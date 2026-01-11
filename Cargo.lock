@@ -1401,6 +1401,7 @@ dependencies = [
 [[package]]
 name = "josekit"
 version = "0.10.3"
+source = "git+https://github.com/domisafonov/josekit-rs.git#8fc5c143f258757c20c02841be9cfb088926d41d"
 dependencies = [
  "anyhow",
  "base64",
@@ -2168,6 +2169,7 @@ dependencies = [
 [[package]]
 name = "rexpect"
 version = "0.6.2"
+source = "git+https://github.com/domisafonov/rexpect.git?branch=openbsd#e217b5926a5ecaeb506b72fdef0fcdee3028bc3f"
 dependencies = [
  "bindgen",
  "comma",
