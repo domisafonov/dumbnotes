@@ -13,4 +13,6 @@ if set -ql _flag_C
 end
 
 set -l script_dir (path resolve (status --current-filename)/..)
-$script_dir/cargow.fish test -- --test-threads=1 $extra_bin_args
+$script_dir/cargow.fish test --no-fail-fast --lib --bins --benches --examples -- $extra_bin_args
+$script_dir/cargow.fish test --profile integration-test --no-fail-fast --test '*' -- --test-threads=1 $extra_bin_args
+$script_dir/cargow.fish test --doc -- $extra_bin_args

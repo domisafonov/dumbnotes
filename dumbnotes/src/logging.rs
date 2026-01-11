@@ -49,7 +49,7 @@ fn init_logging_syslog() {
 fn init_logging_env() {
     env_logger::builder()
         .filter_level(
-            if cfg!(debug_assertions) {
+            if cfg!(debug_assertions) && !cfg!(integration_test) {
                 log::LevelFilter::Debug
             } else {
                 log::LevelFilter::Info

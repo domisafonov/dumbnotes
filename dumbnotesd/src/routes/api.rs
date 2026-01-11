@@ -1,5 +1,6 @@
 mod protobuf;
-mod model;
+#[cfg(not(test))] mod model;
+#[cfg(test)] pub mod model;
 pub mod authentication_guard;
 
 use crate::access_granter::AccessGranter;

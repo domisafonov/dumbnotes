@@ -46,13 +46,8 @@ fn call_build(names: &[&str]) -> Result<Vec<Message>, BuildBinError> {
     let mut command = Command::new(env::var("CARGO")?);
     command
         .arg("build")
-        .arg("--release")
-        .arg("--config").arg(
-            r#"build.rustflags = [
-  "--cfg=integration_test",
-  "--codegen", "opt-level=0",
-  "--codegen", "debug-assertions=off",
-]"#)
+        .arg("--profile=integration-test")
+        .arg("--config").arg(r#"build.rustflags = ["--cfg=integration_test"]"#)
         .arg("--message-format=json")
         .stdout(Stdio::piped())
         .current_dir(manifest_dir);

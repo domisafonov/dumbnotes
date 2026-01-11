@@ -14,7 +14,7 @@ use boolean_enums::gen_boolean_enum;
 use josekit::jwk::Jwk;
 use rexpect::session::PtySession;
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
-use test_utils::{new_configured_command, setup_basic_config, setup_basic_config_with_keys, ChildKillOnDropExt, PtySessionExt, GEN_BIN_PATH};
+use test_utils::{new_configured_command, setup_basic_config, setup_basic_config_with_keys, ChildKillOnDropExt, PtySessionExt};
 use test_utils::data::MOCK_PEPPER;
 use test_utils::predicates::file_mode;
 
@@ -259,7 +259,7 @@ fn call_create(
 }
 
 fn new_gen_command(dir: &TempDir) -> Command {
-    new_configured_command(&GEN_BIN_PATH, dir)
+    new_configured_command(env!("CARGO_BIN_EXE_dumbnotes-gen").as_ref(), dir)
 }
 
 fn spawn(
