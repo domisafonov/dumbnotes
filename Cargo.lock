@@ -1401,7 +1401,7 @@ dependencies = [
 [[package]]
 name = "josekit"
 version = "0.10.3"
-source = "git+https://github.com/domisafonov/josekit-rs.git#8fc5c143f258757c20c02841be9cfb088926d41d"
+source = "git+https://github.com/domisafonov/josekit-rs.git?branch=libressl#20603763b3ba7d94779cc0ce4811940ea0afbf30"
 dependencies = [
  "anyhow",
  "base64",

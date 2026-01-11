@@ -1,5 +1,6 @@
-[source."git+https://github.com/domisafonov/josekit-rs.git"]
+[source."git+https://github.com/domisafonov/josekit-rs.git?branch=libressl"]
 git = "https://github.com/domisafonov/josekit-rs.git"
+branch = "libressl"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/domisafonov/rexpect.git?branch=openbsd"]

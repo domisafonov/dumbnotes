@@ -14,7 +14,7 @@ edition = "2021"
 name = "josekit"
 version = "0.10.3"
 authors = ["Hidekatsu Izuno <hidekatsu.izuno@gmail.com>"]
-build = false
+build = "build.rs"
 autolib = false
 autobins = false
 autoexamples = false
@@ -62,3 +62,6 @@ features = ["preserve_order"]
 
 [dev-dependencies]
 doc-comment = "0.3.3"
+
+[build-dependencies.openssl]
+version = "0.10.68"

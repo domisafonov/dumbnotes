@@ -53,7 +53,7 @@ rexpect = "0.6.2"
 reqwest = { version = "0.13.1", features = ["blocking", "charset", "native-tls"], default-features = false }
 
 [patch.crates-io]
-josekit = { git = "https://github.com/domisafonov/josekit-rs.git", brance = "libressl" }
+josekit = { git = "https://github.com/domisafonov/josekit-rs.git", branch = "libressl" }
 rexpect = { git = "https://github.com/domisafonov/rexpect.git", branch = "openbsd" }
 
 [workspace.lints.rust]
