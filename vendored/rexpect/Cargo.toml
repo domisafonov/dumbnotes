@@ -137,10 +137,6 @@ features = [
 version = "8.0"
 optional = true
 
-[target.'cfg(target_os = "openbsd")'.build-dependencies.bindgen]
-version = "0.72.1"
-default-features = false
-
 [lints.clippy]
 bool_assert_comparison = "allow"
 branches_sharing_code = "allow"

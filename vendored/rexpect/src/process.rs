@@ -3,7 +3,7 @@
 use crate::error::Error;
 use nix;
 use nix::fcntl::{open, OFlag};
-use nix::libc::{ioctl, STDERR_FILENO, TIOCSCTTY};
+use nix::libc::STDERR_FILENO;
 use nix::pty::{grantpt, unlockpt, PtyMaster};
 pub use nix::sys::{signal, wait};
 use nix::sys::{stat, termios};
@@ -112,40 +112,44 @@ fn open_pty() -> nix::Result<OpenPty> {
 /// Open pty on OpenBSD
 ///
 /// OpenBSD does not have either ptsname_r or the Linux's ioctls.
-/// pty(4) references and documents this method of pty creation
+/// pty(4) references and documents this method of pty creation:
+/// struct ptmget with exactly 16 bytes reserved for each device name
+/// is described at the underlying mechanism for openpty, so we can
+/// guarantee that there is enough space in the allocated strings.
 fn open_pty() -> nix::Result<OpenPty> {
-    use crate::openbsd::{PATH_PTMDEV, PTMGET};
-    use crate::openbsd::ptmget;
-    use nix::libc::{c_char, ioctl, open, O_RDWR};
+    use nix::libc::{c_char, c_int, openpty};
     use std::ffi::CStr;
+    use std::mem::MaybeUninit;
     use std::os::fd::{FromRawFd, OwnedFd};
+    use std::ptr::null_mut;
 
-    // ioctls on /dev/ptm is the underlying mechanism for pty management
-    // on OpenBSD
-    let fd = unsafe {
-        match open(PATH_PTMDEV.as_ptr() as *const c_char, O_RDWR) {
-            -1 => return Err(nix::Error::last()),
-            fd => OwnedFd::from_raw_fd(fd),
-        }
+    let (mut amaster, mut aslave): (c_int, c_int) = Default::default();
+    let mut slave_name = MaybeUninit::<[c_char; 16]>::uninit();
+    let result = unsafe {
+        openpty(
+            &mut amaster as *mut c_int,
+            &mut aslave as *mut c_int,
+            slave_name.as_mut_ptr() as *mut c_char,
+            null_mut(),
+            null_mut()
+        )
     };
-
-    // here, we get the fds and names for the master and slave devices
-    // right away
-    let mut info = std::mem::MaybeUninit::<ptmget>::uninit();
-    let info = unsafe {
-        match ioctl(fd.as_raw_fd(), PTMGET.into(), info.as_mut_ptr()) {
-            -1 => return Err(nix::Error::last()),
-            _ => info.assume_init(),
-        }
-    };
+    if result == -1 {
+        return Err(nix::Error::last())
+    }
+    let slave_name = unsafe { slave_name.assume_init() };
+    let slave_name = PathBuf::from(
+        unsafe { CStr::from_ptr(&slave_name as *const c_char) }
+            .to_string_lossy().into_owned()
+    );
 
     let master_fd = unsafe {
         PtyMaster::from_owned_fd(
-            OwnedFd::from_raw_fd(info.cfd)
+            OwnedFd::from_raw_fd(amaster)
         )
     };
     let slave_fd = Some(
-        unsafe { OwnedFd::from_raw_fd(info.sfd) }
+        unsafe { OwnedFd::from_raw_fd(aslave) }
     );
 
     // on OpenBSD these are no-ops (only checking for the argument fd
@@ -157,10 +161,7 @@ fn open_pty() -> nix::Result<OpenPty> {
         OpenPty {
             master_fd,
             slave_fd,
-            slave_name: PathBuf::from(
-                unsafe { CStr::from_ptr(info.sn.as_ptr()) }
-                    .to_string_lossy().into_owned()
-            )
+            slave_name,
         }
     )
 }
@@ -199,9 +200,12 @@ impl PtyProcess {
                 // While Linux and macOS are lenient with the requirements
                 // for receiving signals through the pty, OpenBSD does check
                 // the process's controlling terminal and this is necessary.
-                #[cfg(target_os = "openbsd")]
-                if unsafe { ioctl(slave_fd.as_raw_fd(), TIOCSCTTY.into()) } == -1 {
-                    return Err(nix::Error::last().into())
+                #[cfg(target_os = "openbsd")] {
+                    use nix::libc::{ioctl, TIOCSCTTY};
+
+                    if unsafe { ioctl(slave_fd.as_raw_fd(), TIOCSCTTY.into()) } == -1 {
+                        return Err(nix::Error::last().into())
+                    }
                 }
 
                 // Avoid leaking slave fd
