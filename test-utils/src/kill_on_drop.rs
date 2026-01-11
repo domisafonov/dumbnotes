@@ -1,10 +1,9 @@
 use std::ops::{Deref, DerefMut};
 use std::process::Child;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use unix::ChildKillTermExt;
-
-const TERM_WAIT: Duration = Duration::from_millis(5000);
+use crate::constants::{KILL_CHECK_INTERVAL, TERM_WAIT};
 
 #[derive(Debug)]
 pub struct KillOnDropChild(Option<Child>);
@@ -45,7 +44,7 @@ impl Drop for KillOnDropChild {
         while wait_start.elapsed() < TERM_WAIT {
             match child.try_wait() {
                 Ok(Some(_)) => return,
-                Ok(None) => thread::sleep(Duration::from_millis(100)),
+                Ok(None) => thread::sleep(KILL_CHECK_INTERVAL),
                 Err(e) => {
                     eprintln!("failed waiting for child process: {e}");
                     return

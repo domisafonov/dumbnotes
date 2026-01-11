@@ -7,7 +7,7 @@ use std::process::{ChildStderr, Command, Stdio};
 use assert_fs::TempDir;
 use reqwest::blocking as rq;
 use rexpect::spawn_stream;
-use test_utils::{make_path_for_bins, new_configured_command, setup_basic_config_with_keys_and_data, BackgroundReader, ChildKillOnDropExt, KillOnDropChild, DAEMON_BIN_PATH, DAEMON_BIN_PATHS};
+use test_utils::{new_configured_command_with_env, setup_basic_config_with_keys_and_data, BackgroundReader, ChildKillOnDropExt, KillOnDropChild, DAEMON_BIN_PATH, DAEMON_BIN_PATHS};
 use unix::ChildKillTermExt;
 
 const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
@@ -36,17 +36,18 @@ fn request_processed_without_errors() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader) = spawn_daemon(&dir)?;
     let client = rq::Client::new();
-    let mut response = String::new();
-    client.get("http://localhost:8000/api/version")
-        .send()?.read_to_string(&mut response)?;
-    assert_eq!(response, "1");
+    let mut response = client.get("http://localhost:8000/api/version").send()?;
+    let mut body = String::new();
+    response.read_to_string(&mut body)?;
+    assert!(response.status().is_success(), "{body}");
+    assert_eq!(body, "1");
     child.kill_term()?;
     let log = String::from_utf8(reader.read_to_end()?)?;
-    assert!(child.wait()?.success());
     assert!(
         !log.contains("ERROR"),
         "errors in the log: {log}",
     );
+    assert!(child.wait()?.success());
     Ok(())
 }
 
@@ -62,15 +63,12 @@ fn spawn_daemon(
 }
 
 fn new_command(dir: &TempDir) -> Command {
-    let mut command = new_configured_command(&DAEMON_BIN_PATH, dir);
+    let mut command = new_configured_command_with_env(
+        &DAEMON_BIN_PATH,
+        dir,
+        Some(&DAEMON_BIN_PATHS),
+    );
     command.arg("--no-daemonize")
-        .env(
-            "PATH",
-            make_path_for_bins(&DAEMON_BIN_PATHS)
-                .unwrap_or_else(|e|
-                    panic!("failed to create new PATH: {e}")
-                )
-        )
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());

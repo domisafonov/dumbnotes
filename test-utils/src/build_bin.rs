@@ -135,7 +135,22 @@ pub enum BuildBinError {
     JoinPaths(#[from] JoinPathsError),
 }
 
-pub fn new_configured_command(bin_path: &Path, dir: &TempDir) -> Command {
+pub fn new_configured_command(
+    bin_path: &Path,
+    dir: &TempDir,
+) -> Command {
+    new_configured_command_with_env(
+        bin_path,
+        dir,
+        None::<&[PathBuf]>,
+    )
+}
+
+pub fn new_configured_command_with_env(
+    bin_path: &Path,
+    dir: &TempDir,
+    env_paths: Option<&[impl AsRef<Path>]>,
+) -> Command {
     let mut command = Command::new(bin_path);
     command
         .arg(
@@ -145,5 +160,15 @@ pub fn new_configured_command(bin_path: &Path, dir: &TempDir) -> Command {
                     .to_str().expect("failed to get config path")
             )
         );
+    if let Some(env_paths) = env_paths {
+        command
+            .env(
+                "PATH",
+                make_path_for_bins(env_paths)
+                    .unwrap_or_else(|e|
+                        panic!("failed to assemble PATH: {e}")
+                    )
+            );
+    }
     command
 }

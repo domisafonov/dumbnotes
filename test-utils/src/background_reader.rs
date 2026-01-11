@@ -8,6 +8,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use thiserror::Error;
 use unix::FdNonblockExt;
+use crate::constants::BACKGROUND_READER_CHECK_INTERVAL;
 
 pub trait Reader: AsRawFd + Read + Send + Sync + 'static {}
 impl<T: AsRawFd + Read + Send + Sync + 'static> Reader for T {}
@@ -80,7 +81,7 @@ impl<R: Reader> BackgroundReader<R> {
                     && e.kind() != io::ErrorKind::Interrupted
                 => return Err(BackgroundReaderError::Io(e)),
 
-                Err(_) => thread::sleep(Duration::from_millis(100)),
+                Err(_) => thread::sleep(BACKGROUND_READER_CHECK_INTERVAL),
             }
         }
     }
@@ -141,7 +142,7 @@ impl<R: Reader> BackgroundReader<R> {
             {
                 return Err(BackgroundReaderError::Timeout)
             }
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(BACKGROUND_READER_CHECK_INTERVAL);
         }
     }
 }

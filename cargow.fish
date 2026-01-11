@@ -2,7 +2,9 @@
 
 switch (uname)
 case OpenBSD
-    LLVM_CONFIG_PATH=$(which llvm-config-21) LD_LIBRARY_PATH=$($LLVM_CONFIG_PATH --libdir) cargo $argv
+    LLVM_CONFIG_PATH=$(which llvm-config-21)\
+        LD_LIBRARY_PATH=$($LLVM_CONFIG_PATH --libdir)\
+        cargo $argv
 case '*'
     cargo $argv
 end
