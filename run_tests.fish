@@ -1,7 +1,7 @@
 #!/usr/bin/env fish
 
 argparse -x u,i,d h/help C/nocapture u/units i/integration d/doc -- $argv
-or return
+or return 1
 
 if set -ql _flag_h
     set -l self (status basename)

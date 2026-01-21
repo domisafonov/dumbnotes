@@ -135,7 +135,7 @@ fn recursive_check_secret_parent_access(
     //  this will be fixed by chrooting the tests
     if cfg!(all(target_os = "linux", integration_test))
         && let Some(path) = path
-        && path == "/tmp"
+        && path == AsRef::<Path>::as_ref("/tmp")
     {
         return Ok(())
     }
