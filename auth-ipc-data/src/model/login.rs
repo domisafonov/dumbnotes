@@ -1,19 +1,19 @@
 use std::str::FromStr;
-use crate::protobuf::{MappingError, OptionExt, ProtobufRequestError};
-use crate::username_string::UsernameString;
+use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
+use data::UsernameString;
 use super::successful_login::SuccessfulLogin;
-use super::super::protobuf;
+use crate::bindings;
 
 pub struct LoginRequest {
     pub username: UsernameString,
     pub password: String,
 }
 
-pub struct LoginResponse(pub Result<SuccessfulLogin, protobuf::LoginError>);
+pub struct LoginResponse(pub Result<SuccessfulLogin, bindings::LoginError>);
 
-impl TryFrom<protobuf::LoginRequest> for LoginRequest {
+impl TryFrom<bindings::LoginRequest> for LoginRequest {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::LoginRequest) -> Result<Self, Self::Error> {
+    fn try_from(value: bindings::LoginRequest) -> Result<Self, Self::Error> {
         Ok(
             LoginRequest {
                 username: UsernameString::from_str(&value.username)?,
@@ -23,12 +23,12 @@ impl TryFrom<protobuf::LoginRequest> for LoginRequest {
     }
 }
 
-impl TryFrom<protobuf::response::Response> for LoginResponse {
+impl TryFrom<bindings::response::Response> for LoginResponse {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::response::Response) -> Result<Self, Self::Error> {
-        use protobuf::login_response::Response;
+    fn try_from(value: bindings::response::Response) -> Result<Self, Self::Error> {
+        use bindings::login_response::Response;
         let value = match value {
-            protobuf::response::Response::Login(value) => value,
+            bindings::response::Response::Login(value) => value,
             _ => return Err(MappingError::UnexpectedEnumVariant.into()),
         };
         Ok(
@@ -42,18 +42,18 @@ impl TryFrom<protobuf::response::Response> for LoginResponse {
     }
 }
 
-impl From<LoginResponse> for protobuf::response::Response {
+impl From<LoginResponse> for bindings::response::Response {
     fn from(value: LoginResponse) -> Self {
-        protobuf::response::Response::Login(
-            protobuf::LoginResponse {
+        bindings::response::Response::Login(
+            bindings::LoginResponse {
                 response: Some(
                     match value.0 {
                         Ok(successful_login) =>
-                            protobuf::login_response::Response::SuccessfulLogin(
+                            bindings::login_response::Response::SuccessfulLogin(
                                 successful_login.into()
                             ),
                         Err(error) =>
-                            protobuf::login_response::Response::LoginError(
+                            bindings::login_response::Response::LoginError(
                                 error.into()
                             ),
                     }
@@ -63,9 +63,9 @@ impl From<LoginResponse> for protobuf::response::Response {
     }
 }
 
-impl From<LoginRequest> for protobuf::LoginRequest {
+impl From<LoginRequest> for bindings::LoginRequest {
     fn from(value: LoginRequest) -> Self {
-        protobuf::LoginRequest {
+        bindings::LoginRequest {
             username: value.username.into_string(),
             password: value.password,
         }

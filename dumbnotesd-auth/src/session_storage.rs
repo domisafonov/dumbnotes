@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use time::OffsetDateTime;
 use uuid::Uuid;
-use dumbnotes::username_string::UsernameStr;
+use data::UsernameStr;
 
 pub use errors::*;
 pub use internal::ProductionSessionStorage;

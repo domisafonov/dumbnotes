@@ -1,5 +1,5 @@
 use crate::access_token::data::AccessTokenData;
-use crate::username_string::UsernameString;
+use data::UsernameString;
 use errors::AccessTokenDecoderError;
 use josekit::jwk::Jwk;
 use josekit::jwt;

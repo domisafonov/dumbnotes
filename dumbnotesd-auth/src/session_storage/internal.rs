@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use dumbnotes::username_string::{UsernameStr, UsernameString};
+use ::data::{UsernameStr, UsernameString};
 use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::path::{Path, PathBuf};

@@ -3,10 +3,9 @@ use crate::session_storage::{SessionStorage, SessionStorageError};
 use crate::user_db::{UserDb, UserDbError};
 use log::{debug, error, info, warn};
 use time::OffsetDateTime;
-use dumbnotes::ipc::auth::model::login::{LoginRequest, LoginResponse};
-use dumbnotes::ipc::auth::model::successful_login::SuccessfulLogin;
-use dumbnotes::ipc::auth::protobuf;
-use dumbnotes::ipc::auth::protobuf::LoginError;
+use auth_ipc_data::model::login::{LoginRequest, LoginResponse};
+use auth_ipc_data::model::successful_login::SuccessfulLogin;
+use auth_ipc_data::bindings::LoginError;
 use crate::access_token_generator::AccessTokenGenerator;
 use crate::access_token_generator::errors::AccessTokenGeneratorError;
 use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
@@ -16,7 +15,7 @@ pub async fn process_login(
     session_storage: &impl SessionStorage,
     token_generator: &AccessTokenGenerator,
     request: LoginRequest,
-) -> protobuf::response::Response {
+) -> auth_ipc_data::bindings::response::Response {
     process_login_impl(
         user_db,
         session_storage,

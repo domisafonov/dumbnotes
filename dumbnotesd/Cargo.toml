@@ -4,15 +4,19 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+api-data.path = "../api-data"
 async-trait.workspace = true
+auth-ipc-data.path = "../auth-ipc-data"
 boolean-enums.workspace = true
 clap.workspace = true
+data.path = "../data"
 dumbnotes.path = "../dumbnotes"
 figment.workspace = true
 futures.workspace = true
 josekit.workspace = true
 log.workspace = true
 prost.workspace = true
+protobuf-common.path = "../protobuf-common"
 rocket.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -26,9 +30,6 @@ assert_fs.workspace = true
 reqwest.workspace = true
 rexpect.workspace = true
 test-utils.path = "../test-utils"
-
-[build-dependencies]
-prost-build.workspace = true
 
 [lints]
 workspace = true

@@ -1,6 +1,3 @@
-mod protobuf;
-#[cfg(not(test))] mod model;
-#[cfg(test)] pub mod model;
 pub mod authentication_guard;
 
 use crate::access_granter::AccessGranter;
@@ -10,7 +7,7 @@ use crate::app_constants::API_PREFIX;
 use crate::http::header::UnauthorizedResponse;
 use crate::http::status::{StatusExt, Unauthorized};
 use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
-use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse, NoteListResponse, NoteResponse, NoteWriteRequest};
+use api_data::model::{LoginRequest, LoginRequestSecret, LoginResponse, NoteListResponse, NoteResponse, NoteWriteRequest};
 use dumbnotes::storage::{NoteStorage, StorageError};
 use futures::TryFutureExt;
 use log::{debug, error, warn};
@@ -18,7 +15,7 @@ use rocket::http::Status;
 use rocket::response::content::RawText;
 use rocket::{catch, catchers, delete, get, post, put, routes, Build, Rocket, State};
 use uuid::Uuid;
-use dumbnotes::data::{Note, NoteMetadata};
+use data::{Note, NoteMetadata};
 use dumbnotes::util::send_fut_lifetime_workaround;
 
 #[get("/version")]

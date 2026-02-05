@@ -1,6 +1,6 @@
 use thiserror::Error;
 use dumbnotes::ipc::auth::caller::CallerError;
-use dumbnotes::protobuf::ProtobufRequestError;
+use protobuf_common::ProtobufRequestError;
 
 #[derive(Debug, Error)]
 pub enum AccessGranterError {

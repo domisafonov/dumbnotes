@@ -1,0 +1,16 @@
+[package]
+name = "auth-ipc-data"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+data.path = "../data"
+prost.workspace = true
+protobuf-common.path = "../protobuf-common"
+uuid.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+
+[lints]
+workspace = true

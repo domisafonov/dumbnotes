@@ -1,5 +1,5 @@
 use dumbnotes::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
-use dumbnotes::username_string::UsernameStr;
+use data::UsernameStr;
 use errors::AccessTokenGeneratorError;
 use josekit::jwk::Jwk;
 use josekit::jws::{EdDSA, JwsHeader};

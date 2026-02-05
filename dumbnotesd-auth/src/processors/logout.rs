@@ -1,14 +1,13 @@
 use log::{debug, error, info, warn};
 use thiserror::Error;
 use crate::session_storage::{SessionStorage, SessionStorageError};
-use dumbnotes::ipc::auth::model::logout::{LogoutRequest, LogoutResponse};
-use dumbnotes::ipc::auth::protobuf;
-use dumbnotes::ipc::auth::protobuf::LogoutError;
+use auth_ipc_data::model::logout::{LogoutRequest, LogoutResponse};
+use auth_ipc_data::bindings::LogoutError;
 
 pub async fn process_logout(
     session_storage: &impl SessionStorage,
     request: LogoutRequest,
-) -> protobuf::response::Response {
+) -> auth_ipc_data::bindings::response::Response {
     process_logout_impl(session_storage, request)
         .await
         .unwrap_or_else(|e| {

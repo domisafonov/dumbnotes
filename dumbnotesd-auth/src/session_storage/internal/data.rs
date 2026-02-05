@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use dumbnotes::username_string::UsernameString;
+use data::UsernameString;
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

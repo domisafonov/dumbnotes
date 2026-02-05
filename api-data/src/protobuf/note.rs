@@ -1,8 +1,8 @@
 use time::UtcDateTime;
 use crate::{protobuf_request, protobuf_response};
-use dumbnotes::protobuf::ProtobufRequestError;
-use crate::routes::api::model::{NoteResponse, NoteWriteRequest};
-use crate::routes::api::protobuf::bindings;
+use protobuf_common::ProtobufRequestError;
+use crate::model::{NoteResponse, NoteWriteRequest};
+use crate::bindings;
 
 impl From<NoteResponse> for bindings::NoteResponse {
     fn from(value: NoteResponse) -> Self {

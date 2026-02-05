@@ -19,7 +19,7 @@ impl UsernameString {
     pub fn as_username_str(&self) -> &UsernameStr {
         self
     }
-    
+
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }

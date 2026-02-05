@@ -1,6 +1,6 @@
 use time::OffsetDateTime;
 use uuid::Uuid;
-use dumbnotes::username_string::UsernameString;
+use data::UsernameString;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Session {

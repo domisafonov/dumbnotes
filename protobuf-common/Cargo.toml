@@ -1,0 +1,14 @@
+[package]
+name = "protobuf-common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+data.path = "../data"
+prost.workspace = true
+thiserror.workspace = true
+time.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

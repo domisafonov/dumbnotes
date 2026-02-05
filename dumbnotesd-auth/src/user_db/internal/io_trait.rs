@@ -1,6 +1,6 @@
 use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
 use async_trait::async_trait;
-use dumbnotes::username_string::UsernameStr;
+use data::UsernameStr;
 use futures::StreamExt;
 use log::{debug, error, info, trace};
 use std::collections::HashMap;

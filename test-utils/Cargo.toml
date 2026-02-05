@@ -9,6 +9,7 @@ base64ct.workspace = true
 cargo_metadata.workspace = true
 josekit.workspace = true
 predicates.workspace = true
+reqwest.workspace = true
 rexpect.workspace = true
 thiserror.workspace = true
 unix.path = "../unix"

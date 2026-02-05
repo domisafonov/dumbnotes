@@ -1,5 +1,9 @@
+mod username_string;
+
 use time::UtcDateTime;
 use uuid::Uuid;
+
+pub use username_string::*;
 
 #[derive(Clone, Copy, Debug)]
 pub struct NoteMetadata {
@@ -15,7 +19,7 @@ pub struct NoteInfo {
 
 // TODO: data is always validated for MAX_NOTE_LEN
 #[derive(Clone, Debug)]
-pub struct Note { 
+pub struct Note {
     pub metadata: NoteMetadata,
     pub name: Option<String>,
     pub contents: String,

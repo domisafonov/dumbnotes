@@ -13,7 +13,7 @@ pub fn execute<R, F>(
 }
 
 macro_rules! config_bail {
-    ($e:ident) => { crate::error_exit!("failed to load config: {}", $e) };
+    ($e:ident) => { dumbnotes::error_exit!("failed to load config: {}", $e) };
 }
 
 fn async_main<R, F>(

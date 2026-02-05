@@ -5,7 +5,7 @@ use crate::session_storage::SessionStorage;
 use crate::user_db::UserDb;
 use tokio::sync::Mutex;
 use tokio::net::unix::OwnedWriteHalf;
-use dumbnotes::protobuf::ProtobufRequestError;
+use protobuf_common::ProtobufRequestError;
 use futures::{pin_mut, Stream};
 use log::{debug, error, info, trace};
 use scc::HashSet;
@@ -15,16 +15,15 @@ use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::error_exit;
-use dumbnotes::ipc::auth::protobuf;
 use crate::processors;
-use dumbnotes::ipc::auth::protobuf::command::Command;
+use auth_ipc_data::bindings;
 use crate::access_token_generator::AccessTokenGenerator;
 
 pub async fn process_commands(
     token_generator: AccessTokenGenerator,
     user_db: impl UserDb + 'static,
     session_storage: impl SessionStorage + 'static,
-    commands: impl Stream<Item=protobuf::Command>,
+    commands: impl Stream<Item=bindings::Command>,
     write_socket: OwnedWriteHalf,
 ) {
     info!("{} listening to commands", crate_name!());
@@ -100,13 +99,13 @@ pub async fn process_commands(
 
 async fn dispatch_command(
     command_id: u64,
-    command: Command,
+    command: bindings::command::Command,
     token_generator: &AccessTokenGenerator,
     user_db: &impl UserDb,
     session_storage: &impl SessionStorage,
     write_socket: &Mutex<OwnedWriteHalf>,
 ) -> Result<(), DispatchCommandError> {
-    use dumbnotes::ipc::auth::protobuf::command::Command as CE;
+    use auth_ipc_data::bindings::command::Command as CE;
     let response = match command {
         CE::Login(request) => processors::process_login(
             user_db,
@@ -124,7 +123,7 @@ async fn dispatch_command(
             request.try_into()?,
         ).await,
     };
-    let response = protobuf::Response {
+    let response = bindings::Response {
         command_id,
         response: Some(response),
     };
@@ -140,7 +139,7 @@ async fn dispatch_command(
 
 async fn write_response(
     write_socket: &mut OwnedWriteHalf,
-    response: protobuf::Response,
+    response: auth_ipc_data::bindings::Response,
 ) -> Result<(), DispatchCommandError> {
     let response = response.encode_to_vec();
     if response.len() > IPC_MESSAGE_MAX_SIZE {

@@ -2,10 +2,9 @@ use log::{debug, error, info, warn};
 use thiserror::Error;
 use time::OffsetDateTime;
 use crate::session_storage::{SessionStorage, SessionStorageError};
-use dumbnotes::ipc::auth::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
-use dumbnotes::ipc::auth::model::successful_login::SuccessfulLogin;
-use dumbnotes::ipc::auth::protobuf;
-use dumbnotes::ipc::auth::protobuf::LoginError;
+use auth_ipc_data::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
+use auth_ipc_data::model::successful_login::SuccessfulLogin;
+use auth_ipc_data::bindings::LoginError;
 use crate::access_token_generator::AccessTokenGenerator;
 use crate::access_token_generator::errors::AccessTokenGeneratorError;
 use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
@@ -14,7 +13,7 @@ pub async fn process_refresh_token(
     session_storage: &impl SessionStorage,
     token_generator: &AccessTokenGenerator,
     request: RefreshTokenRequest,
-) -> protobuf::response::Response {
+) -> auth_ipc_data::bindings::response::Response {
     process_refresh_token_impl(
         session_storage,
         token_generator,

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use log::trace;
 use tokio::task::spawn_blocking;
 use dumbnotes::hasher::{Hasher, ProductionHasher};
-use dumbnotes::username_string::UsernameStr;
+use ::data::UsernameStr;
 use unix::check_secret_file_ro_access;
 use crate::file_watcher::ProductionFileWatcher;
 use crate::user_db::internal::io_trait::{ProductionUserDbIo, UserDbIo};

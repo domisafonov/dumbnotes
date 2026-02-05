@@ -1,5 +1,5 @@
-use dumbnotes::data::NoteMetadata;
-use crate::routes::api::protobuf::bindings;
+use data::NoteMetadata;
+use crate::bindings;
 
 impl From<NoteMetadata> for bindings::NoteMetadata {
     fn from(value: NoteMetadata) -> Self {

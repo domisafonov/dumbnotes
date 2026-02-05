@@ -1,16 +1,16 @@
 use uuid::Uuid;
-use crate::protobuf::{MappingError, ProtobufRequestError};
-use super::super::protobuf;
+use protobuf_common::{MappingError, ProtobufRequestError};
+use crate::bindings;
 
 pub struct LogoutRequest {
     pub session_id: Uuid,
 }
 
-pub struct LogoutResponse(pub Option<protobuf::LogoutError>);
+pub struct LogoutResponse(pub Option<bindings::LogoutError>);
 
-impl TryFrom<protobuf::LogoutRequest> for LogoutRequest {
+impl TryFrom<bindings::LogoutRequest> for LogoutRequest {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::LogoutRequest) -> Result<Self, Self::Error> {
+    fn try_from(value: bindings::LogoutRequest) -> Result<Self, Self::Error> {
         Ok(
             LogoutRequest {
                 session_id: Uuid::from_slice(&value.session_id)?,
@@ -19,11 +19,11 @@ impl TryFrom<protobuf::LogoutRequest> for LogoutRequest {
     }
 }
 
-impl TryFrom<protobuf::response::Response> for LogoutResponse {
+impl TryFrom<bindings::response::Response> for LogoutResponse {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::response::Response) -> Result<Self, Self::Error> {
+    fn try_from(value: bindings::response::Response) -> Result<Self, Self::Error> {
         let value = match value {
-            protobuf::response::Response::Logout(value) => value,
+            bindings::response::Response::Logout(value) => value,
             _ => return Err(MappingError::UnexpectedEnumVariant.into()),
         };
         Ok(
@@ -37,19 +37,19 @@ impl TryFrom<protobuf::response::Response> for LogoutResponse {
     }
 }
 
-impl From<LogoutResponse> for protobuf::response::Response {
+impl From<LogoutResponse> for bindings::response::Response {
     fn from(value: LogoutResponse) -> Self {
-        protobuf::response::Response::Logout(
-            protobuf::LogoutResponse {
-                error: value.0.map(protobuf::LogoutError::into),
+        bindings::response::Response::Logout(
+            bindings::LogoutResponse {
+                error: value.0.map(bindings::LogoutError::into),
             }
         )
     }
 }
 
-impl From<LogoutRequest> for protobuf::LogoutRequest {
+impl From<LogoutRequest> for bindings::LogoutRequest {
     fn from(value: LogoutRequest) -> Self {
-        protobuf::LogoutRequest {
+        bindings::LogoutRequest {
             session_id: value.session_id.into_bytes().to_vec(),
         }
     }

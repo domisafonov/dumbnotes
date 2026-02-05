@@ -1,6 +1,6 @@
 use crate::protobuf_response;
-use crate::routes::api::model::NoteListResponse;
-use crate::routes::api::protobuf::bindings;
+use crate::model::NoteListResponse;
+use crate::bindings;
 
 impl From<NoteListResponse> for bindings::NoteListResponse {
     fn from(value: NoteListResponse) -> Self {

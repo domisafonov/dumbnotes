@@ -1,8 +1,8 @@
 use std::str::FromStr;
-use crate::username_string::UsernameString;
-use crate::protobuf::{MappingError, OptionExt, ProtobufRequestError};
+use data::UsernameString;
+use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
 use super::successful_login::SuccessfulLogin;
-use super::super::protobuf;
+use crate::bindings;
 
 pub struct RefreshTokenRequest {
     pub username: UsernameString,
@@ -10,12 +10,12 @@ pub struct RefreshTokenRequest {
 }
 
 pub struct RefreshTokenResponse(
-    pub Result<SuccessfulLogin, protobuf::LoginError>
+    pub Result<SuccessfulLogin, bindings::LoginError>
 );
 
-impl TryFrom<protobuf::RefreshTokenRequest> for RefreshTokenRequest {
+impl TryFrom<bindings::RefreshTokenRequest> for RefreshTokenRequest {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::RefreshTokenRequest) -> Result<Self, Self::Error> {
+    fn try_from(value: bindings::RefreshTokenRequest) -> Result<Self, Self::Error> {
         Ok(
             RefreshTokenRequest {
                 username: UsernameString::from_str(&value.username)?,
@@ -25,12 +25,12 @@ impl TryFrom<protobuf::RefreshTokenRequest> for RefreshTokenRequest {
     }
 }
 
-impl TryFrom<protobuf::response::Response> for RefreshTokenResponse {
+impl TryFrom<bindings::response::Response> for RefreshTokenResponse {
     type Error = ProtobufRequestError;
-    fn try_from(value: protobuf::response::Response) -> Result<Self, Self::Error> {
-        use protobuf::refresh_token_response::Result;
+    fn try_from(value: bindings::response::Response) -> Result<Self, Self::Error> {
+        use bindings::refresh_token_response::Result;
         let value = match value {
-            protobuf::response::Response::RefreshToken(value) => value,
+            bindings::response::Response::RefreshToken(value) => value,
             _ => return Err(MappingError::UnexpectedEnumVariant.into()),
         };
         Ok(
@@ -44,18 +44,18 @@ impl TryFrom<protobuf::response::Response> for RefreshTokenResponse {
     }
 }
 
-impl From<RefreshTokenResponse> for protobuf::response::Response {
+impl From<RefreshTokenResponse> for bindings::response::Response {
     fn from(value: RefreshTokenResponse) -> Self {
-        protobuf::response::Response::RefreshToken(
-            protobuf::RefreshTokenResponse {
+        bindings::response::Response::RefreshToken(
+            bindings::RefreshTokenResponse {
                 result: Some(
                     match value.0 {
                         Ok(successful_login) => 
-                            protobuf::refresh_token_response::Result::SuccessfulLogin(
+                            bindings::refresh_token_response::Result::SuccessfulLogin(
                                 successful_login.into()
                             ),
                         Err(error) => 
-                            protobuf::refresh_token_response::Result::LoginError(
+                            bindings::refresh_token_response::Result::LoginError(
                                 error.into()
                             ),
                     }
@@ -65,9 +65,9 @@ impl From<RefreshTokenResponse> for protobuf::response::Response {
     }
 }
 
-impl From<RefreshTokenRequest> for protobuf::RefreshTokenRequest {
+impl From<RefreshTokenRequest> for bindings::RefreshTokenRequest {
     fn from(value: RefreshTokenRequest) -> Self {
-        protobuf::RefreshTokenRequest {
+        bindings::RefreshTokenRequest {
             username: value.username.into_string(),
             refresh_token: value.refresh_token,
         }

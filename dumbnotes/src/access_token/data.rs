@@ -1,6 +1,6 @@
 use time::OffsetDateTime;
 use uuid::Uuid;
-use crate::username_string::UsernameString;
+use data::UsernameString;
 
 pub struct AccessTokenData {
     pub session_id: Uuid,

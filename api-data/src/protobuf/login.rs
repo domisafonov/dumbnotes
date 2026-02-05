@@ -1,9 +1,9 @@
 use std::str::FromStr;
-use dumbnotes::username_string::UsernameString;
+use data::UsernameString;
 use crate::{protobuf_request, protobuf_response};
-use crate::routes::api::model::{LoginRequest, LoginRequestSecret, LoginResponse};
-use crate::routes::api::protobuf::bindings;
-use dumbnotes::protobuf::{MappingError, OptionExt, ProtobufRequestError};
+use crate::model::{LoginRequest, LoginRequestSecret, LoginResponse};
+use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
+use crate::bindings;
 
 impl TryFrom<bindings::LoginRequest> for LoginRequest {
     type Error = ProtobufRequestError;

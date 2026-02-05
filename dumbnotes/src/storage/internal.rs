@@ -13,13 +13,13 @@ use uuid::fmt::Hyphenated;
 use uuid::Uuid;
 
 use crate::config::app_config::AppConfig;
-use crate::data::{Note, NoteInfo, NoteMetadata};
+use data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
 use crate::util::{send_fut_lifetime_workaround, StrExt};
 
 use crate::lib_constants::NOTES_DIRECTORY_PATH;
 use crate::storage::internal::io_trait::OpenFile;
-use crate::username_string::UsernameStr;
+use data::UsernameStr;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
 use unix::errors::CheckAccessError;

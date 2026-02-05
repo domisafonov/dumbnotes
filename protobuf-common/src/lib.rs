@@ -1,6 +1,6 @@
 use thiserror::Error;
 use prost::DecodeError;
-use crate::username_string::UsernameParseError;
+use data::UsernameParseError;
 
 #[derive(Debug, Error)]
 pub enum MappingError {
@@ -11,7 +11,7 @@ pub enum MappingError {
 
     #[error("invalid username: {0}")]
     UsernameParse(#[from] UsernameParseError),
-    
+
     #[error("unexpected enum variant")]
     UnexpectedEnumVariant,
 }

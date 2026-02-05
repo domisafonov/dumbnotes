@@ -13,14 +13,15 @@ use tokio::sync::{oneshot, Mutex};
 use tokio_stream::StreamExt;
 use crate::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use crate::error_exit;
-use crate::ipc::auth::{message_stream, protobuf};
-use crate::protobuf::{MappingError, OptionExt, ProtobufRequestError};
+use crate::ipc::auth::message_stream;
+use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
+use auth_ipc_data::bindings;
 
 pub trait Caller: Send + Sync + 'static {
     fn execute(
         &self,
-        command: protobuf::command::Command,
-    ) -> impl Future<Output = Result<protobuf::response::Response, CallerError>> + Send;
+        command: bindings::command::Command,
+    ) -> impl Future<Output = Result<bindings::response::Response, CallerError>> + Send;
 }
 
 pub type ProductionCaller = CallerImpl;
@@ -29,7 +30,7 @@ pub struct CallerImpl {
     write_socket: Mutex<OwnedWriteHalf>,
     next_request_id: AtomicU64,
     read_task: tokio::task::AbortHandle,
-    active_requests: Arc<HashMap<u64, oneshot::Sender<protobuf::Response>>>,
+    active_requests: Arc<HashMap<u64, oneshot::Sender<bindings::Response>>>,
 }
 
 impl Drop for CallerImpl {
@@ -61,8 +62,8 @@ impl ProductionCaller {
 
 impl CallerImpl {
     async fn process_responses(
-        active_requests: Arc<HashMap<u64, oneshot::Sender<protobuf::Response>>>,
-        responses: impl Stream<Item=protobuf::Response>,
+        active_requests: Arc<HashMap<u64, oneshot::Sender<bindings::Response>>>,
+        responses: impl Stream<Item=bindings::Response>,
     ) {
         pin_mut!(responses);
         while let Some(response) = responses.next().await {
@@ -92,11 +93,11 @@ impl CallerImpl {
 impl Caller for CallerImpl {
     async fn execute(
         &self,
-        command: protobuf::command::Command,
-    ) -> Result<protobuf::response::Response, CallerError> {
+        command: bindings::command::Command,
+    ) -> Result<bindings::response::Response, CallerError> {
         trace!("executing command {command:?}");
         let request_id = self.get_next_request_id();
-        let command = protobuf::Command {
+        let command = bindings::Command {
             command_id: request_id,
             command: Some(command),
         };
@@ -104,7 +105,7 @@ impl Caller for CallerImpl {
         if command.len() > IPC_MESSAGE_MAX_SIZE {
             return Err(CallerError::MessageTooBig);
         }
-        let (sender, receiver) = oneshot::channel::<protobuf::Response>();
+        let (sender, receiver) = oneshot::channel::<bindings::Response>();
         self.active_requests.insert_sync(request_id, sender)
             .unwrap_or_else(|_|
                 error_exit!("found previous instance of request with id {request_id}")
@@ -131,7 +132,7 @@ impl Caller for CallerImpl {
 
 #[derive(Debug, Error)]
 pub enum CallerError {
-    #[error("protobuf error: {0}")]
+    #[error("bindings error: {0}")]
     Protobuf(#[from] ProtobufRequestError),
 
     #[error("socket io error: {0}")]

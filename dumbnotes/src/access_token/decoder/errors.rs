@@ -1,7 +1,7 @@
 use std::io;
 use josekit::JoseError;
 use thiserror::Error;
-use crate::username_string::UsernameParseError;
+use data::UsernameParseError;
 
 #[derive(Debug, Error)]
 pub enum AccessTokenDecoderError {

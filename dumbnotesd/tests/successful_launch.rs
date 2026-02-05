@@ -4,8 +4,7 @@ use std::error::Error;
 use std::io::Read;
 use std::process::{Child, ChildStderr, Command, Stdio};
 use assert_fs::TempDir;
-use reqwest::blocking as rq;
-use test_utils::{new_configured_command_with_env, setup_basic_config_with_keys_and_data, BackgroundReader, ChildKillOnDropExt, KillOnDropChild, DAEMON_BIN_PATH, DAEMON_BIN_PATHS};
+use test_utils::{new_configured_command_with_env, setup_basic_config_with_keys_and_data, BackgroundReader, ChildKillOnDropExt, KillOnDropChild, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, RQ};
 use unix::ChildKillTermExt;
 
 const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
@@ -37,8 +36,7 @@ fn launch_and_stop() -> Result<(), Box<dyn Error>> {
 fn request_processed_without_errors() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader) = spawn_daemon(&dir)?;
-    let client = rq::Client::new();
-    let mut response = client.get("http://localhost:8000/api/version").send()?;
+    let mut response = RQ.get("http://localhost:8000/api/version").send()?;
     let mut body = String::new();
     response.read_to_string(&mut body)?;
     assert!(response.status().is_success(), "{body}");
@@ -46,6 +44,17 @@ fn request_processed_without_errors() -> Result<(), Box<dyn Error>> {
     shutdown_assert_no_errors(&mut child, reader)?;
     Ok(())
 }
+
+// #[test]
+// fn login_renew_logout() -> Result<(), Box<dyn Error>> {
+//     let dir = setup_basic_config_with_keys_and_data();
+//     let (mut child, reader) = spawn_daemon(&dir)?;
+// //    crate::protobuf::LoginRequest {
+// //        ..Default::default()
+// //    };
+//     // let request = crate::protobuf::
+//     todo!();
+// }
 
 fn spawn_daemon(
     dir: &TempDir,

@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use dumbnotes::username_string::UsernameString;
+use data::UsernameString;
 
 pub struct LoginResult {
     pub refresh_token: Vec<u8>,

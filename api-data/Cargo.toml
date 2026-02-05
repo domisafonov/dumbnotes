@@ -1,0 +1,18 @@
+[package]
+name = "api-data"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+data.path = "../data"
+prost.workspace = true
+protobuf-common.path = "../protobuf-common"
+rocket.workspace = true
+time.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+
+[lints]
+workspace = true

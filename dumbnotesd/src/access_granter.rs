@@ -1,16 +1,15 @@
 use dumbnotes::access_token::AccessTokenDecoder;
-use dumbnotes::username_string::UsernameStr;
+use data::UsernameStr;
 use std::time::SystemTime;
 use async_trait::async_trait;
 use log::{debug, trace, warn};
 use tokio::net::UnixStream;
 use uuid::Uuid;
 use dumbnotes::ipc::auth::caller::{Caller, ProductionCaller};
-use dumbnotes::ipc::auth::model::login::{LoginRequest, LoginResponse};
-use dumbnotes::ipc::auth::model::logout::{LogoutRequest, LogoutResponse};
-use dumbnotes::ipc::auth::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
-use dumbnotes::ipc::auth::protobuf;
-use dumbnotes::ipc::auth::protobuf::{LoginError, LogoutError};
+use auth_ipc_data::model::login::{LoginRequest, LoginResponse};
+use auth_ipc_data::model::logout::{LogoutRequest, LogoutResponse};
+use auth_ipc_data::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
+use auth_ipc_data::bindings::{LoginError, LogoutError};
 
 mod errors;
 mod model;
@@ -103,7 +102,7 @@ impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
         debug!("logging user \"{username}\" in");
         let response: LoginResponse = self.caller
             .execute(
-                protobuf::command::Command::Login(
+                auth_ipc_data::bindings::command::Command::Login(
                     LoginRequest {
                         username: username.to_owned(),
                         password: password.to_owned(),
@@ -134,7 +133,7 @@ impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
         debug!("refreshing access token for user \"{username}\"");
         let response: RefreshTokenResponse = self.caller
             .execute(
-                protobuf::command::Command::RefreshToken(
+                auth_ipc_data::bindings::command::Command::RefreshToken(
                     RefreshTokenRequest {
                         username: username.to_owned(),
                         refresh_token: refresh_token.to_owned(),
@@ -164,7 +163,7 @@ impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
         debug!("deleting session {session_id}");
         let response: LogoutResponse = self.caller
             .execute(
-                protobuf::command::Command::Logout(
+                auth_ipc_data::bindings::command::Command::Logout(
                     LogoutRequest {
                         session_id,
                     }.into()

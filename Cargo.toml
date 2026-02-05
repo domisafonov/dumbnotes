@@ -1,6 +1,10 @@
 [workspace]
 resolver = "3"
 members = [
+  "api-data",
+  "auth-ipc-data",
+  "protobuf-common",
+  "data",
   "dumbnotes",
   "dumbnotesd",
   "dumbnotesd-auth",

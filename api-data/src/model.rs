@@ -1,6 +1,6 @@
 use time::UtcDateTime;
-use dumbnotes::data::{Note, NoteInfo};
-use dumbnotes::username_string::UsernameString;
+use data::{Note, NoteInfo};
+use data::UsernameString;
 
 pub struct LoginRequest {
     pub username: UsernameString,
