@@ -12,6 +12,7 @@ boolean-enums.workspace = true
 clap.workspace = true
 data.path = "../data"
 dumbnotes.path = "../dumbnotes"
+dumbnotesd-auth-data.path = "../dumbnotesd-auth-data"
 futures.workspace = true
 josekit.workspace = true
 log.workspace = true

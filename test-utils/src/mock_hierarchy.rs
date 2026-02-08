@@ -2,6 +2,8 @@ use std::path::Path;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use unix::chmod;
+use crate::data::MOCK_USER_DB_DATA;
+use crate::data::MOCK_USER_DB_STR;
 use crate::data::{MOCK_JWT_PRIVATE_KEY_STR, MOCK_JWT_PUBLIC_KEY_STR, MOCK_PEPPER_STR};
 
 pub fn setup_basic_config() -> TempDir {
@@ -80,11 +82,14 @@ pub fn setup_basic_config_with_keys_and_data() -> TempDir {
         Some(&user_db_rel_path),
     );
     let user_db = root.child(user_db_rel_path);
-    user_db.write_str(include_str!("mock_user_db.toml")).unwrap();
+    user_db.write_str(MOCK_USER_DB_STR).unwrap();
     chmod(user_db.path(), 0o400).unwrap();
     let data_dir = root.child(data_dir_rel_path);
-    data_dir.child("notes")
-        .create_dir_all().unwrap();
+    let notes_path = data_dir.child("notes");
+    notes_path.create_dir_all().unwrap();
+    for user in &MOCK_USER_DB_DATA.users {
+        notes_path.child(&user.username).create_dir_all().unwrap()
+    }
     let private_data_dir = data_dir.child("private");
     private_data_dir.create_dir_all().unwrap();
     chmod(private_data_dir.path(), 0o700).unwrap();

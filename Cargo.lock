@@ -84,6 +84,7 @@ dependencies = [
  "protobuf-common",
  "rocket",
  "time",
+ "uuid",
 ]
 
 [[package]]
@@ -456,6 +457,7 @@ dependencies = [
 name = "data"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "serde",
  "thiserror",
  "time",
@@ -642,6 +644,7 @@ dependencies = [
  "clap",
  "data",
  "dumbnotes",
+ "dumbnotesd-auth-data",
  "futures",
  "josekit",
  "log",
@@ -660,6 +663,18 @@ dependencies = [
  "tokio-stream",
  "toml 0.9.8",
  "unix",
+ "uuid",
+]
+
+[[package]]
+name = "dumbnotesd-auth-data"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "base64ct",
+ "data",
+ "serde",
+ "time",
  "uuid",
 ]
 
@@ -2602,6 +2617,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "tap"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
 name = "tempfile"
 version = "3.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2627,13 +2648,16 @@ dependencies = [
  "assert_fs",
  "base64ct",
  "cargo_metadata",
+ "dumbnotesd-auth-data",
  "josekit",
  "predicates",
  "prost",
  "protobuf-common",
  "reqwest",
  "rexpect",
+ "tap",
  "thiserror",
+ "toml 0.9.8",
  "unix",
 ]
 

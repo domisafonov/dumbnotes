@@ -23,7 +23,7 @@ pub struct UserSessionsData {
 pub struct UserSessionData {
     pub session_id: Uuid,
 
-    #[serde(with = "dumbnotes::serde::base64_vec")]
+    #[serde(with = "crate::serde::base64_vec")]
     pub refresh_token: Vec<u8>,
 
     #[serde(with = "time::serde::rfc3339")]

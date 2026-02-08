@@ -1,5 +1,6 @@
 mod username_string;
 
+use argon2::password_hash::PasswordHashString;
 use time::UtcDateTime;
 use uuid::Uuid;
 
@@ -23,4 +24,10 @@ pub struct Note {
     pub metadata: NoteMetadata,
     pub name: Option<String>,
     pub contents: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct User {
+    pub username: String,
+    pub hash: PasswordHashString,
 }

@@ -1,6 +1,6 @@
-use std::convert::Into;
 use std::sync::LazyLock;
 use base64ct::{Base64, Encoding};
+use dumbnotesd_auth_data::user_db::UsersData;
 use josekit::jwk::Jwk;
 
 pub const MOCK_JWT_PRIVATE_KEY_STR: &str = include_str!("mock_jwt_private_key.json");
@@ -23,6 +23,10 @@ pub static MOCK_PEPPER: LazyLock<Box<[u8]>> = LazyLock::new(||
 );
 
 pub const MOCK_USER_DB_STR: &str = include_str!("mock_user_db.toml");
+pub static MOCK_USER_DB_DATA: LazyLock<UsersData> = LazyLock::new(||
+    toml::from_str(MOCK_USER_DB_STR)
+        .expect("failed to parse mock user db data")
+);
 
 #[cfg(test)]
 mod tests {

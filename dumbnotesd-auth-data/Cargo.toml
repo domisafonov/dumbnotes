@@ -1,12 +1,13 @@
 [package]
-name = "data"
+name = "dumbnotesd-auth-data"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 argon2.workspace = true
+base64ct.workspace = true
+data.path = "../data"
 serde.workspace = true
-thiserror.workspace = true
 time.workspace = true
 uuid.workspace = true
 

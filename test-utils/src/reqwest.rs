@@ -1,5 +1,6 @@
 use std::{io::Read, sync::LazyLock};
 use reqwest::{IntoUrl, Method, header::{CONTENT_TYPE, HeaderValue}};
+use tap::Pipe;
 
 pub static RQ: LazyLock<reqwest::blocking::Client> = LazyLock::new(||
     reqwest::blocking::Client::new()
@@ -10,6 +11,7 @@ pub trait ReqwestClientExt {
         &self,
         method: Method,
         url: impl IntoUrl,
+        auth_token: Option<String>,
         body: impl Into<I>,
     ) -> Result<O, PbReqwestError>
     where
@@ -19,14 +21,21 @@ pub trait ReqwestClientExt {
     fn post_pb_successfully<I, O>(
         &self,
         url: impl IntoUrl,
+        auth_token: Option<String>,
         body: impl Into<I>,
     ) -> Result<O, PbReqwestError>
     where
         O: prost::Message + Default,
         I: prost::Message,
     {
-        self.request_pb_successfully(Method::POST, url, body)
+        self.request_pb_successfully(Method::POST, url, auth_token, body)
     }
+
+    fn get_pb_successfully<O: prost::Message + Default>(
+        &self,
+        url: impl IntoUrl,
+        auth_token: Option<String>,
+    ) -> Result<O, PbReqwestError>;
 }
 
 impl ReqwestClientExt for reqwest::blocking::Client {
@@ -34,6 +43,7 @@ impl ReqwestClientExt for reqwest::blocking::Client {
         &self,
         method: Method,
         url: impl IntoUrl,
+        auth_token: Option<String>,
         body: impl Into<I>,
     ) -> Result<O, PbReqwestError>
     where
@@ -42,6 +52,29 @@ impl ReqwestClientExt for reqwest::blocking::Client {
     {
         self.request(method, url)
             .pb_body(body)
+            .pipe(|builder| {
+                match auth_token {
+                    Some(token) => builder.bearer_auth(token),
+                    None => builder,
+                }
+            })
+            .send()?
+            .error_for_status()?
+            .read_pb::<O>()
+    }
+
+    fn get_pb_successfully<O: prost::Message + Default>(
+        &self,
+        url: impl IntoUrl,
+        auth_token: Option<String>,
+    ) -> Result<O, PbReqwestError> {
+        self.get(url)
+            .pipe(|builder| {
+                match auth_token {
+                    Some(token) => builder.bearer_auth(token),
+                    None => builder,
+                }
+            })
             .send()?
             .error_for_status()?
             .read_pb::<O>()

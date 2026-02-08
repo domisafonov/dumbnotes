@@ -10,6 +10,7 @@ prost.workspace = true
 protobuf-common.path = "../protobuf-common"
 rocket.workspace = true
 time.workspace = true
+uuid.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

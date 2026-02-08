@@ -1,6 +1,7 @@
 use crate::file_watcher::{Event, FileWatchGuard, FileWatcher, FileWatcherError, ProductionFileWatcher};
 use async_trait::async_trait;
-use data::UsernameStr;
+use data::{User, UsernameStr};
+use dumbnotesd_auth_data::user_db::UsersData;
 use futures::StreamExt;
 use log::{debug, error, info, trace};
 use std::collections::HashMap;
@@ -10,8 +11,6 @@ use std::pin::pin;
 use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::{oneshot, RwLock, RwLockWriteGuard};
-use crate::user_db::internal::data::UsersData;
-use crate::user_db::internal::user::User;
 use crate::user_db::UserDbError;
 
 #[async_trait]

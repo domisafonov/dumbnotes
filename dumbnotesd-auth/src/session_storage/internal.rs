@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use ::data::{UsernameStr, UsernameString};
+use dumbnotesd_auth_data::session_storage::{SessionsData, UserSessionData, UserSessionsData};
 use std::collections::HashMap;
 use std::mem::ManuallyDrop;
 use std::path::{Path, PathBuf};
@@ -15,12 +16,10 @@ use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
 use crate::file_watcher::Event;
 use crate::file_watcher::FileWatcherError;
 use crate::app_constants::{REFRESH_TOKEN_GC_TIME, SESSION_STORAGE_PATH};
-use crate::session_storage::internal::data::{SessionsData, UserSessionData, UserSessionsData};
 use crate::session_storage::internal::io_trait::{ProductionSessionStorageIo, SessionStorageIo};
 use crate::session_storage::{Session, SessionStorage, SessionStorageError};
 
 #[cfg(test)] mod tests;
-mod data;
 pub mod session;
 mod io_trait;
 

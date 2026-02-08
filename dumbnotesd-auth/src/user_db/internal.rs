@@ -12,8 +12,6 @@ use crate::user_db::UserDbError;
 
 mod io_trait;
 #[cfg(test)] mod tests;
-mod data;
-mod user;
 
 #[async_trait]
 pub trait UserDb: Send + Sync {

@@ -8,6 +8,7 @@ members = [
   "dumbnotes",
   "dumbnotesd",
   "dumbnotesd-auth",
+  "dumbnotesd-auth-data",
   "dumbnotes-gen",
   "test-utils",
   "unix",

@@ -1,13 +1,13 @@
 use argon2::password_hash::PasswordHashString;
+use data::User;
 use serde::{Deserialize, Serialize};
-use crate::user_db::internal::user::User;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct UserData {
     pub username: String,
 
-    #[serde(with = "dumbnotes::serde::password_hash_string")]
+    #[serde(with = "crate::serde::password_hash_string")]
     pub hash: PasswordHashString,
 }
 

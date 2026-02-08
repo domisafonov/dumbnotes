@@ -54,7 +54,7 @@ impl NoteStorage {
     }
 
     pub fn get_notes_dir(app_config: &AppConfig) -> PathBuf {
-        app_config.data_directory.join("notes")
+        app_config.data_directory.join(NOTES_DIRECTORY_PATH)
     }
 }
 
@@ -274,7 +274,7 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
     }
 
     fn get_user_dir(&self, username: &UsernameStr) -> PathBuf {
-        self.basedir.join(NOTES_DIRECTORY_PATH).join(username as &str)
+        self.basedir.join(username as &str)
     }
 
     fn get_note_path(&self, username: &UsernameStr, uuid: Uuid) -> PathBuf {
