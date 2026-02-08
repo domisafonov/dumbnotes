@@ -4,13 +4,12 @@ use crate::{protobuf_request, protobuf_response};
 use crate::model::{LoginRequest, LoginRequestSecret, LoginResponse};
 use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
 use crate::bindings;
+use bindings::login_request::Secret as PbSecret;
 
 impl TryFrom<bindings::LoginRequest> for LoginRequest {
     type Error = ProtobufRequestError;
 
     fn try_from(pb: bindings::LoginRequest) -> Result<Self, Self::Error> {
-        use bindings::login_request::Secret as PbSecret;
-
         Ok(
             LoginRequest {
                 username: UsernameString::from_str(&pb.username)?,
@@ -21,6 +20,33 @@ impl TryFrom<bindings::LoginRequest> for LoginRequest {
                     PbSecret::RefreshToken(s) =>
                         LoginRequestSecret::RefreshToken(s),
                 }
+            }
+        )
+    }
+}
+
+impl From<LoginRequest> for bindings::LoginRequest {
+    fn from(value: LoginRequest) -> Self {
+        bindings::LoginRequest {
+            username: value.username.into_string(),
+            secret: Some(
+                match value.secret {
+                    LoginRequestSecret::Password(p) => PbSecret::Password(p),
+                    LoginRequestSecret::RefreshToken(rt) => PbSecret::RefreshToken(rt),
+                }
+            )
+        }
+    }
+}
+
+impl TryFrom<bindings::LoginResponse> for LoginResponse {
+    type Error = ProtobufRequestError;
+
+    fn try_from(pb: bindings::LoginResponse) -> Result<Self, Self::Error> {
+        Ok(
+            LoginResponse {
+                access_token: pb.token,
+                refresh_token: pb.refresh_token,
             }
         )
     }

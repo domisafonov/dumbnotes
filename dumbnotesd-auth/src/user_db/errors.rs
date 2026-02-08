@@ -9,10 +9,10 @@ pub enum UserDbError {
     #[error(transparent)]
     Io(#[from] IoError),
 
-    #[error("invalid user db file contents: $0")]
+    #[error("invalid user db file contents: {0}")]
     Parsing(#[from] toml::de::Error),
     
-    #[error("failed to watch the db file: $0")]
+    #[error("failed to watch the db file: {0}")]
     Watch(#[from] FileWatcherError),
     
     #[error(transparent)]

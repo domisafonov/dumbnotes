@@ -15,7 +15,6 @@ figment.workspace = true
 futures.workspace = true
 josekit.workspace = true
 log.workspace = true
-prost.workspace = true
 protobuf-common.path = "../protobuf-common"
 rocket.workspace = true
 serde_json.workspace = true
@@ -27,6 +26,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 assert_fs.workspace = true
+prost.workspace = true
 reqwest.workspace = true
 rexpect.workspace = true
 test-utils.path = "../test-utils"

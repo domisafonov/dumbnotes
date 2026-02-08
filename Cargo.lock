@@ -2629,6 +2629,8 @@ dependencies = [
  "cargo_metadata",
  "josekit",
  "predicates",
+ "prost",
+ "protobuf-common",
  "reqwest",
  "rexpect",
  "thiserror",

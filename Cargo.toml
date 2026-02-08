@@ -41,6 +41,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 socket2 = { version = "0.6.1", features = ["all"] }
 syslog = "7.0.0"
+tap = "1.0.1"
 thiserror = "2.0.17"
 time = { version = "0.3.44", features = ["std", "alloc", "formatting", "serde-human-readable"] }
 tokio = { version = "1.48.0", features = ["fs", "io-util", "net", "process", "rt-multi-thread", "sync"] }

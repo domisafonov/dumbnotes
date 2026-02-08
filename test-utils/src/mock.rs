@@ -80,7 +80,7 @@ pub fn setup_basic_config_with_keys_and_data() -> TempDir {
         Some(&user_db_rel_path),
     );
     let user_db = root.child(user_db_rel_path);
-    user_db.touch().unwrap();
+    user_db.write_str(include_str!("mock_user_db.toml")).unwrap();
     chmod(user_db.path(), 0o400).unwrap();
     let data_dir = root.child(data_dir_rel_path);
     data_dir.child("notes")

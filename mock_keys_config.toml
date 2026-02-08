@@ -1,0 +1,3 @@
+jwt_private_key = "test-utils/src/mock_jwt_private_key.json"
+jwt_public_key = "test-utils/src/mock_jwt_public_key.json"
+pepper_path = "test-utils/src/mock_pepper.b64"

@@ -3,9 +3,13 @@
 use std::error::Error;
 use std::io::Read;
 use std::process::{Child, ChildStderr, Command, Stdio};
+use std::str::FromStr;
 use assert_fs::TempDir;
-use test_utils::{new_configured_command_with_env, setup_basic_config_with_keys_and_data, BackgroundReader, ChildKillOnDropExt, KillOnDropChild, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, RQ};
+use data::UsernameString;
+use test_utils::{BackgroundReader, ChildKillOnDropExt, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, KillOnDropChild, RQ, ReqwestClientExt, new_configured_command_with_env, setup_basic_config_with_keys_and_data};
 use unix::ChildKillTermExt;
+use api_data::model::*;
+use api_data::bindings;
 
 const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
 
@@ -36,25 +40,52 @@ fn launch_and_stop() -> Result<(), Box<dyn Error>> {
 fn request_processed_without_errors() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader) = spawn_daemon(&dir)?;
-    let mut response = RQ.get("http://localhost:8000/api/version").send()?;
+    let mut response = RQ
+        .get(url("version"))
+        .send()?
+        .error_for_status()?;
     let mut body = String::new();
     response.read_to_string(&mut body)?;
-    assert!(response.status().is_success(), "{body}");
     assert_eq!(body, "1");
     shutdown_assert_no_errors(&mut child, reader)?;
     Ok(())
 }
 
-// #[test]
-// fn login_renew_logout() -> Result<(), Box<dyn Error>> {
-//     let dir = setup_basic_config_with_keys_and_data();
-//     let (mut child, reader) = spawn_daemon(&dir)?;
-// //    crate::protobuf::LoginRequest {
-// //        ..Default::default()
-// //    };
-//     // let request = crate::protobuf::
-//     todo!();
-// }
+#[test]
+fn login_renew_logout() -> Result<(), Box<dyn Error>> {
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader) = spawn_daemon(&dir)?;
+
+    let username = UsernameString::from_str("abc")?;
+
+    let response: LoginResponse = RQ
+        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
+            url("login"),
+            LoginRequest {
+                username: username.clone(),
+                secret: LoginRequestSecret::Password("123".to_string()),
+            }
+        )?
+        .try_into()?;
+    let response: LoginResponse = RQ
+        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
+            url("login"),
+            LoginRequest {
+                username,
+                secret: LoginRequestSecret::RefreshToken(response.refresh_token),
+            },
+        )?
+        .try_into()?;
+
+    RQ.post(url("logout"))
+        .bearer_auth(response.access_token)
+        .send()?
+        .error_for_status()?;
+
+    shutdown_assert_no_errors(&mut child, reader)?;
+
+    Ok(())
+}
 
 fn spawn_daemon(
     dir: &TempDir,
@@ -92,4 +123,8 @@ fn new_command(dir: &TempDir) -> Command {
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
     command
+}
+
+fn url(endpoint: &str) -> String {
+    format!("http://localhost:8000/api/{endpoint}")
 }
