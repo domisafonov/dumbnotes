@@ -11,7 +11,7 @@ pub trait ReqwestClientExt {
         &self,
         method: Method,
         url: impl IntoUrl,
-        auth_token: Option<String>,
+        auth_token: Option<&str>,
         body: impl Into<I>,
     ) -> Result<O, PbReqwestError>
     where
@@ -21,7 +21,7 @@ pub trait ReqwestClientExt {
     fn post_pb_successfully<I, O>(
         &self,
         url: impl IntoUrl,
-        auth_token: Option<String>,
+        auth_token: Option<&str>,
         body: impl Into<I>,
     ) -> Result<O, PbReqwestError>
     where
@@ -31,10 +31,36 @@ pub trait ReqwestClientExt {
         self.request_pb_successfully(Method::POST, url, auth_token, body)
     }
 
+    fn put_pb_successfully<I, O>(
+        &self,
+        url: impl IntoUrl,
+        auth_token: Option<&str>,
+        body: impl Into<I>,
+    ) -> Result<O, PbReqwestError>
+    where
+        O: prost::Message + Default,
+        I: prost::Message,
+    {
+        self.request_pb_successfully(Method::PUT, url, auth_token, body)
+    }
+
+    fn delete_pb_successfully<I, O>(
+        &self,
+        url: impl IntoUrl,
+        auth_token: Option<&str>,
+        body: impl Into<I>,
+    ) -> Result<O, PbReqwestError>
+    where
+        O: prost::Message + Default,
+        I: prost::Message,
+    {
+        self.request_pb_successfully(Method::DELETE, url, auth_token, body)
+    }
+
     fn get_pb_successfully<O: prost::Message + Default>(
         &self,
         url: impl IntoUrl,
-        auth_token: Option<String>,
+        auth_token: Option<&str>,
     ) -> Result<O, PbReqwestError>;
 }
 
@@ -43,7 +69,7 @@ impl ReqwestClientExt for reqwest::blocking::Client {
         &self,
         method: Method,
         url: impl IntoUrl,
-        auth_token: Option<String>,
+        auth_token: Option<&str>,
         body: impl Into<I>,
     ) -> Result<O, PbReqwestError>
     where
@@ -66,7 +92,7 @@ impl ReqwestClientExt for reqwest::blocking::Client {
     fn get_pb_successfully<O: prost::Message + Default>(
         &self,
         url: impl IntoUrl,
-        auth_token: Option<String>,
+        auth_token: Option<&str>,
     ) -> Result<O, PbReqwestError> {
         self.get(url)
             .pipe(|builder| {
