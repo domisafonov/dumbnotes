@@ -2647,6 +2647,7 @@ version = "0.1.0"
 dependencies = [
  "assert_fs",
  "base64ct",
+ "boolean-enums",
  "cargo_metadata",
  "dumbnotesd-auth-data",
  "josekit",

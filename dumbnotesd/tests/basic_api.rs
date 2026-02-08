@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::str::FromStr;
-use data::UsernameStr;
 use data::UsernameString;
 use test_utils::RQ;
 use test_utils::ReqwestClientExt;

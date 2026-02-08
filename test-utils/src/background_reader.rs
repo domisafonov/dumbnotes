@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
+use boolean_enums::gen_boolean_enum;
 use thiserror::Error;
 use unix::FdNonblockExt;
 use crate::constants::BACKGROUND_READER_CHECK_INTERVAL;
@@ -121,6 +122,18 @@ impl<R: Reader> BackgroundReader<R> {
         &mut self,
         bytes: &[u8],
     ) -> Result<Vec<u8>, BackgroundReaderError> {
+        self
+            .wait_until_bytes_impl(
+                bytes,
+                IsString::No,
+            )
+    }
+
+    fn wait_until_bytes_impl(
+        &mut self,
+        bytes: &[u8],
+        is_string: IsString,
+    ) -> Result<Vec<u8>, BackgroundReaderError> {
         let mut current_pos = 0usize;
         let time = Instant::now();
 
@@ -147,9 +160,26 @@ impl<R: Reader> BackgroundReader<R> {
                 return Ok(new_buf);
             }
             drop(mutables);
+
             if let Some(ref timeout) = self.inner.timeout
                 && time.elapsed() > *timeout
             {
+                let mutables = self.inner.mutable.lock()
+                    .unwrap_or_else(|e|
+                        panic!("background reader thread panicked: {e}")
+                    );
+                let stringified = if is_string.into() {
+                    String::from_utf8_lossy(&mutables.buf).into_owned()
+                } else {
+                    let mut string = String::with_capacity(mutables.buf.len() * 2);
+                    for byte in &mutables.buf {
+                        let formatted = format!("{byte:02x} ");
+                        string.push_str(&formatted);
+                    }
+                    string
+                };
+                drop(mutables);
+                eprintln!("last log messages: {stringified}");
                 panic!("timeout expired")
             }
             thread::sleep(BACKGROUND_READER_CHECK_INTERVAL);
@@ -160,10 +190,18 @@ impl<R: Reader> BackgroundReader<R> {
         &mut self,
         string: &str,
     ) -> Result<String, BackgroundReaderError> {
-        String::from_utf8(self.wait_until_bytes(string.as_bytes())?)
+        String
+            ::from_utf8(
+                self
+                    .wait_until_bytes_impl(
+                        string.as_bytes(),
+                        IsString::Yes,
+                    )?
+            )
             .map_err(BackgroundReaderError::from)
     }
 }
+gen_boolean_enum!(IsString);
 
 impl<R: Reader> Drop for BackgroundReader<R> {
     fn drop(&mut self) {
