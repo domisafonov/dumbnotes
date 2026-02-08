@@ -15,12 +15,14 @@ data.path = "../data"
 env_logger.workspace = true
 figment.workspace = true
 futures.workspace = true
+josekit.workspace = true
 libc.workspace = true
 log.workspace = true
 prost.workspace = true
 protobuf-common.path = "../protobuf-common"
 rand.workspace = true
 scc.workspace = true
+scopeguard.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 socket2.workspace = true
@@ -33,7 +35,6 @@ toml.workspace = true
 unix.path = "../unix"
 uuid.workspace = true
 which.workspace = true
-josekit.workspace = true
 
 [lints]
 workspace = true

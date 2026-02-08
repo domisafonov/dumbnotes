@@ -2,9 +2,10 @@ use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use futures::{pin_mut, Stream};
-use log::{error, trace};
+use log::{error, trace, warn};
 use prost::Message;
 use scc::HashMap;
+use scopeguard::guard;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio::net::unix::OwnedWriteHalf;
@@ -69,13 +70,13 @@ impl CallerImpl {
         while let Some(response) = responses.next().await {
             trace!("received response: {response:?}");
             let command_id = response.command_id;
-            let (_, sender) = active_requests.remove_sync(&command_id)
-                .unwrap_or_else(||
-                    error_exit!(
-                        "received response to unknown request id {}",
-                        command_id,
-                    )
+            let Some((_, sender)) = active_requests.remove_sync(&command_id) else {
+                warn!(
+                    "received response to unknown or dropped request, id {}",
+                    command_id,
                 );
+                continue;
+            };
             if sender.send(response).is_err() {
                 error!(
                     "receiver for request id {} already dropped",
@@ -110,16 +111,17 @@ impl Caller for CallerImpl {
             .unwrap_or_else(|_|
                 error_exit!("found previous instance of request with id {request_id}")
             );
+        let request_guard = guard(self.active_requests.clone(), |ar| {
+            ar.remove_sync(&request_id);
+        });
         let mut socket = self.write_socket.lock().await;
-        socket.write_u64(command.len() as u64).await
-            .inspect_err(|_| {
-                self.active_requests.remove_sync(&request_id);
-            })?;
+        socket.write_u64(command.len() as u64).await?;
         socket.write_all(command).await
             .unwrap_or_else(|e|
                 error_exit!("failed marshalling an auth command: {e}")
             );
         let response = receiver.await?;
+        drop(request_guard);
         trace!("successfully awaited response: {response:?}");
         Ok(
             response.response
