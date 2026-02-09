@@ -1,6 +1,6 @@
 use std::{error::Error, process::{Child, ChildStderr, Command, Stdio}};
 use assert_fs::TempDir;
-use test_utils::{BackgroundReader, ChildKillOnDropExt, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, KillOnDropChild, new_configured_command_with_env};
+use test_utils::{BackgroundReader, ChildKillOnDropExt, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, KillOnDropChild, LOCAL_PORT, new_configured_command_with_env};
 use unix::ChildKillTermExt;
 
 pub const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
@@ -44,5 +44,8 @@ pub fn new_command(dir: &TempDir) -> Command {
 }
 
 pub fn url(endpoint: &str) -> String {
-    format!("http://localhost:8000/api/{endpoint}")
+    format!(
+        "http://localhost:{}/api/{endpoint}",
+        LOCAL_PORT.with(Clone::clone),
+    )
 }

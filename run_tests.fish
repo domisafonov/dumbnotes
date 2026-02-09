@@ -29,7 +29,7 @@ end
 if set -ql success; and begin set -ql all; or set -ql _flag_i; end
     cargo test --profile integration-test\
         --config 'build.rustflags=["--cfg=integration_test"]' --no-fail-fast\
-        --test '*' -- --test-threads=1 $extra_bin_args
+        --test '*' -- $extra_bin_args
     or set -e success
 end
 if set -ql success; and begin set -ql all; or set -ql _flag_d; end

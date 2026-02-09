@@ -2,6 +2,7 @@ use std::path::Path;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use unix::chmod;
+use crate::LOCAL_PORT;
 use crate::data::MOCK_USER_DB_DATA;
 use crate::data::MOCK_USER_DB_STR;
 use crate::data::{MOCK_JWT_PRIVATE_KEY_STR, MOCK_JWT_PUBLIC_KEY_STR, MOCK_PEPPER_STR};
@@ -42,12 +43,16 @@ pub fn setup_basic_config_impl(
         r#"jwt_private_key = "{}"
 jwt_public_key = "{}"
 pepper_path = "{}"
-{}{}"#,
+{}{}
+[rocket]
+port = {}
+"#,
         ro_secrets_dir.child("jwt_private_key.json").to_str().unwrap(),
         config_dir.child("jwt_public_key.json").to_str().unwrap(),
         ro_secrets_dir.child("pepper.b64").to_str().unwrap(),
         data_path_extra,
         user_db_path_extra,
+        LOCAL_PORT.with(Clone::clone),
     );
     config_dir.child("dumbnotes.toml").write_str(&config).unwrap();
 
