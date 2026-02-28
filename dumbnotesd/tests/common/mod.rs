@@ -1,6 +1,8 @@
 use std::{error::Error, process::{Child, ChildStderr, Command, Stdio}};
+use api_data::{bindings, model::{LoginRequest, LoginRequestSecret, LoginResponse}};
 use assert_fs::TempDir;
-use test_utils::{BackgroundReader, ChildKillOnDropExt, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, KillOnDropChild, LOCAL_PORT, new_configured_command_with_env};
+use data::UsernameStr;
+use test_utils::{BackgroundReader, ChildKillOnDropExt, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, KillOnDropChild, LOCAL_PORT, RQ, ReqwestClientExt, new_configured_command_with_env};
 use unix::ChildKillTermExt;
 
 pub const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
@@ -48,4 +50,38 @@ pub fn url(endpoint: &str) -> String {
         "http://localhost:{}/api/{endpoint}",
         LOCAL_PORT.with(Clone::clone),
     )
+}
+
+pub fn login(
+    username: impl AsRef<UsernameStr>,
+    password: impl AsRef<str>,
+) -> Result<LoginResponse, Box<dyn Error>> {
+    RQ
+        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
+            url("login"),
+            None,
+            LoginRequest {
+                username: username.as_ref().to_owned(),
+                secret: LoginRequestSecret::Password(password.as_ref().to_string()),
+            }
+        )?
+        .try_into()
+        .map_err(Into::into)
+}
+
+pub fn refresh_token(
+    username: impl AsRef<UsernameStr>,
+    refresh_token: impl AsRef<[u8]>,
+) -> Result<LoginResponse, Box<dyn Error>> {
+    RQ
+        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
+            url("login"),
+            None,
+            LoginRequest {
+                username: username.as_ref().to_owned(),
+                secret: LoginRequestSecret::RefreshToken(refresh_token.as_ref().to_owned()),
+            }
+        )?
+        .try_into()
+        .map_err(Into::into)
 }

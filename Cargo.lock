@@ -625,6 +625,7 @@ dependencies = [
  "rexpect",
  "rocket",
  "serde_json",
+ "tap",
  "test-utils",
  "thiserror",
  "time",

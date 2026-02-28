@@ -66,6 +66,12 @@ impl Borrow<UsernameStr> for UsernameString {
     }
 }
 
+impl AsRef<UsernameStr> for UsernameString {
+    fn as_ref(&self) -> &UsernameStr {
+        self.borrow()
+    }
+}
+
 impl ToOwned for UsernameStr {
     type Owned = UsernameString;
 

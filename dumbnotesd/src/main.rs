@@ -2,7 +2,6 @@ mod cli;
 pub mod app_constants;
 mod routes;
 pub mod access_granter;
-pub mod http;
 mod app_setup;
 mod execute;
 

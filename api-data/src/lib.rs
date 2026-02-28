@@ -8,3 +8,4 @@ mod constants {
 
 pub mod model;
 mod protobuf;
+pub mod http;

@@ -7,7 +7,7 @@ use rocket::outcome::try_outcome;
 use rocket::request::{FromRequest, Outcome};
 use crate::access_granter::{AccessGranter, AccessGranterError};
 use crate::access_granter::{KnownSession, SessionInfo};
-use crate::http::status::StatusExt;
+use api_data::http::status::StatusExt;
 
 #[derive(Debug)]
 pub struct Unauthenticated;

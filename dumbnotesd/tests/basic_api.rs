@@ -1,3 +1,5 @@
+//! Happy path tests
+
 use std::error::Error;
 use std::str::FromStr;
 use data::UsernameString;
@@ -8,6 +10,8 @@ use api_data::model::*;
 use api_data::bindings;
 use time::UtcDateTime;
 use uuid::Uuid;
+use crate::common::login;
+use crate::common::refresh_token;
 use crate::common::shutdown_assert_no_errors;
 use crate::common::spawn_daemon;
 use crate::common::url;
@@ -21,26 +25,8 @@ fn login_renew_logout() -> Result<(), Box<dyn Error>> {
 
     let username = UsernameString::from_str("abc")?;
 
-    let response: LoginResponse = RQ
-        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
-            url("login"),
-            None,
-            LoginRequest {
-                username: username.clone(),
-                secret: LoginRequestSecret::Password("123".to_string()),
-            }
-        )?
-        .try_into()?;
-    let response: LoginResponse = RQ
-        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
-            url("login"),
-            None,
-            LoginRequest {
-                username,
-                secret: LoginRequestSecret::RefreshToken(response.refresh_token),
-            },
-        )?
-        .try_into()?;
+    let response = login(&username, "123")?;
+    let response = refresh_token(username, response.refresh_token)?;
 
     RQ.post(url("logout"))
         .bearer_auth(response.access_token)
@@ -61,17 +47,7 @@ fn create_read_delete_check_deletion() -> Result<(), Box<dyn Error>> {
     let note_id = Uuid::new_v4();
     let mtime = UtcDateTime::from_unix_timestamp(1234567)?;
 
-    let LoginResponse { access_token, .. } = RQ
-        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
-            url("login"),
-            None,
-            LoginRequest {
-                username: username.clone(),
-                secret: LoginRequestSecret::Password("123".to_string()),
-            }
-        )?
-        .try_into()?;
-    let access_token = Some(access_token);
+    let access_token = Some(login(username, "123")?.access_token);
 
     assert_eq!(get_list_length(access_token.as_deref())?, 0);
 
