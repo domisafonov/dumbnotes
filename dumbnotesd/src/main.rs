@@ -5,6 +5,8 @@ pub mod access_granter;
 mod app_setup;
 mod execute;
 
+use std::path::PathBuf;
+
 use crate::cli::CliConfig;
 use app_setup::AppSetupFairing;
 use clap::{crate_name, Parser};
@@ -70,16 +72,21 @@ fn main() {
 
     let result = execute::execute(
         rocket_figment,
-        |fig| rocket
-            ::custom(fig)
-            .attach(
-                AppSetupFairing::new(
-                    app_config,
-                    cli_config.is_daemonizing().into(),
-                    authd_path,
+        |fig| {
+            let temp_dir = fig.extract_inner::<PathBuf>("temp_dir")
+                .unwrap_or_else(|_| std::env::temp_dir());
+            rocket
+                ::custom(fig)
+                .attach(
+                    AppSetupFairing::new(
+                        app_config,
+                        cli_config.is_daemonizing().into(),
+                        authd_path,
+                        temp_dir,
+                    )
                 )
-            )
-            .launch()
+                .launch()
+        }
     );
     if let Err(e) = result {
         error_exit!("failed to launch rocket: {}", e);

@@ -1,6 +1,7 @@
 use std::path::Path;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
+use tap::Tap;
 use unix::chmod;
 use crate::LOCAL_PORT;
 use crate::data::MOCK_USER_DB_DATA;
@@ -9,6 +10,9 @@ use crate::data::{MOCK_JWT_PRIVATE_KEY_STR, MOCK_JWT_PUBLIC_KEY_STR, MOCK_PEPPER
 
 pub fn setup_basic_config() -> TempDir {
     setup_basic_config_impl(None::<&str>, None::<&str>)
+        .tap(|dir|
+            dir.child("tmp").create_dir_all().unwrap()
+        )
 }
 
 pub fn setup_basic_config_impl(
@@ -46,6 +50,7 @@ pepper_path = "{}"
 {}{}
 [rocket]
 port = {}
+temp_dir = "{}"
 "#,
         ro_secrets_dir.child("jwt_private_key.json").to_str().unwrap(),
         config_dir.child("jwt_public_key.json").to_str().unwrap(),
@@ -53,6 +58,7 @@ port = {}
         data_path_extra,
         user_db_path_extra,
         LOCAL_PORT.with(Clone::clone),
+        root.child("tmp").to_str().unwrap(),
     );
     config_dir.child("dumbnotes.toml").write_str(&config).unwrap();
 

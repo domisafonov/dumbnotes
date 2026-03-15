@@ -5,7 +5,7 @@ use crate::error_exit;
 
 pub fn pledge_init() {
     pledge(
-        Some("stdio rpath wpath cpath tmppath inet fattr unix getpw proc exec id unveil"),
+        Some("stdio rpath wpath cpath inet fattr unix getpw proc exec id unveil"),
 
         // copied from authd
         Some("stdio rpath wpath cpath flock unix getpw unveil"),
@@ -17,7 +17,7 @@ pub fn pledge_init() {
 pub fn pledge_liftoff() {
     trace!("pledging for continuous operation");
     pledge(
-        Some("stdio rpath wpath cpath tmppath inet fattr"),
+        Some("stdio rpath wpath cpath inet fattr"),
         None,
     )
 }

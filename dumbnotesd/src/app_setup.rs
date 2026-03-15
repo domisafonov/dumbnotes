@@ -27,6 +27,7 @@ pub struct AppSetupFairing {
     is_daemonizing: bool,
     authd_path: PathBuf,
     auth_daemon_failure_notice: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
+    temp_dir: PathBuf,
 }
 
 impl AppSetupFairing {
@@ -34,12 +35,14 @@ impl AppSetupFairing {
         app_config: AppConfig,
         is_daemonizing: IsDaemonizing,
         authd_path: impl ToOwned<Owned=PathBuf>,
+        temp_dir: impl ToOwned<Owned=PathBuf>,
     ) -> Self {
         AppSetupFairing {
             app_config,
             is_daemonizing: is_daemonizing.into(),
             authd_path: authd_path.to_owned(),
             auth_daemon_failure_notice: Arc::new(Mutex::new(None)),
+            temp_dir: temp_dir.to_owned(),
         }
     }
 
@@ -160,6 +163,10 @@ impl Fairing for AppSetupFairing {
             unveil(
                 &self.app_config.jwt_public_key,
                 Permissions::R,
+            );
+            unveil(
+                &self.temp_dir,
+                Permissions::C | Permissions::R | Permissions::W,
             );
             seal_unveil()
         }
