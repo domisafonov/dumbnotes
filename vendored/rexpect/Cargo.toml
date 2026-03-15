@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.70.0"
 name = "rexpect"
-version = "0.6.2"
+version = "0.6.3"
 build = false
 include = [
     "build.rs",

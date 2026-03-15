@@ -1,6 +1,6 @@
 #[cfg(test)] pub mod testing;
 
-use rand::Rng;
+use rand::{Rng, RngExt};
 use uuid::{Uuid, Variant, Version};
 
 pub fn make_uuid<R: Rng>(rng: &mut R) -> Uuid {

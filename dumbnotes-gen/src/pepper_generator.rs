@@ -1,7 +1,7 @@
 use std::io;
 use std::path::Path;
 use base64ct::{Base64, Encoding};
-use rand::RngCore;
+use rand::Rng;
 use thiserror::Error;
 use dumbnotes::bin_constants::PEPPER_LENGTH;
 use file_write::{get_ids_for_chown, write};

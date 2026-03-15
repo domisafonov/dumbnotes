@@ -1,4 +1,4 @@
-use argon2::password_hash::PasswordHashString;
+use argon2::PasswordHash;
 use data::User;
 use serde::{Deserialize, Serialize};
 
@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct UserData {
     pub username: String,
 
-    #[serde(with = "crate::serde::password_hash_string")]
-    pub hash: PasswordHashString,
+    #[serde(with = "crate::serde::password_hash")]
+    pub hash: PasswordHash,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

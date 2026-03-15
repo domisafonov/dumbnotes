@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use std::sync::{Arc, Mutex, MutexGuard};
-use argon2::password_hash::rand_core::TryCryptoRng;
+
+use rand::TryCryptoRng;
 
 pub struct SyncRng<R: TryCryptoRng + Send + Sync> {
     rng: Arc<Mutex<R>>,

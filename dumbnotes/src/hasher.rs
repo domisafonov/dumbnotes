@@ -3,19 +3,17 @@
 use std::error::Error;
 use std::{fs, io};
 use std::path::PathBuf;
-use argon2::password_hash::SaltString;
-use argon2::Argon2;
+use argon2::password_hash::phc::Salt;
+use argon2::{Argon2, PasswordVerifier};
 use argon2::{Algorithm, PasswordHash, PasswordHasher, Version};
 use base64ct::{Base64, Encoding};
-use rand::rand_core::OsError;
-use rand::rngs::OsRng;
 use thiserror::Error;
 
 pub trait Hasher: Send + Sync {
     fn generate_hash(&self, password: &str) -> Result<String, HasherError>;
     fn check_hash(
         &self,
-        hash: PasswordHash<'_>,
+        hash: PasswordHash,
         password: &str,
     ) -> Result<bool, HasherError>;
 }
@@ -71,29 +69,29 @@ impl ProductionHasher {
         )
     }
 
-    fn make_salt(&self) -> Result<SaltString, OsError> {
-        SaltString::try_from_rng(&mut OsRng)
+    fn make_salt(&self) -> Salt {
+        Salt::generate()
     }
 }
 
 impl Hasher for ProductionHasher {
     fn generate_hash(&self, password: &str) -> Result<String, HasherError> {
-        let salt = self.make_salt()?;
         let hasher = self.get_hasher().expect("failed to initialize argon2");
-        hasher.hash_password(password.as_bytes(), &salt)
+        hasher.hash_password_with_salt(password.as_bytes(), &self.make_salt())
             .map_err(|e| HasherError::Hash(Box::new(e)))
-            .map(|v| v.serialize().to_string())
+            .map(|v| v.to_string())
     }
 
-    fn check_hash(&self, hash: PasswordHash<'_>, password: &str) -> Result<bool, HasherError> {
-        hash
+    fn check_hash(&self, hash: PasswordHash, password: &str) -> Result<bool, HasherError> {
+        self.get_hasher()
+            .map_err(|e| HasherError::Hash(Box::new(e)))?
             .verify_password(
-                &[&self.get_hasher().expect("failed to initialize argon2")],
-                password,
+                password.as_bytes(),
+                &hash,
             )
             .map(|_| true)
             .or_else(|e|
-                if let argon2::password_hash::Error::Password = e {
+                if let argon2::password_hash::Error::PasswordInvalid = e {
                     Ok(false)
                 } else {
                     Err(e)
@@ -110,9 +108,6 @@ pub enum HasherError {
 
     #[error("failed to hash password: {0}")]
     Hash(Box<dyn Error + Send + Sync>),
-
-    #[error("failed to get random values: {0}")]
-    Random(#[from] OsError),
 
     #[error("failed to decode pepper: {0}")]
     PepperDecode(base64ct::Error),

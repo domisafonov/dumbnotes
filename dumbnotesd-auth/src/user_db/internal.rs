@@ -52,7 +52,7 @@ impl<H: Hasher, Io: UserDbIo> UserDb for UserDbImpl<H, Io> {
                     spawn_blocking(move ||
                         hasher
                             .check_hash(
-                                user.hash.password_hash(),
+                                user.hash,
                                 &password
                             )
                     ).await.unwrap()?

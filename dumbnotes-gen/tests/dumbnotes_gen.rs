@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fs;
 use std::io::Write;
+use std::str::FromStr;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use predicates::prelude::*;
@@ -8,7 +9,6 @@ use rexpect::reader::Options;
 use rexpect::ReadUntil;
 use std::process::{Command, Stdio};
 use argon2::{Algorithm, Argon2, PasswordHash, PasswordVerifier, Version};
-use argon2::password_hash::Encoding;
 use base64ct::{Base64, Encoding as Base64Encoding};
 use boolean_enums::gen_boolean_enum;
 use josekit::jwk::Jwk;
@@ -301,7 +301,7 @@ fn validate_hash_custom_pepper(
     hasher
         .verify_password(
             password.as_bytes(),
-            &PasswordHash::parse(hash, Encoding::B64)?
+            &PasswordHash::from_str(hash)?
         )?;
     Ok(())
 }

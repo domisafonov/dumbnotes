@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use dumbnotes::rng::make_uuid;
 use dumbnotesd_auth_data::session_storage::SessionsData;
-use rand::RngCore;
+use rand::Rng;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use boolean_enums::gen_boolean_enum;
