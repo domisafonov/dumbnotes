@@ -1,7 +1,9 @@
 use std::sync::LazyLock;
 use base64ct::{Base64, Encoding};
 use dumbnotesd_auth_data::user_db::UsersData;
+use josekit::jws::alg::eddsa::EddsaJwsVerifier;
 use josekit::jwk::Jwk;
+use josekit::jws::EdDSA;
 
 pub const MOCK_JWT_PRIVATE_KEY_STR: &str = include_str!("mock_jwt_private_key.json");
 pub static MOCK_JWT_PRIVATE_KEY: LazyLock<Jwk> = LazyLock::new(||
@@ -13,6 +15,10 @@ pub const MOCK_JWT_PUBLIC_KEY_STR: &str = include_str!("mock_jwt_public_key.json
 pub static MOCK_JWT_PUBLIC_KEY: LazyLock<Jwk> = LazyLock::new(||
     Jwk::from_bytes(MOCK_JWT_PUBLIC_KEY_STR)
         .expect("failed to parse mock jwt public key")
+);
+pub static MOCK_JWT_KEY_VERIFIER: LazyLock<EddsaJwsVerifier> = LazyLock::new(||
+    EdDSA.verifier_from_jwk(&MOCK_JWT_PUBLIC_KEY)
+        .expect("failed to init the jwt verifier")
 );
 
 pub const MOCK_PEPPER_STR: &str = include_str!("mock_pepper.b64").trim_ascii();

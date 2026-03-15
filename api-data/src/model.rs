@@ -7,6 +7,7 @@ pub struct LoginRequest {
     pub secret: LoginRequestSecret,
 }
 
+#[derive(Clone)]
 pub enum LoginRequestSecret {
     Password(String),
     RefreshToken(Vec<u8>),
