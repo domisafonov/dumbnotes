@@ -70,6 +70,9 @@ impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
         trace!("authenticating user by header {auth_header_value}");
         let token = auth_header_value.strip_prefix("Bearer ")
             .ok_or(AccessGranterError::HeaderFormatError)?;
+        if token.contains(|c: char| c.is_ascii_whitespace()) {
+            return Err(AccessGranterError::HeaderFormatError)
+        }
         let token = self.access_token_decoder.decode_token(token)
             .map_err(|e| {
                 warn!("failed to decode token: {}", e);

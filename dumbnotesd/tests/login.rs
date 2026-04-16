@@ -4,11 +4,11 @@ use api_data::{bindings, http::status::Unauthorized, model::{LoginRequest, Login
 use data::UsernameString;
 use dumbnotes::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
 use josekit::jwt::JwtPayload;
-use reqwest::{IntoUrl, StatusCode, blocking::Response, header::WWW_AUTHENTICATE};
-use tap::{Pipe, Tap};
-use test_utils::{RQ, ReqwestBuilderProtoExt, ReqwestClientExt, data::MOCK_JWT_KEY_VERIFIER, setup_basic_config_with_keys_and_data};
+use reqwest::StatusCode;
+use tap::Tap;
+use test_utils::{RQ, data::MOCK_JWT_KEY_VERIFIER, setup_basic_config_with_keys_and_data};
 
-use crate::common::{login, shutdown_assert_no_errors, spawn_daemon, url};
+use crate::common::{assert_http_post_error, assert_login_error, assert_maybe_www_authenticate, assert_refresh_error, assert_www_authenticate, call_login, login, logout, refresh_token, shutdown_assert_no_errors, shutdown_assert_no_errors_except, spawn_daemon, url};
 
 mod common;
 
@@ -18,16 +18,12 @@ fn wrong_username() -> Result<(), Box<dyn Error>> {
     let (mut child, reader) = spawn_daemon(&dir)?;
 
     for username in vec!["abcd", "dabc", "", " abc", "abc ", "abc d", "d abc"] {
-        let username = UsernameString::from_str(username)?;
-        let response = assert_unauth_error::<bindings::LoginRequest>(
-            url("login"),
-            None,
-            LoginRequest {
-                username,
-                secret: LoginRequestSecret::Password("123".to_string()),
-            },
+        assert_login_error(
+            UsernameString::from_str(username)?,
+            "123".to_string(),
+            StatusCode::UNAUTHORIZED,
+            Some(Unauthorized::InvalidToken),
         )?;
-        assert_www_authenticate(&response, Unauthorized::InvalidToken);
     }
 
     shutdown_assert_no_errors(&mut child, reader)?;
@@ -42,15 +38,12 @@ fn wrong_password() -> Result<(), Box<dyn Error>> {
     let username = UsernameString::from_str("abc")?;
 
     for password in vec!["1234", "4123", "", " 123", "123 ", "abc:123"] {
-        let response = assert_unauth_error::<bindings::LoginRequest>(
-            url("login"),
-            None,
-            LoginRequest {
-                username: username.clone(),
-                secret: LoginRequestSecret::Password(password.to_string()),
-            },
+        assert_login_error(
+            &username,
+            password,
+            StatusCode::UNAUTHORIZED,
+            Some(Unauthorized::InvalidToken),
         )?;
-        assert_www_authenticate(&response, Unauthorized::InvalidToken);
     }
 
     shutdown_assert_no_errors(&mut child, reader)?;
@@ -69,15 +62,12 @@ fn wrong_refresh_token() -> Result<(), Box<dyn Error>> {
         &[0u8; 128 / 8][..],
         "abc".as_bytes(),
     ] {
-        let response = assert_unauth_error::<bindings::LoginRequest>(
-            url("login"),
-            None,
-            LoginRequest {
-                username: username.clone(),
-                secret: LoginRequestSecret::RefreshToken(token.to_vec()),
-            },
+        assert_refresh_error(
+            &username,
+            token,
+            StatusCode::UNAUTHORIZED,
+            Some(Unauthorized::InvalidToken),
         )?;
-        assert_www_authenticate(&response, Unauthorized::InvalidToken);
     }
 
     let valid_token = login(&username, "123")?.refresh_token;
@@ -89,15 +79,12 @@ fn wrong_refresh_token() -> Result<(), Box<dyn Error>> {
         valid_token.clone().tap_mut(|t| t.extend(valid_token)),
         b"abc".to_vec(),
     ] {
-        let response = assert_unauth_error::<bindings::LoginRequest>(
-            url("login"),
-            None,
-            LoginRequest {
-                username: username.clone(),
-                secret: LoginRequestSecret::RefreshToken(token.to_vec()),
-            },
+        assert_refresh_error(
+            &username,
+            token,
+            StatusCode::UNAUTHORIZED,
+            Some(Unauthorized::InvalidToken),
         )?;
-        assert_www_authenticate(&response, Unauthorized::InvalidToken);
     }
 
     shutdown_assert_no_errors(&mut child, reader)?;
@@ -166,17 +153,10 @@ fn renewed_jwt_valid() -> Result<(), Box<dyn Error>> {
 fn request_jwt(
     secret: LoginRequestSecret,
 ) -> Result<(JwtPayload, Vec<u8>), Box<dyn Error>> {
-    let LoginResponse { access_token, refresh_token } = RQ
-        .post_pb_successfully::<bindings::LoginRequest, bindings::LoginResponse>(
-            url("login"),
-            None,
-            LoginRequest {
-                username: UsernameString::from_str("abc")?,
-                secret,
-            }
-        )?
-        .try_into()?;
-
+    let LoginResponse { access_token, refresh_token } = call_login(
+        UsernameString::from_str("abc")?,
+        secret,
+    )?;
     Ok((
         josekit::jwt
             ::decode_with_verifier(
@@ -190,88 +170,335 @@ fn request_jwt(
 
 #[test]
 fn login_sending_auth_header() -> Result<(), Box<dyn Error>> {
-    todo!()
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader) = spawn_daemon(&dir)?;
+
+    let username = UsernameString::from_str("abc")?;
+
+    let LoginResponse { access_token, .. } = login(
+        &username,
+        "123".to_string(),
+    )?;
+    assert_http_post_error::<bindings::LoginRequest>(
+        url("login"),
+        Some(&access_token),
+        LoginRequest {
+            username: username.clone(),
+            secret: LoginRequestSecret::Password("123".to_string()),
+        },
+        StatusCode::FORBIDDEN,
+        None,
+    )?;
+    assert_http_post_error::<bindings::LoginRequest>(
+        url("login"),
+        Some("invalid"),
+        LoginRequest {
+            username: username.clone(),
+            secret: LoginRequestSecret::Password("123".to_string()),
+        },
+        StatusCode::FORBIDDEN,
+        None,
+    )?;
+
+    shutdown_assert_no_errors_except(
+        &mut child,
+        reader,
+        &["No matching routes for POST /api/login application/protobuf"; 2],
+    )?;
+    Ok(())
 }
 
 #[test]
 fn renew_sending_auth_header() -> Result<(), Box<dyn Error>> {
-    todo!()
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader) = spawn_daemon(&dir)?;
+
+    let username = UsernameString::from_str("abc")?;
+
+    let login = login(
+        &username,
+        "123".to_string(),
+    )?;
+    assert_http_post_error::<bindings::LoginRequest>(
+        url("login"),
+        Some(&login.access_token),
+        LoginRequest {
+            username: username.clone(),
+            secret: LoginRequestSecret::RefreshToken(
+                login.refresh_token,
+            ),
+        },
+        StatusCode::FORBIDDEN,
+        None,
+    )?;
+    assert_http_post_error::<bindings::LoginRequest>(
+        url("login"),
+        Some("invalid"),
+        LoginRequest {
+            username: username.clone(),
+            secret: LoginRequestSecret::RefreshToken(
+                "123".as_bytes().to_owned()
+            ),
+        },
+        StatusCode::FORBIDDEN,
+        None,
+    )?;
+
+    shutdown_assert_no_errors_except(
+        &mut child,
+        reader,
+        &["No matching routes for POST /api/login application/protobuf"; 2],
+    )?;
+    Ok(())
 }
 
 #[test]
-fn multiple_logins() -> Result<(), Box<dyn Error>> {
-    todo!()
+fn multiple_logins_tokens_are_unrelated_in_access_and_logout() -> Result<(), Box<dyn Error>> {
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader) = spawn_daemon(&dir)?;
+
+    let abc_name = UsernameString::from_str("abc")?;
+    let abcdef_name = UsernameString::from_str("abcdef")?;
+
+    let login_abc_1 = login(
+        &abc_name,
+        "123".to_string(),
+    )?;
+    let login_abcdef_1 = login(
+        &abcdef_name,
+        "012".to_string(),
+    )?;
+    let login_abc_2 = login(
+        &abc_name,
+        "123".to_string(),
+    )?;
+    let login_abcdef_2 = login(
+        &abcdef_name,
+        "012".to_string(),
+    )?;
+
+    assert_ne!(login_abc_1.access_token, login_abc_2.access_token);
+    assert_ne!(login_abc_1.access_token, login_abcdef_1.access_token);
+    assert_ne!(login_abc_1.access_token, login_abcdef_2.access_token);
+    assert_ne!(login_abc_2.access_token, login_abcdef_1.access_token);
+    assert_ne!(login_abc_2.access_token, login_abcdef_2.access_token);
+    assert_ne!(login_abcdef_1.access_token, login_abcdef_2.access_token);
+    assert_ne!(login_abc_1.refresh_token, login_abc_2.refresh_token);
+    assert_ne!(login_abc_1.refresh_token, login_abcdef_1.refresh_token);
+    assert_ne!(login_abc_1.refresh_token, login_abcdef_2.refresh_token);
+    assert_ne!(login_abc_2.refresh_token, login_abcdef_1.refresh_token);
+    assert_ne!(login_abc_2.refresh_token, login_abcdef_2.refresh_token);
+    assert_ne!(login_abcdef_1.refresh_token, login_abcdef_2.refresh_token);
+
+    assert_refresh_error(
+        &abc_name,
+        &login_abcdef_1.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+    assert_refresh_error(
+        &abc_name,
+        &login_abcdef_2.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+    assert_refresh_error(
+        &abcdef_name,
+        &login_abc_1.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+    assert_refresh_error(
+        &abcdef_name,
+        &login_abc_2.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+
+    logout(&login_abc_1.access_token)?;
+    assert_refresh_error(
+        &abc_name,
+        login_abc_1.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        None,
+    )?;
+    let login_abcdef_1 = refresh_token(
+        &abcdef_name,
+        login_abcdef_1.refresh_token,
+    )?;
+    let login_abc_2 = refresh_token(
+        &abc_name,
+        login_abc_2.refresh_token,
+    )?;
+    let login_abcdef_2 = refresh_token(
+        &abcdef_name,
+        login_abcdef_2.refresh_token,
+    )?;
+
+    logout(&login_abc_2.access_token)?;
+    assert_refresh_error(
+        &abc_name,
+        login_abc_2.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+    let login_abcdef_1 = refresh_token(
+        &abcdef_name,
+        login_abcdef_1.refresh_token,
+    )?;
+    let login_abcdef_2 = refresh_token(
+        &abcdef_name,
+        login_abcdef_2.refresh_token,
+    )?;
+
+    logout(&login_abcdef_1.access_token)?;
+    assert_refresh_error(
+        &abcdef_name,
+        login_abcdef_1.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+    let login_abcdef_2 = refresh_token(
+        &abcdef_name,
+        login_abcdef_2.refresh_token,
+    )?;
+
+    logout(&login_abcdef_2.access_token)?;
+    assert_refresh_error(
+        &abcdef_name,
+        login_abcdef_2.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+
+    shutdown_assert_no_errors(&mut child, reader)?;
+    Ok(())
 }
 
 #[test]
-#[ignore = "test in a docker env with root able to set time"]
+#[ignore = "test faking time"]
 fn expired_token() -> Result<(), Box<dyn Error>> {
     todo!()
 }
 
 #[test]
-#[ignore = "test in a docker env with root able to set time"]
+#[ignore = "test faking time"]
 fn expired_renew_token() -> Result<(), Box<dyn Error>> {
     todo!()
 }
 
 #[test]
-#[ignore = "test in a docker env with root able to set time"]
+#[ignore = "test faking time"]
 fn renew_with_access_token_expired() -> Result<(), Box<dyn Error>> {
     todo!()
 }
 
 #[test]
-fn logout() -> Result<(), Box<dyn Error>> {
-    todo!()
+fn request_with_invalid_auth_header() -> Result<(), Box<dyn Error>> {
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader) = spawn_daemon(&dir)?;
+
+    let login = login(UsernameString::from_str("abc")?, "123")?;
+
+    assert_logout_failed(
+        "AuthorizationHaha",
+        format!("Bearer {}", &login.access_token),
+        None,
+    )?;
+    assert_logout_failed(
+        "HahaAuthorization",
+        format!("Bearer {}", &login.access_token),
+        None,
+    )?;
+
+    assert_logout_failed(
+        "Authorization",
+        format!("HahaBearer {}", &login.access_token),
+        Some(Unauthorized::InvalidRequest),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("BearerHaha {}", &login.access_token),
+        Some(Unauthorized::InvalidRequest),
+    )?;
+
+    assert_logout_failed(
+        "Authorization",
+        "Bearer 123",
+        Some(Unauthorized::InvalidToken),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer {}$$$", &login.access_token),
+        Some(Unauthorized::InvalidToken),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer $$${}", &login.access_token),
+        Some(Unauthorized::InvalidToken),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer {}.a", &login.access_token),
+        Some(Unauthorized::InvalidToken),
+    )?;
+
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer  {}", &login.access_token),
+        Some(Unauthorized::InvalidRequest),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer\t{}", &login.access_token),
+        Some(Unauthorized::InvalidRequest),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer\t {}", &login.access_token),
+        Some(Unauthorized::InvalidRequest),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer \t{}", &login.access_token),
+        Some(Unauthorized::InvalidRequest),
+    )?;
+    assert_logout_failed(
+        "Authorization",
+        format!("Bearer {} a", &login.access_token),
+        Some(Unauthorized::InvalidRequest),
+    )?;
+
+    // a successful run
+    logout_with_header("Authorization", format!("Bearer {}", login.access_token))?
+        .error_for_status()?;
+
+    shutdown_assert_no_errors_except(
+        &mut child,
+        reader,
+        &["No matching routes for POST /api/logout"; 2],
+    )?;
+    Ok(())
 }
 
-#[test]
-fn logout_multiple() -> Result<(), Box<dyn Error>> {
-    todo!()
+fn logout_with_header(
+    header_name: impl AsRef<str>,
+    header_value: impl AsRef<str>,
+) -> Result<reqwest::blocking::Response, Box<dyn Error>> {
+    Ok(
+        RQ.post(url("logout"))
+            .header(header_name.as_ref(), header_value.as_ref())
+            .send()?
+    )
 }
 
-#[test]
-fn request_with_invalid_auth_header() {
-    todo!()
-}
-
-
-fn assert_unauth_error<I>(
-    url: impl IntoUrl,
-    auth_token: Option<&str>,
-    body: impl Into<I>,
-) -> Result<Response, Box<dyn Error>>
-where
-    I: prost::Message,
-{
-    RQ.post(url)
-        .pipe(|builder|
-            match auth_token {
-                Some(token) => builder.bearer_auth(token),
-                None => builder,
-            }
-        )
-        .pb_body::<I>(body)
-        .send()
-        .map_err(Into::into)
-        .inspect(|response|
-            assert_eq!(response.status(), StatusCode::UNAUTHORIZED)
-        )
-}
-
-fn assert_www_authenticate(
-    response: &Response,
-    error: Unauthorized,
-) {
-    let auth_header = response.headers()
-        .get(WWW_AUTHENTICATE).expect("no WWW-Authenticate header")
-        .to_str().expect("WWW-Authenticate header is not a valid string");
-    assert_eq!(
-        auth_header,
-        format!(
-            "Bearer realm=\"users_notes\" error=\"{}\"",
-            error.to_error_type(),
-        )
-    );
+fn assert_logout_failed(
+    header_name: impl AsRef<str>,
+    header_value: impl AsRef<str>,
+    www_authenticate: Option<Unauthorized>,
+) -> Result<(), Box<dyn Error>> {
+    let response = logout_with_header(header_name, header_value)?;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_maybe_www_authenticate(&response, www_authenticate);
+    Ok(())
 }

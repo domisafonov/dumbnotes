@@ -1,3 +1,7 @@
 [[user]]
 username = "abc"
 hash = "$argon2id$v=19$m=19456,t=1,p=2$2LUJEsVVxqUYF393eYicnw$yrRZ0/blGC4libM6EAQA09ivSsSOQiP5FrAZJcMFESc"
+
+[[user]]
+username = "abcdef"
+hash = "$argon2id$v=19$m=19456,t=1,p=2$uqzv0ovHp6bT0uYezq8O/Q$N5kgCc1r0HWLFH6ddqlGfZwjePgWEi+Qjw/1MrIHbYM"
