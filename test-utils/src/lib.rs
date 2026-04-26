@@ -8,6 +8,7 @@ mod kill_on_drop;
 mod constants;
 mod reqwest;
 mod ports;
+mod faketime;
 
 pub use build_bin::{build_bin, make_path_for_bins, new_configured_command, new_configured_command_with_env};
 pub use build_bin::{AUTHD_BIN_PATH, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, GEN_BIN_PATH};
@@ -17,3 +18,4 @@ pub use background_reader::{BackgroundReader, BackgroundReaderError};
 pub use kill_on_drop::{KillOnDropChild, ChildKillOnDropExt};
 pub use reqwest::*;
 pub use ports::LOCAL_PORT;
+pub use faketime::Faketime;

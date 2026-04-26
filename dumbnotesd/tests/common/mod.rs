@@ -1,10 +1,10 @@
-use std::{error::Error, process::{Child, ChildStderr, Command, Stdio}};
+use std::{error::Error, ffi::OsString, path::PathBuf, process::{Child, ChildStderr, Command, Stdio}};
 use api_data::{bindings, http::status::Unauthorized, model::{LoginRequest, LoginRequestSecret, LoginResponse}};
-use assert_fs::TempDir;
+use assert_fs::{TempDir, prelude::PathChild};
 use data::UsernameStr;
 use reqwest::{IntoUrl, Method, StatusCode, blocking::Response, header::WWW_AUTHENTICATE};
-use tap::Pipe;
-use test_utils::{BackgroundReader, ChildKillOnDropExt, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, KillOnDropChild, LOCAL_PORT, RQ, ReqwestBuilderProtoExt, ReqwestClientExt, new_configured_command_with_env};
+use tap::{Pipe, Tap};
+use test_utils::{BackgroundReader, ChildKillOnDropExt, DAEMON_BIN_PATH, DAEMON_BIN_PATHS, Faketime, KillOnDropChild, LOCAL_PORT, RQ, ReqwestBuilderProtoExt, ReqwestClientExt, new_configured_command_with_env};
 use unix::ChildKillTermExt;
 
 pub const ROCKET_STARTED_STRING: &str = "Rocket has launched from";
@@ -18,6 +18,19 @@ pub fn spawn_daemon(
     let mut reader = BackgroundReader::new(stderr, Some(30000))?;
     reader.wait_until(ROCKET_STARTED_STRING)?;
     Ok((child, reader))
+}
+
+pub fn spawn_daemon_faketime(
+    dir: &TempDir,
+) -> Result<(KillOnDropChild, BackgroundReader<ChildStderr>, Faketime), Box<dyn Error>> {
+    let (mut command, timestamp_path) = new_command_faketime(dir);
+    let faketime = Faketime::new(timestamp_path)?;
+    let mut child = command.spawn()?.kill_on_drop();
+    let stderr = child.stderr.take()
+        .expect("failed to get stderr");
+    let mut reader = BackgroundReader::new(stderr, Some(30000))?;
+    reader.wait_until(ROCKET_STARTED_STRING)?;
+    Ok((child, reader, faketime))
 }
 
 pub fn shutdown_assert_no_errors(
@@ -71,12 +84,37 @@ pub fn new_command(dir: &TempDir) -> Command {
         &DAEMON_BIN_PATH,
         dir,
         Some(&DAEMON_BIN_PATHS),
+        [""; 0],
     );
     command.arg("--no-daemonize")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
     command
+}
+
+pub fn new_command_faketime(dir: &TempDir) -> (Command, PathBuf) {
+    let script = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("scripts/run_with_faketime.fish");
+    let timestamp_file = dir.child("timestamp").path().to_owned();
+    let mut command = new_configured_command_with_env(
+        &script,
+        dir,
+        Some(&DAEMON_BIN_PATHS),
+        [
+            OsString::from("--timestamp-file=")
+                .tap_mut(|s| s.push(&timestamp_file)),
+            OsString::from("--executable=")
+                .tap_mut(|s| s.push(&*DAEMON_BIN_PATH)),
+            OsString::from("--"),
+        ],
+    );
+    command
+        .arg("--no-daemonize")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    (command, timestamp_file)
 }
 
 pub fn url(endpoint: &str) -> String {

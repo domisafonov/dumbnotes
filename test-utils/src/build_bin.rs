@@ -1,7 +1,7 @@
 use std::clone::Clone;
 use std::env;
 use std::env::JoinPathsError;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
@@ -138,6 +138,7 @@ pub fn new_configured_command(
         bin_path,
         dir,
         None::<&[PathBuf]>,
+        [""; 0],
     )
 }
 
@@ -145,9 +146,11 @@ pub fn new_configured_command_with_env(
     bin_path: &Path,
     dir: &TempDir,
     env_paths: Option<&[impl AsRef<Path>]>,
+    prefix_args: impl IntoIterator<Item = impl AsRef<OsStr>>,
 ) -> Command {
     let mut command = Command::new(bin_path);
     command
+        .args(prefix_args)
         .arg(
             format!(
                 "--config-file={}",

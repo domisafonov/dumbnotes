@@ -1,6 +1,13 @@
 #!/usr/bin/env fish
 
-argparse -x u,i,d h/help C/nocapture u/units i/integration d/doc -- $argv
+argparse --strict-longopts\
+    --exclusive u,i,d\
+    h/help\
+    C/nocapture\
+    u/units\
+    i/integration\
+    d/doc\
+    -- $argv
 or return 1
 
 if set -ql _flag_h
@@ -35,3 +42,6 @@ end
 if set -ql success; and begin set -ql all; or set -ql _flag_d; end
     cargo test --doc -- $extra_bin_args
 end
+
+set -l faketime_script (status dirname)/run_with_faketime.fish
+$faketime_script --cleanup

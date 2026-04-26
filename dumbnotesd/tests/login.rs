@@ -8,7 +8,7 @@ use reqwest::StatusCode;
 use tap::Tap;
 use test_utils::{RQ, data::MOCK_JWT_KEY_VERIFIER, setup_basic_config_with_keys_and_data};
 
-use crate::common::{assert_http_post_error, assert_login_error, assert_maybe_www_authenticate, assert_refresh_error, assert_www_authenticate, call_login, login, logout, refresh_token, shutdown_assert_no_errors, shutdown_assert_no_errors_except, spawn_daemon, url};
+use crate::common::{assert_http_post_error, assert_login_error, assert_maybe_www_authenticate, assert_refresh_error, assert_www_authenticate, call_login, login, logout, refresh_token, shutdown_assert_no_errors, shutdown_assert_no_errors_except, spawn_daemon, spawn_daemon_faketime, url};
 
 mod common;
 
@@ -378,7 +378,14 @@ fn multiple_logins_tokens_are_unrelated_in_access_and_logout() -> Result<(), Box
 #[test]
 #[ignore = "test faking time"]
 fn expired_token() -> Result<(), Box<dyn Error>> {
-    todo!()
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader, faketime) = spawn_daemon_faketime(&dir)?;
+
+    // TODO
+
+    shutdown_assert_no_errors(&mut child, reader)?;
+    drop(faketime);
+    Ok(())
 }
 
 #[test]
@@ -470,8 +477,11 @@ fn request_with_invalid_auth_header() -> Result<(), Box<dyn Error>> {
     )?;
 
     // a successful run
-    logout_with_header("Authorization", format!("Bearer {}", login.access_token))?
-        .error_for_status()?;
+    logout_with_header(
+        "Authorization",
+        format!("Bearer {}", login.access_token),
+    )?
+    .error_for_status()?;
 
     shutdown_assert_no_errors_except(
         &mut child,
