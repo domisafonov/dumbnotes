@@ -1,6 +1,7 @@
 use std::{error::Error, str::FromStr, thread::sleep, time::{Duration, SystemTime}};
 
 use api_data::{bindings, http::status::Unauthorized, model::{LoginRequest, LoginRequestSecret, LoginResponse}};
+use cfg_or_panic::cfg_or_panic;
 use data::UsernameString;
 use dumbnotes::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
 use josekit::jwt::JwtPayload;
@@ -378,6 +379,8 @@ fn multiple_logins_tokens_are_unrelated_in_access_and_logout()
 }
 
 #[test]
+#[cfg_attr(not(target_os = "linux"), ignore)]
+#[cfg_or_panic(target_os = "linux")]
 fn expired_token() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader, faketime) = spawn_daemon_faketime(&dir)?;
@@ -402,6 +405,8 @@ fn expired_token() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+#[cfg_attr(not(target_os = "linux"), ignore)]
+#[cfg_or_panic(target_os = "linux")]
 fn expired_renew_token() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader, faketime) = spawn_daemon_faketime(&dir)?;
@@ -426,6 +431,8 @@ fn expired_renew_token() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+#[cfg_attr(not(target_os = "linux"), ignore)]
+#[cfg_or_panic(target_os = "linux")]
 fn renew_with_access_token_expired() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader, faketime) = spawn_daemon_faketime(&dir)?;

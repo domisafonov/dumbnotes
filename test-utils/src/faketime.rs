@@ -1,5 +1,7 @@
 use std::{fs::{File, FileTimes, OpenOptions}, io, path::{Path, PathBuf}, process::Command, sync::atomic::{AtomicU64, Ordering}, time::{Duration, SystemTime}};
 
+use cfg_or_panic::cfg_or_panic;
+
 const CLEANUP_IN_PROGRESS: u64 = u64::MAX;
 
 static FAKETIME_CLEANUP: FaketimeCleanup = FaketimeCleanup {
@@ -15,7 +17,8 @@ impl FaketimeCleanup {
         while self.try_inc_count().is_err() {};
     }
 
-    fn try_inc_count(&self) ->Result<u64, u64> {
+    #[cfg_or_panic(target_os = "linux")]
+    fn try_inc_count(&self) -> Result<u64, u64> {
         self.ref_count
             .try_update(
                 Ordering::Relaxed,
@@ -30,6 +33,7 @@ impl FaketimeCleanup {
             )
     }
 
+    #[cfg_or_panic(target_os = "linux")]
     fn dec_count(&self) {
         let old_count = self.ref_count
             .update(

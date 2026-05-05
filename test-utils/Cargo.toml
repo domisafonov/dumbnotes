@@ -8,6 +8,7 @@ assert_fs.workspace = true
 base64ct.workspace = true
 boolean-enums.workspace = true
 cargo_metadata.workspace = true
+cfg-or-panic.workspace = true
 dumbnotesd-auth-data.path = "../dumbnotesd-auth-data"
 josekit.workspace = true
 predicates.workspace = true

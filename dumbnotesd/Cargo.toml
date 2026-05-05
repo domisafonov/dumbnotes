@@ -26,6 +26,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 assert_fs.workspace = true
+cfg-or-panic.workspace = true
 prost.workspace = true
 reqwest.workspace = true
 rexpect.workspace = true
