@@ -1,4 +1,4 @@
-use std::{fs::{File, FileTimes, OpenOptions}, io, path::{Path, PathBuf}, process::Command, sync::atomic::{AtomicU64, Ordering}, time::SystemTime};
+use std::{fs::{File, FileTimes, OpenOptions}, io, path::{Path, PathBuf}, process::Command, sync::atomic::{AtomicU64, Ordering}, time::{Duration, SystemTime}};
 
 const CLEANUP_IN_PROGRESS: u64 = u64::MAX;
 
@@ -96,6 +96,14 @@ impl Faketime {
                     .set_modified(time)
             )?;
         Ok(())
+    }
+
+    pub fn advance_time(&self, duration: Duration) -> Result<(), io::Error> {
+        let modified = self.timestamp_file
+            .metadata()?
+            .modified()?;
+
+        self.set_time(modified + duration)
     }
 }
 

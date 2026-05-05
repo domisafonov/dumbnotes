@@ -15,7 +15,7 @@ use unix::check_secret_file_rw_access;
 use crate::file_watcher::{FileWatchGuard, FileWatcher, ProductionFileWatcher};
 use crate::file_watcher::Event;
 use crate::file_watcher::FileWatcherError;
-use crate::app_constants::{REFRESH_TOKEN_GC_TIME, SESSION_STORAGE_PATH};
+use crate::app_constants::{REFRESH_TOKEN_VALIDITY_TIME, SESSION_STORAGE_PATH};
 use crate::session_storage::internal::io_trait::{ProductionSessionStorageIo, SessionStorageIo};
 use crate::session_storage::{Session, SessionStorage, SessionStorageError};
 
@@ -189,7 +189,7 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
                     let user_sessions: Vec<_> = sessions
                         .iter()
                         .filter_map(|session| {
-                            if session.expires_at + REFRESH_TOKEN_GC_TIME <= now {
+                            if session.expires_at + REFRESH_TOKEN_VALIDITY_TIME <= now {
                                 None
                             } else {
                                 Some(Self::session_to_session_data(session))
@@ -274,6 +274,9 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorage for SessionStorageImpl
         let mut state = self.state.write().await;
         let session = state.token_to_session_cache
             .get(refresh_token)
+            .filter(|s|
+                s.expires_at + REFRESH_TOKEN_VALIDITY_TIME > self.io.get_time()
+            )
             .ok_or(SessionStorageError::SessionNotFound)?;
         info!(
             "refreshing session {} for user \"{}\", expires at {expires_at}",

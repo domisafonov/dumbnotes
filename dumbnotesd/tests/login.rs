@@ -8,7 +8,7 @@ use reqwest::StatusCode;
 use tap::Tap;
 use test_utils::{RQ, data::MOCK_JWT_KEY_VERIFIER, setup_basic_config_with_keys_and_data};
 
-use crate::common::{assert_http_post_error, assert_login_error, assert_maybe_www_authenticate, assert_refresh_error, assert_www_authenticate, call_login, login, logout, refresh_token, shutdown_assert_no_errors, shutdown_assert_no_errors_except, spawn_daemon, spawn_daemon_faketime, url};
+use crate::common::{assert_http_get_error, assert_http_post_error, assert_login_error, assert_maybe_www_authenticate, assert_refresh_error, assert_www_authenticate, call_login, login, logout, refresh_token, shutdown_assert_no_errors, shutdown_assert_no_errors_except, spawn_daemon, spawn_daemon_faketime, url};
 
 mod common;
 
@@ -253,7 +253,9 @@ fn renew_sending_auth_header() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn multiple_logins_tokens_are_unrelated_in_access_and_logout() -> Result<(), Box<dyn Error>> {
+fn multiple_logins_tokens_are_unrelated_in_access_and_logout()
+    -> Result<(), Box<dyn Error>>
+{
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader) = spawn_daemon(&dir)?;
 
@@ -376,12 +378,23 @@ fn multiple_logins_tokens_are_unrelated_in_access_and_logout() -> Result<(), Box
 }
 
 #[test]
-#[ignore = "test faking time"]
 fn expired_token() -> Result<(), Box<dyn Error>> {
     let dir = setup_basic_config_with_keys_and_data();
     let (mut child, reader, faketime) = spawn_daemon_faketime(&dir)?;
 
-    // TODO
+    let username = UsernameString::from_str("abc")?;
+
+    let login = login(&username, "123")?;
+    faketime.advance_time(Duration::from_mins(15))?;
+
+    assert_http_get_error::<()>(
+        url("notes/"),
+        Some(&login.access_token),
+        (),
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+    refresh_token(username, login.refresh_token)?;
 
     shutdown_assert_no_errors(&mut child, reader)?;
     drop(faketime);
@@ -389,15 +402,44 @@ fn expired_token() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-#[ignore = "test faking time"]
 fn expired_renew_token() -> Result<(), Box<dyn Error>> {
-    todo!()
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader, faketime) = spawn_daemon_faketime(&dir)?;
+
+    let username = UsernameString::from_str("abc")?;
+
+    let login = login(&username, "123")?;
+    faketime.advance_time(
+        Duration::from_hours(24 * 7 * 5) + Duration::from_mins(15)
+    )?;
+
+    assert_refresh_error(
+        username,
+        login.refresh_token,
+        StatusCode::UNAUTHORIZED,
+        Some(Unauthorized::InvalidToken),
+    )?;
+
+    shutdown_assert_no_errors(&mut child, reader)?;
+    drop(faketime);
+    Ok(())
 }
 
 #[test]
-#[ignore = "test faking time"]
 fn renew_with_access_token_expired() -> Result<(), Box<dyn Error>> {
-    todo!()
+    let dir = setup_basic_config_with_keys_and_data();
+    let (mut child, reader, faketime) = spawn_daemon_faketime(&dir)?;
+
+    let username = UsernameString::from_str("abc")?;
+
+    let login = login(&username, "123")?;
+    faketime.advance_time(Duration::from_mins(15 + 1))?;
+
+    refresh_token(username, login.refresh_token)?;
+
+    shutdown_assert_no_errors(&mut child, reader)?;
+    drop(faketime);
+    Ok(())
 }
 
 #[test]
