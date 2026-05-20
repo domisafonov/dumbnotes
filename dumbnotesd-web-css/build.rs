@@ -1,17 +1,24 @@
-use std::{env, ffi::OsString, io, path::PathBuf, process::{Command, Stdio}};
+use std::{env, io, path::PathBuf};
 
 use tap::Tap;
 
-const CSS_NAME: &str = "dumbnotesd-web.css";
+const CSS_NAME: &str = "dumbnotesd-web";
+
+#[cfg(not(target_os = "openbsd"))]
 const TEMPLATES_PATH: &str = "../dumbnotesd/templates";
 
-// TODO: extract into a module
+#[cfg(not(target_os = "openbsd"))]
 fn main() -> io::Result<()> {
+    use std::ffi::OsString;
+    use std::process::{Command, Stdio};
+
+    let filename = CSS_NAME.to_string() + ".css";
+
     println!("cargo::rerun-if-changed=package.json");
     println!("cargo::rerun-if-changed=pnpm-lock.json");
     println!("cargo::rerun-if-changed=pnpm-workspace.json");
     println!("cargo::rerun-if-changed=node_modules");
-    println!("cargo::rerun-if-changed={CSS_NAME}");
+    println!("cargo::rerun-if-changed={filename}");
 
     assert!(
         PathBuf::from(TEMPLATES_PATH).is_dir(),
@@ -28,10 +35,14 @@ fn main() -> io::Result<()> {
 
     let status = Command::new("pnx")
         .arg("@tailwindcss/cli")
-        .arg("--minify")
+        .tap_mut(|c|
+            if env::var_os("CARGO_CFG_DEBUG_ASSERTIONS").is_none() {
+                c.arg("--minify");
+            }
+        )
         .arg(
             OsString::from("--input=")
-                .tap_mut(|arg| arg.push(CSS_NAME))
+                .tap_mut(|arg| arg.push(&filename))
         )
         .arg(
             OsString::from("--output=")
@@ -42,12 +53,40 @@ fn main() -> io::Result<()> {
                                 env::var_os("OUT_DIR")
                                     .expect("build directory not found")
                             )
-                            .tap_mut(|path| path.push(CSS_NAME))
+                            .tap_mut(|path| path.push(&filename))
                     )
                 )
         )
         .status()?;
-    assert!(status.success(), "failed compiling {CSS_NAME}");
+    assert!(status.success(), "failed compiling {filename}");
+
+    Ok(())
+}
+
+#[cfg(target_os = "openbsd")]
+fn main() -> io::Result<()> {
+    use std::fs;
+
+    let variant = if env::var_os("CARGO_CFG_DEBUG_ASSERTIONS").is_some() {
+        ".debug"
+    } else {
+        ".release"
+    };
+    let filename = CSS_NAME.to_string()
+        + variant
+        + ".css";
+
+    println!("cargo::rerun-if-changed={filename}");
+
+    fs::copy(
+        &filename,
+        PathBuf
+            ::from(
+                env::var_os("OUT_DIR")
+                    .expect("build directory not found")
+            )
+            .tap_mut(|path| path.push(CSS_NAME.to_string() + ".css"))
+    ).expect("failed copying built css into the OUT_DIR");
 
     Ok(())
 }

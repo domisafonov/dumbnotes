@@ -30,4 +30,4 @@ cargo build\
     --bin dumbnotesd-auth\
     --bin dumbnotes-gen
 
-mktemp
+// TODO
