@@ -110,6 +110,10 @@ fn generate_hash(
             &app_config.hasher_config.pepper_path,
             Permissions::R,
         );
+        unveil(
+            "/dev/tty",
+            Permissions::R | Permissions::W,
+        );
         seal_unveil();
         pledge_gen_hash();
     }

@@ -56,7 +56,8 @@ pub fn pledge_gen_key() {
 pub fn pledge_gen_hash() {
     trace!("pledging for generating a password hash");
     pledge(
-        Some("stdio rpath tty"),
+        // wpath is needed since 7.9 for rpassword to function
+        Some("stdio rpath wpath tty"),
         None,
     )
 }

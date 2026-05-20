@@ -8,9 +8,10 @@ use log::trace;
 use crate::error_exit;
 
 pub fn unveil(
-    path: &Path,
+    path: impl AsRef<Path>,
     permissions: Permissions,
 ) {
+    let path: &Path = path.as_ref();
     trace!("unveiling path {}", path.display());
     unsafe { unveil_raw(Some(path), Some(permissions)) }
         .unwrap_or_else(|e|
