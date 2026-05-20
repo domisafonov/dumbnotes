@@ -3,3 +3,4 @@
 **/.DS_Store
 /test
 /lsp-settings.json
+**/node_modules

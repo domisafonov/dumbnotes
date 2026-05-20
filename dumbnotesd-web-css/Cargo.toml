@@ -1,0 +1,13 @@
+[package]
+name = "dumbnotesd-web-css"
+version.workspace = true
+edition.workspace = true
+include = [
+    "dumbnotesd-web.css"
+]
+
+[build-dependencies]
+tap.workspace = true
+
+[lints]
+workspace = true

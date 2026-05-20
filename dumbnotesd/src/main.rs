@@ -19,6 +19,8 @@ use log::info;
 use dumbnotes::sandbox::daemonize::daemonize;
 use unix::{is_root, set_umask};
 
+rust_i18n::i18n!();
+
 fn main() {
     #[cfg(target_os = "openbsd")] pledge_init();
     set_umask();
