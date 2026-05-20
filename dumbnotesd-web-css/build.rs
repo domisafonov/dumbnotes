@@ -8,7 +8,8 @@ const TEMPLATES_PATH: &str = "../dumbnotesd/templates";
 // TODO: extract into a module
 fn main() -> io::Result<()> {
     println!("cargo::rerun-if-changed=package.json");
-    println!("cargo::rerun-if-changed=package-lock.json");
+    println!("cargo::rerun-if-changed=pnpm-lock.json");
+    println!("cargo::rerun-if-changed=pnpm-workspace.json");
     println!("cargo::rerun-if-changed=node_modules");
     println!("cargo::rerun-if-changed={CSS_NAME}");
 
@@ -18,14 +19,14 @@ fn main() -> io::Result<()> {
     );
     println!("cargo::rerun-if-changed={TEMPLATES_PATH}");
 
-    let status = Command::new("npm")
+    let status = Command::new("pnpm")
         .arg("ci")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .status()?;
     assert!(status.success(), "failed installing tailwindcss");
 
-    let status = Command::new("npx")
+    let status = Command::new("pnx")
         .arg("@tailwindcss/cli")
         .arg("--minify")
         .arg(
