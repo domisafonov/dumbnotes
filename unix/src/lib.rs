@@ -133,7 +133,12 @@ fn recursive_check_secret_parent_access(
     // TODO: the integration tests use tmp directories, on Linux this means
     //  eventually reaching a parent with o+w permissions
     //  this will be fixed by chrooting the tests
-    if cfg!(all(target_os = "linux", integration_test))
+    if cfg!(
+            any(
+                all(target_os = "linux", integration_test),
+                test_env,
+            )
+        )
         && let Some(path) = path
         && path == AsRef::<Path>::as_ref("/tmp")
     {

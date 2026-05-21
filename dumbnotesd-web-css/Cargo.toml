@@ -3,7 +3,12 @@ name = "dumbnotesd-web-css"
 version.workspace = true
 edition.workspace = true
 include = [
-    "dumbnotesd-web.css"
+    "dumbnotesd-web.css",
+    "dumbnotesd-web.debug.css",
+    "dumbnotesd-web.release.css",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
 ]
 
 [build-dependencies]

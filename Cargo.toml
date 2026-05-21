@@ -70,7 +70,7 @@ josekit = { git = "https://github.com/domisafonov/josekit-rs.git", branch = "lib
 rexpect = { git = "https://github.com/domisafonov/rexpect.git", branch = "openbsd" }
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(integration_test)'] }
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(integration_test)', 'cfg(test_env)'] }
 
 [profile.release]
 overflow-checks = true
@@ -80,3 +80,6 @@ panic = "abort"
 [profile.integration-test]
 inherits = "test"
 debug-assertions = false
+
+[profile.test-env]
+inherits = "dev"
