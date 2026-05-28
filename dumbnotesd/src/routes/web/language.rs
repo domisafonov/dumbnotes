@@ -1,23 +1,34 @@
-use std::{borrow::Cow, collections::HashSet, sync::LazyLock};
+use std::{collections::HashMap, sync::LazyLock};
 
 use async_trait::async_trait;
 use language_tags::LanguageTag;
 use rocket::{Request, outcome::try_outcome, request::{FromRequest, Outcome}};
 use rocket::http::hyper::header;
 use rust_i18n::available_locales;
+use smallvec::SmallVec;
 
-pub static SUPPORTED_LANGUAGES: LazyLock<HashSet<String>> = LazyLock::new(||
+pub static SUPPORTED_LANGUAGES: LazyLock<HashMap<String, LanguageTag>> = LazyLock::new(||
     available_locales!()
         .into_iter()
-        .map(Cow::into_owned)
+        .map(|l| {
+            let l = l.into_owned();
+            let tag = LanguageTag::parse(&l)
+                .unwrap_or_else(|e|
+                    panic!(
+                        "failed to parse language tag of supported locale \"{}\": {e}",
+                        &l,
+                    )
+                );
+            (l, tag)
+        })
         .collect()
 );
 
 // TODO: validation
-const DEFAULT_LOCALE_NAME: &str = "en";
+static DEFAULT_LOCALE_NAME: &str = "en";
 
 #[derive(Debug)]
-pub struct AcceptedLanguages(Box<[LanguageTag]>);
+pub struct AcceptedLanguages(pub SmallVec<[&'static LanguageTag; 4]>);
 
 #[async_trait]
 impl<'r> FromRequest<'r> for AcceptedLanguages {
@@ -28,7 +39,7 @@ impl<'r> FromRequest<'r> for AcceptedLanguages {
     ) -> Outcome<Self, Self::Error> {
         let languages_raw = request.headers()
             .get(header::ACCEPT_LANGUAGE.as_str())
-            .collect::<Vec<_>>()
+            .collect::<SmallVec<[_; 4]>>()
             .join(", ");
 
         let filtered = accept_language::parse(&languages_raw)
@@ -36,8 +47,9 @@ impl<'r> FromRequest<'r> for AcceptedLanguages {
             .filter_map(|l|
                 LanguageTag::parse(&l).ok()
             )
-            .filter(|l|
-                SUPPORTED_LANGUAGES.contains(l.primary_language())
+            .filter_map(|l|
+                SUPPORTED_LANGUAGES
+                    .get(l.primary_language())
             )
             .collect();
 
@@ -48,7 +60,7 @@ impl<'r> FromRequest<'r> for AcceptedLanguages {
 }
 
 #[derive(Debug)]
-pub struct BestLanguage(LanguageTag);
+pub struct BestLanguage(pub &'static LanguageTag);
 
 #[async_trait]
 impl<'r> FromRequest<'r> for BestLanguage {
@@ -63,8 +75,7 @@ impl<'r> FromRequest<'r> for BestLanguage {
                 list.into_iter()
                     .next()
                     .unwrap_or_else(||
-                        LanguageTag::parse(&DEFAULT_LOCALE_NAME)
-                            .expect("failed to find the default locale \"{DEFAULT_LOCALE_NAME}\"")
+                        &SUPPORTED_LANGUAGES[DEFAULT_LOCALE_NAME]
                     )
             )
         )

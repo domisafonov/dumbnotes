@@ -27,6 +27,7 @@ protobuf-common.path = "../protobuf-common"
 rocket.workspace = true
 rust-i18n.workspace = true
 serde_json.workspace = true
+smallvec.workspace = true
 tap.workspace = true
 thiserror.workspace = true
 time.workspace = true

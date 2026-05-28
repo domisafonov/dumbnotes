@@ -1,23 +1,44 @@
+mod static_content;
 mod language;
+mod translator;
+mod authentication_guard;
 
+use askama::Template;
+use rocket::response::Redirect;
 use rocket::{Build, Rocket, delete, get, post, routes};
 use rocket::response::content::RawHtml;
-use rust_i18n::t;
 use uuid::Uuid;
 use crate::app_constants::WEB_PREFIX;
+use crate::routes::web::language::BestLanguage;
+use crate::routes::web::static_content::WebStaticContentRocketBuildExt;
+use crate::routes::web::translator::{t, Translator};
 
-#[get("/")]
-fn web_stub() -> RawHtml<&'static str> {
-    RawHtml("<html><head><title>There be web></title></head><body>There be web</body></html>")
+#[derive(Debug, Template)]
+#[template(path = "login.html")]
+struct LoginPage {
+    t: Translator,
+}
+
+// #[get("/login")]
+// fn authenticated_login_redirect(
+//     _auth: Authenticated,
+// ) -> Redirect {
+//     Redirect::temporary(format!("{WEB_PREFIX}/login"))
+// }
+
+#[get("/login")]
+fn login_page(
+    language: BestLanguage,
+) -> RawHtml<String> {
+    RawHtml(
+        LoginPage { t: language.0.into() }
+            .render()
+            .unwrap()
+    )
 }
 
 #[get("/")]
 fn root() -> RawHtml<&'static str> {
-    t!("a");
-    todo!()
-}
-#[get("/login")]
-fn login_page() -> RawHtml<&'static str> {
     todo!()
 }
 #[post("/")]
@@ -44,10 +65,11 @@ pub trait WebRocketBuildExt {
 impl WebRocketBuildExt for Rocket<Build> {
     fn install_dumbnotes_web(self) -> Self {
         self
+            .install_dumbnotes_web_static_content()
             .mount(
                 WEB_PREFIX,
                 routes![
-                    web_stub,
+                    login_page,
                 ]
             )
     }
