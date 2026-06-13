@@ -1,15 +1,19 @@
 use dumbnotes::access_token::AccessTokenDecoder;
 use data::UsernameStr;
+use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
+use dumbnotes::gen_proto_ipc_wrappers;
+use dumbnotes::ipc::data::IpcOutput;
+use std::marker::PhantomData;
 use std::time::SystemTime;
 use async_trait::async_trait;
 use log::{debug, trace, warn};
 use tokio::net::UnixStream;
 use uuid::Uuid;
-use dumbnotes::ipc::auth::caller::{Caller, ProductionCaller};
+use dumbnotes::ipc::caller::{Caller, CallerImpl};
 use auth_ipc_data::model::login::{LoginRequest, LoginResponse};
 use auth_ipc_data::model::logout::{LogoutRequest, LogoutResponse};
 use auth_ipc_data::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
-use auth_ipc_data::bindings::{LoginError, LogoutError};
+use auth_ipc_data::bindings::{self, LoginError, LogoutError};
 
 mod errors;
 mod model;
@@ -42,12 +46,36 @@ pub trait AccessGranter: Send + Sync + 'static {
     ) -> Result<(), AccessGranterError>;
 }
 
-pub type ProductionAccessGranter = AccessGranterImpl<ProductionCaller>;
-
-pub struct AccessGranterImpl<C: Caller> {
+pub struct AccessGranterImpl<
+    Command: Send + Sync + 'static,
+    CommandContainer: prost::Message + 'static,
+    CommandWrapper: IpcOutput<Command, CommandContainer>,
+    Response: Send + Sync + 'static,
+    C: Caller<Command, CommandContainer, CommandWrapper, Response>,
+> {
     access_token_decoder: AccessTokenDecoder,
     caller: C,
+    _phantom: PhantomData<(Command, CommandContainer, CommandWrapper, Response)>,
 }
+
+type ProductionCaller = CallerImpl<
+    bindings::response::Response,
+    bindings::Response,
+    Response,
+>;
+
+pub type ProductionAccessGranter = AccessGranterImpl<
+    bindings::command::Command,
+    bindings::Command,
+    Command,
+    bindings::response::Response,
+    ProductionCaller,
+>;
+
+gen_proto_ipc_wrappers!(
+    bindings::Response[response] | bindings::response::Response => pub Response,
+    bindings::Command[command] | bindings::command::Command => pub Command,
+);
 
 impl ProductionAccessGranter {
     pub async fn new(
@@ -56,13 +84,23 @@ impl ProductionAccessGranter {
     ) -> Self {
         AccessGranterImpl {
             access_token_decoder,
-            caller: ProductionCaller::new(auth_socket).await,
+            caller: ProductionCaller
+                ::new(auth_socket, IPC_MESSAGE_MAX_SIZE)
+                .await,
+            _phantom: Default::default(),
         }
     }
 }
 
 #[async_trait]
-impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
+impl<
+    C: Caller<
+        bindings::command::Command,
+        bindings::Command,
+        Command,
+        bindings::response::Response
+    >,
+> AccessGranter for AccessGranterImpl<bindings::command::Command, bindings::Command, Command, bindings::response::Response, C> {
     async fn check_user_access(
         &self,
         auth_header_value: &str,
@@ -105,11 +143,13 @@ impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
         debug!("logging user \"{username}\" in");
         let response: LoginResponse = self.caller
             .execute(
-                auth_ipc_data::bindings::command::Command::Login(
-                    LoginRequest {
-                        username: username.to_owned(),
-                        password: password.to_owned(),
-                    }.into()
+                Command(
+                    bindings::command::Command::Login(
+                        LoginRequest {
+                            username: username.to_owned(),
+                            password: password.to_owned(),
+                        }.into()
+                    )
                 )
             )
             .await?
@@ -136,11 +176,13 @@ impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
         debug!("refreshing access token for user \"{username}\"");
         let response: RefreshTokenResponse = self.caller
             .execute(
-                auth_ipc_data::bindings::command::Command::RefreshToken(
-                    RefreshTokenRequest {
-                        username: username.to_owned(),
-                        refresh_token: refresh_token.to_owned(),
-                    }.into()
+                Command(
+                    bindings::command::Command::RefreshToken(
+                        RefreshTokenRequest {
+                            username: username.to_owned(),
+                            refresh_token: refresh_token.to_owned(),
+                        }.into()
+                    )
                 )
             )
             .await?
@@ -166,10 +208,12 @@ impl<C: Caller> AccessGranter for AccessGranterImpl<C> {
         debug!("deleting session {session_id}");
         let response: LogoutResponse = self.caller
             .execute(
-                auth_ipc_data::bindings::command::Command::Logout(
-                    LogoutRequest {
-                        session_id,
-                    }.into()
+                Command(
+                    bindings::command::Command::Logout(
+                        LogoutRequest {
+                            session_id,
+                        }.into()
+                    )
                 )
             )
             .await?

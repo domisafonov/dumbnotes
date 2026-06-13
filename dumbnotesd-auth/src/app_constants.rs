@@ -8,3 +8,5 @@ pub const REFRESH_TOKEN_VALIDITY_TIME: Duration = Duration::weeks(5);
 pub const ACCESS_TOKEN_VALIDITY_TIME: Duration = Duration::minutes(15);
 
 pub const FILE_WATCHER_DEBOUNCE_TIME: Duration = Duration::seconds(10);
+
+pub const SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1200);

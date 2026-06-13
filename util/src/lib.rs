@@ -1,12 +1,5 @@
-pub trait StrExt: AsRef<str> {
-    fn nonblank_to_some(&self) -> Option<String> {
-        Some(self.as_ref().trim())
-            .filter(|s| !s.is_empty())
-            .map(str::to_owned)
-    }
-}
-
-impl<T: AsRef<str>> StrExt for T {}
+use rand::{Rng, RngExt};
+use uuid::{Uuid, Variant, Version};
 
 // https://github.com/rust-lang/rust/issues/130113
 pub fn send_fut_lifetime_workaround<F: Future + Send>(
@@ -21,4 +14,11 @@ macro_rules! error_exit {
         log::error!($($args)*);
         std::process::exit(1)
     });
+}
+
+pub fn make_uuid<R: Rng>(rng: &mut R) -> Uuid {
+    uuid::Builder::from_random_bytes(rng.random())
+        .with_variant(Variant::RFC4122)
+        .with_version(Version::Random)
+        .into_uuid()
 }

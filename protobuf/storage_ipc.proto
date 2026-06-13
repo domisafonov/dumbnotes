@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package dumbnotes.storage_ipc.protobuf;
+
+message Command {
+    uint64 command_id = 1;
+    oneof command {
+        ReadNoteRequest read_note = 2;
+        WriteNoteRequest write_note = 3;
+        ListNotesRequest list_notes = 4;
+        GetNoteDetailsRequest get_note_details = 5;
+        DeleteNoteRequest delete_note = 6;
+    }
+}
+
+message Response {
+    uint64 command_id = 1;
+    oneof response {
+        ReadNoteResponse read_note = 2;
+        WriteNoteResponse write_note = 3;
+        ListNotesResponse list_notes = 4;
+        GetNoteDetailsResponse get_note_details = 5;
+        DeleteNoteResponse delete_note = 6;
+    }
+}
+
+message ReadNoteRequest {
+    string username = 1;
+    bytes note_id = 2;
+}
+
+message ReadNoteResponse {
+    oneof response {
+        Note note = 1;
+        StorageError error = 2;
+    }
+}
+
+message WriteNoteRequest {
+    string username = 1;
+    Note note = 2;
+}
+
+message WriteNoteResponse {
+    optional StorageError error = 1;
+}
+
+message ListNotesRequest {
+    string username = 1;
+}
+
+message ListNotesResponse {
+    oneof response {
+        NotesMetadata notes_info = 1;
+        StorageError error = 2;
+    }
+}
+
+message GetNoteDetailsRequest {
+    string username = 1;
+    NotesMetadata notes_metadata = 2;
+}
+
+message GetNoteDetailsResponse {
+    oneof response {
+        MaybeNotesInfo notes_info = 1;
+        StorageError error = 2;
+    }
+}
+
+message DeleteNoteRequest {
+    string username = 1;
+    bytes note_id = 2;
+}
+
+message DeleteNoteResponse {
+    optional StorageError error = 1;
+}
+
+message Note {
+    NoteInfo info = 1;
+    string contents = 2;
+}
+
+message MaybeNotesInfo {
+    repeated MaybeNoteInfo notes_info = 1;
+}
+
+message NotesMetadata {
+    repeated NoteMetadata notes_metadata = 1;
+}
+
+message NoteMetadata {
+    bytes id = 1;
+    int64 mtime = 2;
+}
+
+message NoteInfo {
+    NoteMetadata metadata = 1;
+    optional string name = 2;
+}
+
+message MaybeNoteInfo {
+    optional NoteInfo note_info = 1;
+}
+
+enum StorageError {
+    INTERNAL_ERROR = 0;
+    TOO_BIG = 1;
+    NOT_FOUND = 2;
+}

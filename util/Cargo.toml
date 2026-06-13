@@ -1,0 +1,11 @@
+[package]
+name = "util"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rand.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

@@ -4,6 +4,7 @@ use std::ffi::OsString;
 use std::io::ErrorKind;
 use std::ops::Add;
 use std::os::unix::prelude::*;
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 use time::UtcDateTime;
@@ -12,20 +13,20 @@ use tokio::io::AsyncReadExt;
 use uuid::fmt::Hyphenated;
 use uuid::Uuid;
 
-use crate::config::app_config::AppConfig;
 use data::{Note, NoteInfo, NoteMetadata};
 use crate::storage::errors::StorageError;
-use crate::util::{send_fut_lifetime_workaround, StrExt};
+use crate::util::StrExt;
+use util::send_fut_lifetime_workaround;
 
-use crate::lib_constants::NOTES_DIRECTORY_PATH;
-use crate::storage::internal::io_trait::OpenFile;
+use crate::app_constants::NOTES_DIRECTORY_PATH;
+use crate::storage::io_trait::OpenFile;
 use data::UsernameStr;
 use io_trait::NoteStorageIo;
 use io_trait::ProductionNoteStorageIo;
 use unix::errors::CheckAccessError;
 
 mod io_trait;
-#[cfg(test)] mod tests;
+pub mod errors;
 
 const HYPHENED_UUID_SIZE: usize = 36;
 const TMP_FILENAME_INFIX: &str = ".tmp.";
@@ -43,18 +44,20 @@ pub struct NoteStorageImpl<Io: NoteStorageIo> {
 
 impl NoteStorage {
     pub async fn new(
-        app_config: &AppConfig,
+        data_directory: impl AsRef<Path>,
+        max_note_size: u64,
+        max_note_name_size: u64,
     ) -> Result<NoteStorage, StorageError> {
         Self::new_internal(
-            Self::get_notes_dir(app_config),
-            app_config.max_note_size,
-            app_config.max_note_name_size,
+            Self::get_notes_dir(data_directory),
+            max_note_size,
+            max_note_name_size,
             ProductionNoteStorageIo::new(),
         ).await
     }
 
-    pub fn get_notes_dir(app_config: &AppConfig) -> PathBuf {
-        app_config.data_directory.join(NOTES_DIRECTORY_PATH)
+    pub fn get_notes_dir(data_directory: impl AsRef<Path>) -> PathBuf {
+        data_directory.as_ref().to_owned().join(NOTES_DIRECTORY_PATH)
     }
 }
 
@@ -259,18 +262,23 @@ impl<Io: NoteStorageIo> NoteStorageImpl<Io> {
             )).await
         )
     }
-    
+
     pub async fn delete_note(
         &self,
         username: &UsernameStr,
         id: Uuid,
     ) -> Result<(), StorageError> {
         debug!("deleting note {id} for user \"{username}\"");
-        Ok(
             self.io
                 .remove_file(self.get_note_path(username, id))
-                .await?
-        )
+                .await
+                .map_err(|e|
+                    if e.kind() == ErrorKind::NotFound {
+                        StorageError::NoteNotFound
+                    } else {
+                        e.into()
+                    }
+                )
     }
 
     fn get_user_dir(&self, username: &UsernameStr) -> PathBuf {

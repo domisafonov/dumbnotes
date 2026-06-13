@@ -5,7 +5,7 @@ use std::ptr::null;
 use bitflags::{bitflags, bitflags_match};
 use libc::{c_char, c_int};
 use log::trace;
-use crate::error_exit;
+use util::error_exit;
 
 pub fn unveil(
     path: impl AsRef<Path>,

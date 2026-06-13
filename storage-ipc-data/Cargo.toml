@@ -1,0 +1,19 @@
+
+[package]
+name = "storage-ipc-data"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+data.path = "../data"
+log.workspace = true
+prost.workspace = true
+protobuf-common.path = "../protobuf-common"
+time.workspace = true
+uuid.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+
+[lints]
+workspace = true

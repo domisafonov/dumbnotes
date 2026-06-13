@@ -13,8 +13,8 @@ pub struct CliConfig {
     #[arg(long, short = 'D', default_value_t = false)]
     pub daemonize: bool,
 
-    #[arg(long)]
-    pub socket_fd: RawFd,
+    #[arg(long, required = true, value_delimiter = ',')]
+    pub socket_fds: Vec<RawFd>,
 
     #[arg(long)]
     pub private_key_file: PathBuf,

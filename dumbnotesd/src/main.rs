@@ -4,6 +4,7 @@ mod routes;
 pub mod access_granter;
 mod app_setup;
 mod execute;
+pub mod storage_accessor;
 
 use std::path::PathBuf;
 
@@ -11,7 +12,7 @@ use crate::cli::CliConfig;
 use app_setup::AppSetupFairing;
 use clap::{crate_name, Parser};
 use dumbnotes::config::read::{read_app_config, ReadConfig};
-use dumbnotes::error_exit;
+use util::error_exit;
 use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
 use figment::Figment;
@@ -32,6 +33,10 @@ fn main() {
     }
 
     let authd_path = dumbnotes::ipc::exec::get_authd_executable_path()
+        .unwrap_or_else(|e|
+            error_exit!("failed to get authd executable path: {e}")
+        );
+    let storaged_path = dumbnotes::ipc::exec::get_storaged_executable_path()
         .unwrap_or_else(|e|
             error_exit!("failed to get authd executable path: {e}")
         );
@@ -84,6 +89,7 @@ fn main() {
                         app_config,
                         cli_config.is_daemonizing().into(),
                         authd_path,
+                        storaged_path,
                         temp_dir,
                     )
                 )

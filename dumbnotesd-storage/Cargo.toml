@@ -1,0 +1,25 @@
+[package]
+name = "dumbnotesd-storage"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+clap.workspace = true
+data.path = "../data"
+dumbnotes.path = "../dumbnotes"
+futures.workspace = true
+libc.workspace = true
+log.workspace = true
+protobuf-common.path = "../protobuf-common"
+rand.workspace = true
+storage-ipc-data.path = "../storage-ipc-data"
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+unix.path = "../unix"
+util.path = "../util"
+uuid.workspace = true
+
+[lints]
+workspace = true

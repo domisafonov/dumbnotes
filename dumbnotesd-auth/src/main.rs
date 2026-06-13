@@ -8,27 +8,22 @@ pub mod access_token_generator;
 pub mod file_watcher;
 
 use crate::access_token_generator::AccessTokenGenerator;
+use crate::app_constants::SHUTDOWN_TIMEOUT;
 use crate::cli::CliConfig;
 use clap::{crate_name, Parser};
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
-use dumbnotes::error_exit;
+use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
+use dumbnotes::ipc::launch_event_loops::launch_event_loops;
+use util::error_exit;
 use dumbnotes::hasher::{ProductionHasher, ProductionHasherConfig};
-use dumbnotes::ipc::auth::message_stream;
 use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_authd_init, pledge_authd_normal};
-#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};
 use file_watcher::ProductionFileWatcher;
 use josekit::jwk::Jwk;
 use log::info;
 use session_storage::ProductionSessionStorage;
-use socket2::Socket;
 use std::error::Error;
-use std::io;
-use std::os::fd::FromRawFd;
-use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::Path;
-use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::UnixStream;
 use unix::{check_secret_file_ro_access, set_umask};
 use user_db::ProductionUserDb;
 
@@ -40,6 +35,8 @@ async fn main() {
     let config = CliConfig::parse();
     let hasher_config = parse_hasher_config(&config);
     #[cfg(target_os = "openbsd")] {
+        use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};
+
         unveil(
             &std::path::PathBuf::from("/dev/log"),
             Permissions::W,
@@ -67,34 +64,32 @@ async fn main() {
 
     info!("{} starting up", crate_name!());
 
-    let (read_socket, write_socket) = make_sockets(&config);
-    let watcher = ProductionFileWatcher::new()
-        .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
-    let hasher = make_hasher(hasher_config);
-
-    let the_loop = eventloop::process_commands(
-        make_token_generator(&config),
-        make_user_db(
-            &config,
-            hasher,
-            watcher.clone(),
-        ).await,
-        make_session_storage(
-            &config,
-            watcher,
-        ).await,
-        message_stream::stream(read_socket),
-        write_socket,
-    );
-
-    #[cfg(target_os = "openbsd")] pledge_authd_normal();
-    let result = tokio::spawn(the_loop).await;
-
-    if let Err(e) = result {
-        error_exit!("event loop finished with error: {e}")
-    }
-
-    info!("{} terminating normally", crate_name!());
+    launch_event_loops(
+        crate_name!(),
+        config.socket_fds.clone(),
+        async move || {
+            let watcher = ProductionFileWatcher::new()
+                .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
+            eventloop::State {
+                token_generator: make_token_generator(&config),
+                user_db: make_user_db(
+                    &config,
+                    make_hasher(&hasher_config),
+                    watcher.clone(),
+                ).await,
+                session_storage: make_session_storage(&config, watcher).await,
+            }
+        },
+        |state, stream, write_socket|
+            eventloop::process_commands(
+                state,
+                stream,
+                write_socket,
+            ),
+        IPC_MESSAGE_MAX_SIZE,
+        || { #[cfg(target_os = "openbsd")] pledge_authd_normal() },
+        SHUTDOWN_TIMEOUT,
+    ).await;
 }
 
 fn parse_hasher_config(config: &CliConfig) -> ProductionHasherConfigData {
@@ -106,32 +101,21 @@ fn parse_hasher_config(config: &CliConfig) -> ProductionHasherConfigData {
 }
 
 fn make_hasher(
-    hasher_config: ProductionHasherConfigData,
+    hasher_config: &ProductionHasherConfigData,
 ) -> ProductionHasher {
     let params: argon2::Params = hasher_config.make_params().unwrap_or_else(|e| {
         error_exit!("hasher config read failed: {e}")
     });
     ProductionHasher
-        ::new(ProductionHasherConfig::new(params, hasher_config.pepper_path))
+        ::new(
+            ProductionHasherConfig
+                ::new(
+                    params,
+                    hasher_config.pepper_path.to_owned(),
+                )
+        )
         .unwrap_or_else(|e|
             error_exit!("failed to initialize the hasher {e}")
-        )
-}
-
-fn make_sockets(
-    config: &CliConfig,
-) -> (OwnedReadHalf, OwnedWriteHalf) {
-    fn make(config: &CliConfig) -> Result<(OwnedReadHalf, OwnedWriteHalf), io::Error> {
-        let command_socket = unsafe { Socket::from_raw_fd(config.socket_fd) };
-        command_socket.set_cloexec(true)?;
-        let command_socket = UnixStream::from_std(
-            StdUnixStream::from(command_socket),
-        )?;
-        Ok(command_socket.into_split())
-    }
-    make(config)
-        .unwrap_or_else(|e|
-            error_exit!("failed control socket setup: {}", e)
         )
 }
 

@@ -23,7 +23,7 @@ pub async fn process_login(
         request,
     ).await
         .unwrap_or_else(|e| {
-            error!("error processing login request: {}", e);
+            error!("error processing login request: {e}");
             LoginResponse(Err(LoginError::LoginInternalError))
         })
         .into()

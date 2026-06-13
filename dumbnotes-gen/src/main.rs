@@ -3,7 +3,7 @@ use crate::cli::CliConfig;
 use clap::Parser;
 use dumbnotes::config::app_config::AppConfig;
 use dumbnotes::config::read::{read_app_config, ReadConfig};
-use dumbnotes::error_exit;
+use util::error_exit;
 use dumbnotes::hasher::{Hasher, ProductionHasher, ProductionHasherConfig};
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_gen_init, pledge_gen_key, pledge_gen_hash};
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};

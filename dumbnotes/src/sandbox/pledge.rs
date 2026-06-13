@@ -1,7 +1,7 @@
 use std::ffi::{c_char, c_int, CString};
 use std::ptr::null;
 use log::trace;
-use crate::error_exit;
+use util::error_exit;
 
 pub fn pledge_init() {
     pledge(
@@ -58,6 +58,22 @@ pub fn pledge_gen_hash() {
     pledge(
         // wpath is needed since 7.9 for rpassword to function
         Some("stdio rpath wpath tty"),
+        None,
+    )
+}
+
+// unix is for initializing syslog
+pub fn pledge_storage_init() {
+    pledge(
+        Some("stdio rpath wpath cpath unix getpw unveil"),
+        None,
+    )
+}
+
+pub fn pledge_storage_normal() {
+    trace!("pledging for continuous operation");
+    pledge(
+        Some("stdio rpath wpath cpath"),
         None,
     )
 }

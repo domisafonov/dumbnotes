@@ -1,4 +1,4 @@
-use crate::rng::make_uuid;
+use util::make_uuid;
 use async_trait::async_trait;
 use std::os::unix::prelude::*;
 use std::path::Path;

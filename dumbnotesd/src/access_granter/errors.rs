@@ -1,5 +1,5 @@
 use thiserror::Error;
-use dumbnotes::ipc::auth::caller::CallerError;
+use dumbnotes::ipc::caller::CallerError;
 use protobuf_common::ProtobufRequestError;
 
 #[derive(Debug, Error)]
@@ -13,7 +13,7 @@ pub enum AccessGranterError {
     #[error("invalid credentials")]
     InvalidCredentials,
 
-    #[error("call the auth daemon failed")]
+    #[error("calling the auth daemon failed")]
     Caller(#[from] CallerError),
 
     #[error("auth daemon internal error")]

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use dumbnotes::rng::make_uuid;
+use util::make_uuid;
 use dumbnotesd_auth_data::session_storage::SessionsData;
 use rand::Rng;
 use std::os::unix::fs::MetadataExt;

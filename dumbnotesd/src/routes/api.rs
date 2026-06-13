@@ -4,19 +4,19 @@ use crate::access_granter::AccessGranter;
 use crate::access_granter::AccessGranterError;
 use crate::access_granter::LoginResult;
 use crate::app_constants::API_PREFIX;
+use crate::storage_accessor::StorageAccessor;
+use crate::storage_accessor::errors::StorageAccessorError;
 use api_data::http::header::UnauthorizedResponse;
 use api_data::http::status::{StatusExt, Unauthorized};
 use crate::routes::api::authentication_guard::{Authenticated, Unauthenticated};
 use api_data::model::{LoginRequest, LoginRequestSecret, LoginResponse, NoteListResponse, NoteResponse, NoteWriteRequest};
-use dumbnotes::storage::{NoteStorage, StorageError};
-use futures::TryFutureExt;
-use log::{debug, error, warn};
+use log::{debug, error};
 use rocket::http::Status;
 use rocket::response::content::RawText;
 use rocket::{catch, catchers, delete, get, post, put, routes, Build, Rocket, State};
 use uuid::Uuid;
 use data::{Note, NoteMetadata};
-use dumbnotes::util::send_fut_lifetime_workaround;
+use util::send_fut_lifetime_workaround;
 
 #[get("/version")]
 fn version() -> RawText<&'static str> {
@@ -97,26 +97,16 @@ async fn logout(
 #[get("/notes")]
 async fn get_users_notes(
     authenticated: Authenticated,
-    note_storage: &State<NoteStorage>,
+    note_storage: &State<Box<dyn StorageAccessor>>,
 ) -> Result<NoteListResponse, Status> {
     let result = note_storage
-        .list_notes(&authenticated.0.username)
-        .and_then(|notes_metadata| {
-            note_storage
-                .get_note_details(&authenticated.0.username, notes_metadata)
-        })
+        .get_users_notes(&authenticated.0.username)
         .await;
     match result {
         Ok(notes_info) => Ok(
             NoteListResponse {
                 notes_info: notes_info
                     .into_iter()
-                    .filter_map(|maybe_info| {
-                        if maybe_info.is_none() {
-                            warn!("no info could be read for a note");
-                        }
-                        maybe_info
-                    })
                     .collect(),
             }
         ),
@@ -130,18 +120,18 @@ async fn get_users_notes(
 #[get("/notes/<note_id>")]
 async fn get_note(
     authenticated: Authenticated,
-    note_storage: &State<NoteStorage>,
+    note_storage: &State<Box<dyn StorageAccessor>>,
     note_id: Uuid,
 ) -> Result<NoteResponse, Status> {
     let result =
         send_fut_lifetime_workaround(
-            note_storage.read_note(&authenticated.0.username, note_id)
+            note_storage.get_note(&authenticated.0.username, note_id)
         )
         .await;
     match result {
         Ok(note) => Ok(NoteResponse(note)),
         Err(e) => match e {
-            StorageError::NoteNotFound => {
+            StorageAccessorError::NotFound => {
                 debug!(
                     "no note found with id {note_id} for user \"{}\"",
                     authenticated.0.username,
@@ -161,12 +151,12 @@ async fn write_note(
     authenticated: Authenticated,
     note_id: Uuid,
     note: NoteWriteRequest,
-    note_storage: &State<NoteStorage>,
+    note_storage: &State<Box<dyn StorageAccessor>>,
 ) -> Result<(), Status> {
     let result = note_storage
         .write_note(
             &authenticated.0.username,
-            &Note {
+            Note {
                 metadata: NoteMetadata {
                     id: note_id,
                     mtime: note.mtime, // TODO: validate when we start writing it
@@ -189,7 +179,7 @@ async fn write_note(
 async fn delete_note(
     authenticated: Authenticated,
     note_id: Uuid,
-    note_storage: &State<NoteStorage>,
+    note_storage: &State<Box<dyn StorageAccessor>>,
 ) -> Result<(), Status> {
     let result = note_storage
         .delete_note(&authenticated.0.username, note_id)

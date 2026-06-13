@@ -13,7 +13,7 @@ pub fn execute<R, F>(
 }
 
 macro_rules! config_bail {
-    ($e:ident) => { dumbnotes::error_exit!("failed to load config: {}", $e) };
+    ($e:ident) => { util::error_exit!("failed to load config: {}", $e) };
 }
 
 fn async_main<R, F>(

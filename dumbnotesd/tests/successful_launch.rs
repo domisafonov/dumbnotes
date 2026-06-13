@@ -27,11 +27,18 @@ fn launch_and_stop() -> Result<(), Box<dyn Error>> {
     } else {
         String::new()
     };
+    let storaged_listening_str = "dumbnotesd-auth listening to commands";
+    let init3 = if !init1.contains(storaged_listening_str) && !init2.contains(storaged_listening_str) {
+        reader.wait_until(storaged_listening_str)?
+    } else {
+        String::new()
+    };
     child.kill_term()?;
     let remaining_output = reader.read_to_end()?;
     assert!(child.wait()?.success());
     assert!(!init1.contains("ERROR"));
     assert!(!init2.contains("ERROR"));
+    assert!(!init3.contains("ERROR"));
     assert!(!remaining_output.contains("ERROR"));
     Ok(())
 }

@@ -11,9 +11,6 @@ pub enum StorageError {
     #[error(transparent)]
     Io(#[from] IoError),
 
-    #[error("insufficient permissions to access storage")]
-    Permission,
-
     #[error("file too large")]
     TooBig,
     

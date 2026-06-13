@@ -1,6 +1,7 @@
-use std::os::fd::OwnedFd;
+use std::{io, os::fd::{FromRawFd, OwnedFd, RawFd}};
 use socket2::{Domain, Socket, Type};
-use tokio::net::UnixStream;
+use tokio::net::{UnixStream, unix::{OwnedReadHalf, OwnedWriteHalf}};
+use util::error_exit;
 use std::os::unix::net::UnixStream as StdUnixStream;
 
 pub fn create_socket_pair() -> Result<(UnixStream, OwnedFd), std::io::Error> {
@@ -22,4 +23,29 @@ pub fn create_socket_pair() -> Result<(UnixStream, OwnedFd), std::io::Error> {
             let childs_socket = OwnedFd::from(childs_socket);
             Ok((socket_to_child, childs_socket))
         })
+}
+
+pub fn create_socket_pairs(
+    count: usize,
+) -> Result<Vec<(UnixStream, OwnedFd)>, std::io::Error> {
+    (0..count)
+        .map(|_| create_socket_pair())
+        .collect::<Result<_, _>>()
+}
+
+pub fn discover_socket_pair(
+    socket_fd: RawFd,
+) -> (OwnedReadHalf, OwnedWriteHalf) {
+    fn make(socket_fd: RawFd) -> Result<(OwnedReadHalf, OwnedWriteHalf), io::Error> {
+        let command_socket = unsafe { Socket::from_raw_fd(socket_fd) };
+        command_socket.set_cloexec(true)?;
+        let command_socket = UnixStream::from_std(
+            StdUnixStream::from(command_socket),
+        )?;
+        Ok(command_socket.into_split())
+    }
+    make(socket_fd)
+        .unwrap_or_else(|e|
+            error_exit!("failed control socket setup: {}", e)
+        )
 }

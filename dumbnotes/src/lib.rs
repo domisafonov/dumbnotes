@@ -2,10 +2,7 @@
 //  for local editing)
 
 pub mod config;
-pub mod storage;
-pub mod util;
 mod lib_constants;
-pub mod rng;
 pub mod bin_constants;
 pub mod hasher;
 pub mod logging;

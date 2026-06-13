@@ -15,9 +15,8 @@ fn main() -> io::Result<()> {
     let filename = CSS_NAME.to_string() + ".css";
 
     println!("cargo::rerun-if-changed=package.json");
-    println!("cargo::rerun-if-changed=pnpm-lock.json");
-    println!("cargo::rerun-if-changed=pnpm-workspace.json");
-    println!("cargo::rerun-if-changed=node_modules");
+    println!("cargo::rerun-if-changed=pnpm-lock.yaml");
+    println!("cargo::rerun-if-changed=pnpm-workspace.yaml");
     println!("cargo::rerun-if-changed={filename}");
 
     assert!(
