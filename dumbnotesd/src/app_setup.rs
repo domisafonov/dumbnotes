@@ -206,14 +206,6 @@ impl Fairing for AppSetupFairing {
 
         #[cfg(target_os = "openbsd")] {
             unveil(
-                &NoteStorage::get_notes_dir(&self.app_config),
-                Permissions::C | Permissions::R | Permissions::W,
-            );
-            unveil(
-                &self.app_config.user_db,
-                Permissions::R,
-            );
-            unveil(
                 &self.app_config.jwt_public_key,
                 Permissions::R,
             );
