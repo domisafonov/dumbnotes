@@ -182,6 +182,8 @@ async fn make_access_token_validator(
 ) -> AccessTokenValidator {
     AccessTokenValidator::new(
         AccessTokenDecoder::from_jwk(jwt_public_key)
-            .unwrap_or_else(|e| error_exit!(""))
+            .unwrap_or_else(|e|
+                error_exit!("could not initialize access token decoder: {e}")
+            )
     )
 }

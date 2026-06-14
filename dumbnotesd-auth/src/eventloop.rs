@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use clap::crate_name;
 use protobuf_common::ProtobufRequestError;
-use toml::value::Array;
 use crate::session_storage::SessionStorage;
 use crate::user_db::UserDb;
 use tokio::net::unix::OwnedWriteHalf;

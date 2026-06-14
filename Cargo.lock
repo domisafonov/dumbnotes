@@ -826,6 +826,7 @@ dependencies = [
  "data",
  "dumbnotes",
  "futures",
+ "josekit",
  "libc",
  "log",
  "protobuf-common",

@@ -9,6 +9,7 @@ clap.workspace = true
 data.path = "../data"
 dumbnotes.path = "../dumbnotes"
 futures.workspace = true
+josekit.workspace = true
 libc.workspace = true
 log.workspace = true
 protobuf-common.path = "../protobuf-common"

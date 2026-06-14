@@ -19,6 +19,9 @@ pub enum StorageAccessorError {
 
     #[error(transparent)]
     ProtobufError(#[from] ProtobufRequestError),
+
+    #[error("invalid credentials")]
+    InvalidCredentials
 }
 
 impl From<StorageError> for StorageAccessorError {
@@ -27,6 +30,7 @@ impl From<StorageError> for StorageAccessorError {
             StorageError::InternalError => StorageAccessorError::StorageDaemonInternalError,
             StorageError::TooBig => StorageAccessorError::TooBig,
             StorageError::NotFound => StorageAccessorError::NotFound,
+            StorageError::InvalidCredentials => StorageAccessorError::InvalidCredentials,
         }
     }
 }

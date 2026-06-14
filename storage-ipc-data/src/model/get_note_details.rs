@@ -1,6 +1,4 @@
-use std::str::FromStr;
-
-use data::{NoteInfo, NoteMetadata, UsernameString};
+use data::{NoteInfo, NoteMetadata};
 use log::error;
 use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
 use crate::bindings::{self, NotesMetadata};
@@ -8,7 +6,7 @@ use bindings::StorageError;
 
 #[derive(Debug)]
 pub struct GetNoteDetailsRequest {
-    pub username: UsernameString,
+    pub access_token: String,
     pub notes_metadata: Vec<NoteMetadata>,
 }
 
@@ -23,7 +21,7 @@ impl TryFrom<bindings::GetNoteDetailsRequest> for GetNoteDetailsRequest {
     fn try_from(value: bindings::GetNoteDetailsRequest) -> Result<Self, ProtobufRequestError> {
         Ok(
             GetNoteDetailsRequest {
-                username: UsernameString::from_str(&value.username)?,
+                access_token: value.access_token,
                 notes_metadata: value.notes_metadata
                     .ok_or_mapping_error(MappingError::missing("notes_metadata"))?
                     .notes_metadata
@@ -75,7 +73,7 @@ impl TryFrom<bindings::response::Response> for GetNoteDetailsResponse {
 impl From<GetNoteDetailsRequest> for bindings::GetNoteDetailsRequest {
     fn from(value: GetNoteDetailsRequest) -> Self {
         bindings::GetNoteDetailsRequest {
-            username: value.username.into_string(),
+            access_token: value.access_token,
             notes_metadata: Some(
                 NotesMetadata {
                     notes_metadata: value.notes_metadata

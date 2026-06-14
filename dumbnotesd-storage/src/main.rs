@@ -5,11 +5,12 @@ mod processors;
 mod storage;
 mod util;
 
-use std::path::Path;
+use std::{error::Error, path::Path};
 
 use clap::{Parser, crate_name};
-use dumbnotes::{bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, ipc::{launch_event_loops::launch_event_loops}, logging::init_daemon_logging};
+use dumbnotes::{access_token::{AccessTokenDecoder, AccessTokenValidator}, bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, ipc::launch_event_loops::launch_event_loops, logging::init_daemon_logging};
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_storage_init, pledge_storage_normal};
+use josekit::jwk::Jwk;
 use log::info;
 use storage::{errors::*, NoteStorage};
 use unix::set_umask;
@@ -54,6 +55,14 @@ async fn async_main() -> i32 {
                     config.max_note_len,
                     config.max_note_name_len,
                 ).await,
+                access_token_validator: make_access_token_validator(
+                    &read_jwt_key(&config.public_key_file)
+                        .unwrap_or_else(|e|
+                            error_exit!(
+                                "failed to read the jwt private key: {e}",
+                            )
+                        ),
+                ).await,
             }
         },
         eventloop::process_commands,
@@ -81,6 +90,21 @@ async fn make_note_storage(
                 data_directory.as_ref().display(),
             )
         )
+}
+
+fn read_jwt_key(path: &Path) -> Result<Jwk, Box<dyn Error>> {
+    Ok(Jwk::from_bytes(std::fs::read(path)?)?)
+}
+
+async fn make_access_token_validator(
+    jwt_public_key: &Jwk,
+) -> AccessTokenValidator {
+    AccessTokenValidator::new(
+        AccessTokenDecoder::from_jwk(jwt_public_key)
+            .unwrap_or_else(|e|
+                error_exit!("could not initialize access token decoder: {e}")
+            )
+    )
 }
 
 fn main() {

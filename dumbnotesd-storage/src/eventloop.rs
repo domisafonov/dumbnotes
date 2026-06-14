@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use clap::crate_name;
-use dumbnotes::{bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
+use dumbnotes::{access_token::AccessTokenValidator, bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
 use futures::stream::BoxStream;
 use protobuf_common::ProtobufRequestError;
 use storage_ipc_data::bindings;
@@ -11,6 +11,7 @@ use crate::{processors::{process_delete_note, process_get_note_details, process_
 
 pub struct State {
     pub note_storage: NoteStorage,
+    pub access_token_validator: AccessTokenValidator,
 }
 
 pub async fn process_commands(
@@ -38,22 +39,27 @@ async fn dispatch_command(
     let response = match command {
         CE::ReadNote(request) => process_read_note(
             &state.note_storage,
+            &state.access_token_validator,
             request.try_into()?,
         ).await,
         CE::WriteNote(request) => process_write_note(
             &state.note_storage,
+            &state.access_token_validator,
             request.try_into()?,
         ).await,
         CE::ListNotes(request) => process_list_notes(
             &state.note_storage,
+            &state.access_token_validator,
             request.try_into()?
         ).await,
         CE::GetNoteDetails(request) => process_get_note_details(
             &state.note_storage,
+            &state.access_token_validator,
             request.try_into()?,
         ).await,
         CE::DeleteNote(request) => process_delete_note(
             &state.note_storage,
+            &state.access_token_validator,
             request.try_into()?,
         ).await,
     };

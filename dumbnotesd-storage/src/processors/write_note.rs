@@ -1,3 +1,5 @@
+use dumbnotes::access_token::{AccessTokenData, AccessTokenValidator};
+use dumbnotes::check_access_token;
 use log::{error, trace};
 use storage_ipc_data::bindings::StorageError;
 use storage_ipc_data::model::write_note::{WriteNoteRequest, WriteNoteResponse};
@@ -8,10 +10,12 @@ use crate::StorageError as SE;
 
 pub async fn process_write_note(
     note_storage: &NoteStorage,
+    access_token_validator: &AccessTokenValidator,
     request: WriteNoteRequest,
 ) -> storage_ipc_data::bindings::response::Response {
     process_write_note_impl(
         note_storage,
+        access_token_validator,
         request,
     ).await
         .unwrap_or_else(|e| {
@@ -23,9 +27,18 @@ pub async fn process_write_note(
 
 async fn process_write_note_impl(
     note_storage: &NoteStorage,
+    access_token_validator: &AccessTokenValidator,
     request: WriteNoteRequest,
 ) -> Result<WriteNoteResponse, WriteNoteError> {
-    let WriteNoteRequest { username, note } = request;
+    let WriteNoteRequest { access_token, note } = request;
+
+    let AccessTokenData { username, .. } = check_access_token!(
+        "write note",
+        access_token_validator,
+        access_token,
+        WriteNoteResponse(Some(StorageError::InvalidCredentials)),
+    );
+
     trace!("writing note \"{note:?}\" for user \"{username}\"");
     match note_storage.write_note(&username, &note).await {
         Ok(()) => Ok(WriteNoteResponse(None)),

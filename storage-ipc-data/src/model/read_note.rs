@@ -1,13 +1,11 @@
-use std::str::FromStr;
-
-use data::{Note, UsernameString};
+use data::Note;
 use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
 use uuid::Uuid;
 use crate::bindings;
 
 #[derive(Debug)]
 pub struct ReadNoteRequest {
-    pub username: UsernameString,
+    pub access_token: String,
     pub note_id: Uuid,
 }
 
@@ -21,7 +19,7 @@ impl TryFrom<bindings::ReadNoteRequest> for ReadNoteRequest {
     fn try_from(value: bindings::ReadNoteRequest) -> Result<Self, Self::Error> {
         Ok(
             ReadNoteRequest {
-                username: UsernameString::from_str(&value.username)?,
+                access_token: value.access_token,
                 note_id: Uuid::from_slice(&value.note_id)?,
             }
         )
@@ -50,7 +48,7 @@ impl TryFrom<bindings::response::Response> for ReadNoteResponse {
 impl From<ReadNoteRequest> for bindings::ReadNoteRequest {
     fn from(value: ReadNoteRequest) -> Self {
         bindings::ReadNoteRequest {
-            username: value.username.into_string(),
+            access_token: value.access_token,
             note_id: value.note_id.into_bytes().to_vec(),
         }
     }

@@ -1,4 +1,5 @@
-use dumbnotes::access_token::{AccessTokenData, AccessTokenValidator, AccessTokenValidatorError};
+use dumbnotes::access_token::{AccessTokenData, AccessTokenValidator};
+use dumbnotes::check_access_token;
 use log::{debug, error, info, warn};
 use thiserror::Error;
 use crate::session_storage::{SessionStorage, SessionStorageError};
@@ -26,28 +27,23 @@ async fn process_logout_impl(
 ) -> Result<LogoutResponse, LogoutProcessorError> {
     let LogoutRequest { access_token } = request;
 
-    match access_token_validator.check_access_token(&access_token) {
-        Ok(AccessTokenData { session_id, .. }) => {
-            debug!("deleting session {session_id}");
-            let did_exist = session_storage
-                .delete_session(session_id)
-                .await?;
-            if did_exist {
-                info!("session {session_id} deleted");
-            } else {
-                warn!("attempting to delete nonexistent session {session_id}");
-            }
-            Ok(LogoutResponse(None))
-        },
-        Err(AccessTokenValidatorError::InvalidToken(_)) => {
-            warn!("attempted logout using invalid access token: {access_token}");
-            Ok(LogoutResponse(Some(LogoutError::LogoutInvalidCredentials)))
-        },
-        Err(AccessTokenValidatorError::ExpiredToken(_)) => {
-            warn!("attempted logout using expired token");
-            Ok(LogoutResponse(Some(LogoutError::LogoutInvalidCredentials)))
-        },
+    let AccessTokenData { session_id, .. } = check_access_token!(
+        "logout",
+        access_token_validator,
+        access_token,
+        LogoutResponse(Some(LogoutError::LogoutInvalidCredentials)),
+    );
+
+    debug!("deleting session {session_id}");
+    let did_exist = session_storage
+        .delete_session(session_id)
+        .await?;
+    if did_exist {
+        info!("session {session_id} deleted");
+    } else {
+        warn!("attempting to delete nonexistent session {session_id}");
     }
+    Ok(LogoutResponse(None))
 }
 
 #[derive(Debug, Error)]

@@ -100,7 +100,7 @@ async fn get_users_notes(
     note_storage: &State<Box<dyn StorageAccessor>>,
 ) -> Result<NoteListResponse, Status> {
     let result = note_storage
-        .get_users_notes(&authenticated.0.username)
+        .get_users_notes(authenticated.0.raw_token)
         .await;
     match result {
         Ok(notes_info) => Ok(
@@ -125,7 +125,7 @@ async fn get_note(
 ) -> Result<NoteResponse, Status> {
     let result =
         send_fut_lifetime_workaround(
-            note_storage.get_note(&authenticated.0.username, note_id)
+            note_storage.get_note(authenticated.0.raw_token, note_id)
         )
         .await;
     match result {
@@ -155,7 +155,7 @@ async fn write_note(
 ) -> Result<(), Status> {
     let result = note_storage
         .write_note(
-            &authenticated.0.username,
+            authenticated.0.raw_token,
             Note {
                 metadata: NoteMetadata {
                     id: note_id,
@@ -182,7 +182,7 @@ async fn delete_note(
     note_storage: &State<Box<dyn StorageAccessor>>,
 ) -> Result<(), Status> {
     let result = note_storage
-        .delete_note(&authenticated.0.username, note_id)
+        .delete_note(authenticated.0.raw_token, note_id)
         .await;
     match result {
         Ok(_) => Ok(()),

@@ -1,13 +1,11 @@
-use std::str::FromStr;
-
-use data::{Note, UsernameString};
+use data::Note;
 use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
 
 use crate::bindings::{self, StorageError};
 
 #[derive(Debug)]
 pub struct WriteNoteRequest {
-    pub username: UsernameString,
+    pub access_token: String,
     pub note: Note,
 }
 
@@ -19,7 +17,7 @@ impl TryFrom<bindings::WriteNoteRequest> for WriteNoteRequest {
     fn try_from(value: bindings::WriteNoteRequest) -> Result<Self, Self::Error> {
         Ok(
             WriteNoteRequest {
-                username: UsernameString::from_str(&value.username)?,
+                access_token: value.access_token,
                 note: value.note
                     .ok_or_mapping_error(MappingError::missing("note"))?
                     .try_into()?,
@@ -46,7 +44,7 @@ impl TryFrom<bindings::response::Response> for WriteNoteResponse {
 impl From<WriteNoteRequest> for bindings::WriteNoteRequest {
     fn from(value: WriteNoteRequest) -> Self {
         bindings::WriteNoteRequest {
-            username: value.username.into_string(),
+            access_token: value.access_token,
             note: Some(value.note.into()),
         }
     }

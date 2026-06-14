@@ -1,6 +1,3 @@
-use std::str::FromStr;
-
-use data::UsernameString;
 use protobuf_common::{MappingError, ProtobufRequestError};
 use uuid::Uuid;
 use crate::bindings;
@@ -8,7 +5,7 @@ use bindings::StorageError;
 
 #[derive(Debug)]
 pub struct DeleteNoteRequest {
-    pub username: UsernameString,
+    pub access_token: String,
     pub note_id: Uuid,
 }
 
@@ -20,7 +17,7 @@ impl TryFrom<bindings::DeleteNoteRequest> for DeleteNoteRequest {
     fn try_from(value: bindings::DeleteNoteRequest) -> Result<Self, Self::Error> {
         Ok(
             DeleteNoteRequest {
-                username: UsernameString::from_str(&value.username)?,
+                access_token: value.access_token,
                 note_id: Uuid::from_slice(&value.note_id)?,
             }
         )
@@ -45,7 +42,7 @@ impl TryFrom<bindings::response::Response> for DeleteNoteResponse {
 impl From<DeleteNoteRequest> for bindings::DeleteNoteRequest {
     fn from(value: DeleteNoteRequest) -> Self {
         bindings::DeleteNoteRequest {
-            username: value.username.into_string(),
+            access_token: value.access_token,
             note_id: value.note_id.into_bytes().to_vec(),
         }
     }

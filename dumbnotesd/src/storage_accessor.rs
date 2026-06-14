@@ -2,9 +2,9 @@ pub mod errors;
 
 use std::marker::PhantomData;
 
-use data::{Note, NoteInfo, UsernameStr};
+use data::{Note, NoteInfo};
 use dumbnotes::{bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::{caller::{Caller, CallerImpl}, data::IpcOutput}};
-use log::{debug, error, warn};
+use log::{error, warn};
 use rocket::async_trait;
 use storage_ipc_data::{bindings, model::{delete_note::{DeleteNoteRequest, DeleteNoteResponse}, get_note_details::{GetNoteDetailsRequest, GetNoteDetailsResponse}, list_notes::{ListNotesRequest, ListNotesResponse}, read_note::{ReadNoteRequest, ReadNoteResponse}, write_note::{WriteNoteRequest, WriteNoteResponse}}};
 use tokio::net::UnixStream;
@@ -16,24 +16,24 @@ use crate::storage_accessor::errors::StorageAccessorError;
 pub trait StorageAccessor: Send + Sync + 'static {
     async fn get_users_notes(
         &self,
-        username: &UsernameStr,
+        access_token: String,
     ) -> Result<Vec<NoteInfo>, StorageAccessorError>;
 
     async fn get_note(
         &self,
-        username: &UsernameStr,
+        access_token: String,
         note_id: Uuid,
     ) -> Result<Note, StorageAccessorError>;
 
     async fn write_note(
         &self,
-        username: &UsernameStr,
+        access_token: String,
         note: Note,
     ) -> Result<(), StorageAccessorError>;
 
     async fn delete_note(
         &self,
-        username: &UsernameStr,
+        access_token: String,
         note_id: Uuid,
     ) -> Result<(), StorageAccessorError>;
 }
@@ -90,15 +90,14 @@ impl<
 > StorageAccessor for StorageAccessorImpl<bindings::command::Command, bindings::Command, Command, bindings::response::Response, C> {
     async fn get_users_notes(
         &self,
-        username: &UsernameStr,
+        access_token: String,
     ) -> Result<Vec<NoteInfo>, StorageAccessorError> {
-        debug!("reading note list for user \"{username}\"");
         let response: ListNotesResponse = self.caller
             .execute(
                 Command(
                     bindings::command::Command::ListNotes(
                         ListNotesRequest {
-                            username: username.to_owned(),
+                            access_token: access_token.clone(),
                         }.into()
                     )
                 )
@@ -114,7 +113,7 @@ impl<
                 Command(
                     bindings::command::Command::GetNoteDetails(
                         GetNoteDetailsRequest {
-                            username: username.to_owned(),
+                            access_token,
                             notes_metadata,
                         }.into()
                     )
@@ -143,7 +142,7 @@ impl<
 
     async fn get_note(
         &self,
-        username: &UsernameStr,
+        access_token: String,
         note_id: Uuid,
     ) -> Result<Note, StorageAccessorError> {
         let response: ReadNoteResponse = self.caller
@@ -151,7 +150,7 @@ impl<
                 Command(
                     bindings::command::Command::ReadNote(
                         ReadNoteRequest {
-                            username: username.to_owned(),
+                            access_token,
                             note_id,
                         }.into()
                     )
@@ -164,7 +163,7 @@ impl<
 
     async fn write_note(
         &self,
-        username: &UsernameStr,
+        access_token: String,
         note: Note,
     ) -> Result<(), StorageAccessorError> {
         let response: WriteNoteResponse = self.caller
@@ -172,7 +171,7 @@ impl<
                 Command(
                     bindings::command::Command::WriteNote(
                         WriteNoteRequest {
-                            username: username.to_owned(),
+                            access_token,
                             note,
                         }.into()
                     )
@@ -188,7 +187,7 @@ impl<
 
     async fn delete_note(
         &self,
-        username: &UsernameStr,
+        access_token: String,
         note_id: Uuid,
     ) -> Result<(), StorageAccessorError> {
         let response: DeleteNoteResponse = self.caller
@@ -196,7 +195,7 @@ impl<
                 Command(
                     bindings::command::Command::DeleteNote(
                         DeleteNoteRequest {
-                            username: username.to_owned(),
+                            access_token,
                             note_id,
                         }.into()
                     )
