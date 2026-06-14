@@ -1,14 +1,12 @@
-use dumbnotes::access_token::AccessTokenDecoder;
+use dumbnotes::access_token::{AccessTokenValidator, AccessTokenValidatorError};
 use data::UsernameStr;
 use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::gen_proto_ipc_wrappers;
 use dumbnotes::ipc::data::IpcOutput;
 use std::marker::PhantomData;
-use std::time::SystemTime;
 use async_trait::async_trait;
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use tokio::net::UnixStream;
-use uuid::Uuid;
 use dumbnotes::ipc::caller::{Caller, CallerImpl};
 use auth_ipc_data::model::login::{LoginRequest, LoginResponse};
 use auth_ipc_data::model::logout::{LogoutRequest, LogoutResponse};
@@ -42,7 +40,7 @@ pub trait AccessGranter: Send + Sync + 'static {
 
     async fn logout_user(
         &self,
-        session_id: Uuid,
+        access_token: &str,
     ) -> Result<(), AccessGranterError>;
 }
 
@@ -53,7 +51,7 @@ pub struct AccessGranterImpl<
     Response: Send + Sync + 'static,
     C: Caller<Command, CommandContainer, CommandWrapper, Response>,
 > {
-    access_token_decoder: AccessTokenDecoder,
+    access_token_validator: AccessTokenValidator,
     caller: C,
     _phantom: PhantomData<(Command, CommandContainer, CommandWrapper, Response)>,
 }
@@ -79,11 +77,11 @@ gen_proto_ipc_wrappers!(
 
 impl ProductionAccessGranter {
     pub async fn new(
-        access_token_decoder: AccessTokenDecoder,
+        access_token_validator: AccessTokenValidator,
         auth_socket: UnixStream,
     ) -> Self {
         AccessGranterImpl {
-            access_token_decoder,
+            access_token_validator,
             caller: ProductionCaller
                 ::new(auth_socket, IPC_MESSAGE_MAX_SIZE)
                 .await,
@@ -111,28 +109,29 @@ impl<
         if token.contains(|c: char| c.is_ascii_whitespace()) {
             return Err(AccessGranterError::HeaderFormatError)
         }
-        let token = self.access_token_decoder.decode_token(token)
-            .map_err(|e| {
-                warn!("failed to decode token: {}", e);
-                AccessGranterError::InvalidToken
-            })?;
-        let known_session = KnownSession {
-            session_id: token.session_id,
-            username: token.username,
-        };
-        let now = SystemTime::now();
-        Ok(
-            if token.not_before > now || now >= token.expires_at {
-                trace!(
-                    "expired valid token for user \"{}\"",
-                    known_session.username,
-                );
-                SessionInfo::Expired(known_session)
-            } else {
-                trace!("valid token for user \"{}\"", known_session.username);
-                SessionInfo::Valid(known_session)
-            }
-        )
+
+        match self.access_token_validator.check_access_token(token) {
+            Ok(parsed_token) => Ok(
+                SessionInfo::Valid(
+                    KnownSession {
+                        raw_token: token.to_owned(),
+                        session_id: parsed_token.session_id,
+                        username: parsed_token.username,
+                    }
+                )
+            ),
+            Err(AccessTokenValidatorError::InvalidToken(_)) =>
+                Err(AccessGranterError::InvalidToken),
+            Err(AccessTokenValidatorError::ExpiredToken(parsed_token)) => Ok(
+                SessionInfo::Expired(
+                    KnownSession {
+                        raw_token: token.to_owned(),
+                        session_id: parsed_token.session_id,
+                        username: parsed_token.username,
+                    }
+                )
+            )
+        }
     }
 
     async fn login_user(
@@ -203,15 +202,15 @@ impl<
 
     async fn logout_user(
         &self,
-        session_id: Uuid,
+        access_token: &str,
     ) -> Result<(), AccessGranterError> {
-        debug!("deleting session {session_id}");
+        trace!("deleting session for token \"{access_token}\"");
         let response: LogoutResponse = self.caller
             .execute(
                 Command(
                     bindings::command::Command::Logout(
                         LogoutRequest {
-                            session_id,
+                            access_token: access_token.to_owned(),
                         }.into()
                     )
                 )
@@ -221,6 +220,7 @@ impl<
         match response.0 {
             Some(error) => Err(
                 match error {
+                    LogoutError::LogoutInvalidCredentials => AccessGranterError::InvalidToken,
                     LogoutError::LogoutInternalError => AccessGranterError::AuthDaemonInternalError,
                 }
             ),

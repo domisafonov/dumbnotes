@@ -2,7 +2,7 @@ use crate::access_granter::{AccessGranter, ProductionAccessGranter};
 use crate::routes::{ApiRocketBuildExt, WebRocketBuildExt};
 use crate::storage_accessor::{ProductionStorageAccessor, StorageAccessor};
 use async_trait::async_trait;
-use dumbnotes::access_token::AccessTokenDecoder;
+use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenValidator};
 use dumbnotes::config::app_config::AppConfig;
 use futures::FutureExt;
 use futures::future::{join_all, select_all};
@@ -239,10 +239,13 @@ impl Fairing for AppSetupFairing {
             AccessTokenDecoder::from_jwk(&jwt_public_key),
             |e| error!("could not initialize access token decoder: {e}")
         );
+        let access_token_validator = AccessTokenValidator::new(
+            access_token_decoder,
+        );
 
         let access_granter: Box<dyn AccessGranter> = Box::new(
             ProductionAccessGranter::new(
-                access_token_decoder,
+                access_token_validator,
                 socket_to_auth
             ).await
         );

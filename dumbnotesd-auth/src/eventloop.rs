@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use clap::crate_name;
 use protobuf_common::ProtobufRequestError;
+use toml::value::Array;
 use crate::session_storage::SessionStorage;
 use crate::user_db::UserDb;
 use tokio::net::unix::OwnedWriteHalf;
 use futures::Stream;
-use dumbnotes::{bin_constants::IPC_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
+use dumbnotes::{access_token::AccessTokenValidator, bin_constants::IPC_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
 use crate::processors;
 use auth_ipc_data::bindings;
 use crate::access_token_generator::AccessTokenGenerator;
@@ -15,6 +16,7 @@ pub struct State<U: UserDb, S: SessionStorage> {
     pub token_generator: AccessTokenGenerator,
     pub user_db: U,
     pub session_storage: S,
+    pub access_token_validator: AccessTokenValidator,
 }
 
 pub async fn process_commands<U, S>(
@@ -60,6 +62,7 @@ async fn dispatch_command<U: UserDb, S: SessionStorage>(
         ).await,
         CE::Logout(request) => processors::process_logout(
             &state.session_storage,
+            &state.access_token_validator,
             request.try_into()?,
         ).await,
     };

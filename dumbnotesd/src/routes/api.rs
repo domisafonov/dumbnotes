@@ -85,7 +85,7 @@ async fn logout(
     authenticated: Authenticated,
     access_granter: &State<Box<dyn AccessGranter>>,
 ) -> Result<(), Status> {
-    match access_granter.logout_user(authenticated.0.session_id).await {
+    match access_granter.logout_user(&authenticated.0.raw_token).await {
         Ok(_) => Ok(()),
         Err(e) => {
             error!("authentication system failed: {e}");

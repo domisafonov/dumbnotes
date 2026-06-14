@@ -14,6 +14,7 @@ pub enum SessionInfo {
 
 #[derive(Debug)]
 pub struct KnownSession {
+    pub raw_token: String,
     pub session_id: Uuid,
     pub username: UsernameString,
 }

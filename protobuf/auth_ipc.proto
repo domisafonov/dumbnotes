@@ -45,7 +45,7 @@ message RefreshTokenResponse {
 }
 
 message LogoutRequest {
-    bytes session_id = 1;
+    string access_token = 1;
 }
 
 message LogoutResponse {
@@ -63,5 +63,6 @@ enum LoginError {
 }
 
 enum LogoutError {
-    LOGOUT_INTERNAL_ERROR = 0;
+    LOGOUT_INVALID_CREDENTIALS = 0;
+    LOGOUT_INTERNAL_ERROR = 1;
 }

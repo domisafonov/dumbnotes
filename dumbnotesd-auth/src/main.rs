@@ -11,6 +11,7 @@ use crate::access_token_generator::AccessTokenGenerator;
 use crate::app_constants::SHUTDOWN_TIMEOUT;
 use crate::cli::CliConfig;
 use clap::{crate_name, Parser};
+use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenValidator};
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::ipc::launch_event_loops::launch_event_loops;
@@ -70,14 +71,19 @@ async fn main() {
         async move || {
             let watcher = ProductionFileWatcher::new()
                 .unwrap_or_else(|e| error_exit!("failed to create file watcher: {e}"));
+            let jwt_private_key = read_jwt_key(&config.private_key_file)
+                .unwrap_or_else(|e| error_exit!("failed to read the jwt private key: {e}"));
+            let jwt_public_key = jwt_private_key.to_public_key()
+                .unwrap_or_else(|e| error_exit!("failed to derive jwt public key: {e}"));
             eventloop::State {
-                token_generator: make_token_generator(&config),
+                token_generator: make_token_generator(&jwt_private_key),
                 user_db: make_user_db(
                     &config,
                     make_hasher(&hasher_config),
                     watcher.clone(),
                 ).await,
                 session_storage: make_session_storage(&config, watcher).await,
+                access_token_validator: make_access_token_validator(&jwt_public_key).await,
             }
         },
         |state, stream, write_socket|
@@ -120,12 +126,8 @@ fn make_hasher(
 }
 
 fn make_token_generator(
-    config: &CliConfig,
+    jwt_private_key: &Jwk,
 ) -> AccessTokenGenerator {
-    let jwt_private_key = read_jwt_key(&config.private_key_file)
-        .unwrap_or_else(|e|
-            error_exit!("failed reading the private jwt key: {e}")
-        );
     AccessTokenGenerator::from_jwk(&jwt_private_key)
         .unwrap_or_else(|e|
             error_exit!("could not initialize access token access_token_generator: {e}")
@@ -173,4 +175,13 @@ async fn make_session_storage(
         .unwrap_or_else(|e|
             error_exit!("could not initialize the session DB: {e}")
         )
+}
+
+async fn make_access_token_validator(
+    jwt_public_key: &Jwk,
+) -> AccessTokenValidator {
+    AccessTokenValidator::new(
+        AccessTokenDecoder::from_jwk(jwt_public_key)
+            .unwrap_or_else(|e| error_exit!(""))
+    )
 }
