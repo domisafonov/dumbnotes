@@ -204,7 +204,7 @@ fn login_sending_auth_header() -> Result<(), Box<dyn Error>> {
     shutdown_assert_no_errors_except(
         &mut child,
         reader,
-        &["No matching routes for POST /api/login application/protobuf"; 2],
+        &["No matching routes for POST /login application/protobuf"; 2],
     )?;
     Ok(())
 }
@@ -248,7 +248,7 @@ fn renew_sending_auth_header() -> Result<(), Box<dyn Error>> {
     shutdown_assert_no_errors_except(
         &mut child,
         reader,
-        &["No matching routes for POST /api/login application/protobuf"; 2],
+        &["No matching routes for POST /login application/protobuf"; 2],
     )?;
     Ok(())
 }
@@ -535,7 +535,7 @@ fn request_with_invalid_auth_header() -> Result<(), Box<dyn Error>> {
     shutdown_assert_no_errors_except(
         &mut child,
         reader,
-        &["No matching routes for POST /api/logout"; 2],
+        &["No matching routes for POST /logout"; 2],
     )?;
     Ok(())
 }

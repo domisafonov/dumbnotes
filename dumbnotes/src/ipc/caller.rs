@@ -18,7 +18,6 @@ use crate::ipc::message_stream;
 use crate::ipc::data::{IpcInputContainerWrapper, IpcOutput};
 use protobuf_common::ProtobufRequestError;
 
-// TODO: decouple from auth specifically
 pub trait Caller<
     Command: Send + Sync + 'static,
     CommandContainer: prost::Message + 'static,
@@ -41,7 +40,8 @@ pub struct CallerImpl<
     next_request_id: AtomicU64,
     read_task: tokio::task::AbortHandle,
     active_requests: Arc<
-        HashMap<u64, oneshot::Sender<ResponseContainerWrapper>>>,
+        HashMap<u64, oneshot::Sender<ResponseContainerWrapper>>
+    >,
     max_message_size: usize,
     _phantom: PhantomData<(Response, ResponseContainer)>,
 }
@@ -69,26 +69,31 @@ where
     pub async fn new(
         socket: UnixStream,
         max_message_size: usize,
-    ) -> Self {
+    ) -> (Self, oneshot::Receiver<()>) {
         let (read_socket, write_socket) = socket.into_split();
         let stored_active_requests = Arc::new(HashMap::new());
         let active_requests = stored_active_requests.clone();
         let responses = message_stream::stream(read_socket, max_message_size)
             .map(IpcInputContainerWrapper::wrap);
+        let (shutdown_transmitter, shutdown_receiver) = oneshot::channel();
         let read_task = tokio::task::spawn(
             Self::process_responses(
                 active_requests,
                 responses,
+                shutdown_transmitter,
             )
         );
-        CallerImpl {
-            write_socket: Mutex::new(write_socket),
-            next_request_id: AtomicU64::new(0),
-            read_task: read_task.abort_handle(),
-            active_requests: stored_active_requests,
-            max_message_size,
-            _phantom: Default::default(),
-        }
+        (
+            CallerImpl {
+                write_socket: Mutex::new(write_socket),
+                next_request_id: AtomicU64::new(0),
+                read_task: read_task.abort_handle(),
+                active_requests: stored_active_requests,
+                max_message_size,
+                _phantom: Default::default(),
+            },
+            shutdown_receiver,
+        )
     }
 }
 
@@ -104,6 +109,7 @@ where
     async fn process_responses(
         active_requests: Arc<HashMap<u64, oneshot::Sender<ResponseContainerWrapper>>>,
         responses: impl Stream<Item=ResponseContainerWrapper>,
+        shutdown_notice: oneshot::Sender<()>,
     ) {
         pin_mut!(responses);
         while let Some(response) = responses.next().await {
@@ -123,6 +129,7 @@ where
                 );
             }
         }
+        let _ = shutdown_notice.send(());
     }
 
     fn get_next_request_id(&self) -> u64 {

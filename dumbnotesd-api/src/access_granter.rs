@@ -3,6 +3,7 @@ use data::UsernameStr;
 use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::gen_proto_ipc_wrappers;
 use dumbnotes::ipc::data::IpcOutput;
+use tokio::sync::oneshot;
 use std::marker::PhantomData;
 use async_trait::async_trait;
 use log::{debug, trace};
@@ -79,14 +80,18 @@ impl ProductionAccessGranter {
     pub async fn new(
         access_token_validator: AccessTokenValidator,
         auth_socket: UnixStream,
-    ) -> Self {
-        AccessGranterImpl {
-            access_token_validator,
-            caller: ProductionCaller
-                ::new(auth_socket, IPC_MESSAGE_MAX_SIZE)
-                .await,
-            _phantom: Default::default(),
-        }
+    ) -> (Self, oneshot::Receiver<()>) {
+        let (caller, shutdown_notice) = ProductionCaller
+            ::new(auth_socket, IPC_MESSAGE_MAX_SIZE)
+            .await;
+        (
+            AccessGranterImpl {
+                access_token_validator,
+                caller,
+                _phantom: Default::default(),
+            },
+            shutdown_notice,
+        )
     }
 }
 

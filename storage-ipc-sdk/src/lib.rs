@@ -2,15 +2,15 @@ pub mod errors;
 
 use std::marker::PhantomData;
 
-use data::{Note, NoteInfo};
+use ::data::{Note, NoteInfo};
 use dumbnotes::{bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::{caller::{Caller, CallerImpl}, data::IpcOutput}};
 use log::{error, warn};
 use rocket::async_trait;
 use storage_ipc_data::{bindings, model::{delete_note::{DeleteNoteRequest, DeleteNoteResponse}, get_note_details::{GetNoteDetailsRequest, GetNoteDetailsResponse}, list_notes::{ListNotesRequest, ListNotesResponse}, read_note::{ReadNoteRequest, ReadNoteResponse}, write_note::{WriteNoteRequest, WriteNoteResponse}}};
-use tokio::net::UnixStream;
+use tokio::{net::UnixStream, sync::oneshot};
 use uuid::Uuid;
 
-use crate::storage_accessor::errors::StorageAccessorError;
+use crate::errors::StorageAccessorError;
 
 #[async_trait]
 pub trait StorageAccessor: Send + Sync + 'static {
@@ -69,13 +69,17 @@ gen_proto_ipc_wrappers!(
 );
 
 impl ProductionStorageAccessor {
-    pub async fn new(storage_socket: UnixStream) -> Self {
-        StorageAccessorImpl {
-            caller: ProductionCaller
-                ::new(storage_socket, IPC_STORAGE_MESSAGE_MAX_SIZE)
-                .await,
-            _phantom: Default::default(),
-        }
+    pub async fn new(storage_socket: UnixStream) -> (Self, oneshot::Receiver<()>) {
+        let (caller, shutdown_notice) = ProductionCaller
+            ::new(storage_socket, IPC_STORAGE_MESSAGE_MAX_SIZE)
+            .await;
+        (
+            StorageAccessorImpl {
+                caller,
+                _phantom: Default::default(),
+            },
+            shutdown_notice,
+        )
     }
 }
 

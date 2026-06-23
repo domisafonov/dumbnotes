@@ -47,6 +47,8 @@ cargo build\
     --profile test-env\
     --config 'build.rustflags=["--cfg=test_env", "-Awarnings"]'\
     --bin dumbnotesd\
+    --bin dumbnotesd-api\
+    --bin dumbnotesd-web\
     --bin dumbnotesd-auth\
     --bin dumbnotesd-storage\
     --bin dumbnotes-gen\

@@ -5,7 +5,7 @@ use tap::Tap;
 const CSS_NAME: &str = "dumbnotesd-web";
 
 #[cfg(not(target_os = "openbsd"))]
-const TEMPLATES_PATH: &str = "../dumbnotesd/templates";
+const TEMPLATES_PATH: &str = "../dumbnotesd-web/templates";
 
 #[cfg(not(target_os = "openbsd"))]
 fn main() -> io::Result<()> {

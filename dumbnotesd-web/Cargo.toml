@@ -2,6 +2,37 @@
 name = "dumbnotesd-web"
 version.workspace = true
 edition.workspace = true
+include = [
+    "locales",
+    "templates",
+]
+
+[dependencies]
+accept-language.workspace = true
+auth-ipc-data.path = "../auth-ipc-data"
+askama.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+data.path = "../data"
+dumbnotes.path = "../dumbnotes"
+dumbnotesd-web-css.path = "../dumbnotesd-web-css"
+figment.workspace = true
+futures.workspace = true
+josekit.workspace = true
+language-tags.workspace = true
+log.workspace = true
+prost.workspace = true
+protobuf-common.path = "../protobuf-common"
+rocket.workspace = true
+rocket-execute.path = "../rocket-execute"
+rust-i18n.workspace = true
+smallvec.workspace = true
+storage-ipc-sdk.path = "../storage-ipc-sdk"
+thiserror.workspace = true
+tokio.workspace = true
+unix.path = "../unix"
+util.path = "../util"
+uuid.workspace = true
 
 [lints]
 workspace = true

@@ -1,0 +1,15 @@
+[package]
+name = "rocket-execute"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+boolean-enums.workspace = true
+figment.workspace = true
+log.workspace = true
+rocket.workspace = true
+tokio.workspace = true
+util.path = "../util"
+
+[lints]
+workspace = true

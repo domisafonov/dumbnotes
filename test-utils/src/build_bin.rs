@@ -17,17 +17,30 @@ pub static GEN_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 });
 
 pub static DAEMON_BIN_PATHS: LazyLock<Vec<PathBuf>> = LazyLock::new(||
-    build_bin(&["dumbnotesd", "dumbnotesd-auth", "dumbnotesd-storage"])
-        .expect("failed to build dumbnotesd")
+    build_bin(
+        &[
+            "dumbnotesd",
+            "dumbnotesd-api",
+            "dumbnotesd-web",
+            "dumbnotesd-auth",
+            "dumbnotesd-storage",
+         ]
+    ).expect("failed to build dumbnotesd")
 );
 pub static DAEMON_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
     DAEMON_BIN_PATHS[0].clone()
 );
-pub static AUTHD_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
+pub static APID_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
     DAEMON_BIN_PATHS[1].clone()
 );
-pub static STORAGED_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
+pub static WEBD_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
     DAEMON_BIN_PATHS[2].clone()
+);
+pub static AUTHD_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
+    DAEMON_BIN_PATHS[3].clone()
+);
+pub static STORAGED_BIN_PATH: LazyLock<PathBuf> = LazyLock::new(||
+    DAEMON_BIN_PATHS[4].clone()
 );
 
 pub fn build_bin(names: &[&str]) -> Result<Vec<PathBuf>, BuildBinError> {

@@ -1,18 +1,19 @@
 [package]
-name = "storage-ipc-data"
+name = "storage-ipc-sdk"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 data.path = "../data"
+dumbnotes.path = "../dumbnotes"
 log.workspace = true
 prost.workspace = true
 protobuf-common.path = "../protobuf-common"
-time.workspace = true
+rocket.workspace = true
+storage-ipc-data.path = "../storage-ipc-data"
+thiserror.workspace = true
+tokio.workspace = true
 uuid.workspace = true
-
-[build-dependencies]
-prost-build.workspace = true
 
 [lints]
 workspace = true

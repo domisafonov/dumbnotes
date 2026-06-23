@@ -8,10 +8,13 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct AppConfigData {
     #[serde(default)]
-    pub user_group: Option<String>,
+    pub storage_user_group: Option<String>,
 
     #[serde(default)]
     pub authd_user_group: Option<String>,
+
+    #[serde(default)]
+    pub empty_user_group: Option<String>,
 
     #[serde(default = "app_config_default_data_dir")]
     pub data_directory: PathBuf,
@@ -34,7 +37,15 @@ pub struct AppConfigData {
     #[serde(default, flatten)]
     pub hasher_config: ProductionHasherConfigData,
 
-    pub rocket: Option<toml::Value>,
+    pub api_rocket_config: Option<PathBuf>,
+
+    pub web_rocket_config: Option<PathBuf>,
+
+    #[serde(default)]
+    pub api_enabled: bool,
+
+    #[serde(default)]
+    pub web_enabled: bool,
 }
 
 pub fn app_config_default_data_dir() -> PathBuf {
@@ -64,8 +75,9 @@ pub fn app_config_default_max_note_name_size() -> u64 {
 impl Default for AppConfigData {
     fn default() -> Self {
         AppConfigData {
-            user_group: Default::default(),
+            storage_user_group: Default::default(),
             authd_user_group: Default::default(),
+            empty_user_group: Default::default(),
             data_directory: DEFAULT_DATA_DIR.into(),
             user_db: DEFAULT_USER_DB.into(),
             jwt_private_key: DEFAULT_JWT_PRIVATE_KEY.into(),
@@ -73,7 +85,10 @@ impl Default for AppConfigData {
             max_note_size: DEFAULT_MAX_NOTE_LEN,
             max_note_name_size: DEFAULT_MAX_NOTE_NAME_LEN,
             hasher_config: Default::default(),
-            rocket: Default::default(),
+            api_rocket_config: Default::default(),
+            web_rocket_config: Default::default(),
+            api_enabled: Default::default(),
+            web_enabled: Default::default(),
         }
     }
 }

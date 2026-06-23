@@ -9,9 +9,9 @@ use rocket::{Build, Rocket, delete, get, post, routes};
 use rocket::response::content::RawHtml;
 use uuid::Uuid;
 use crate::app_constants::WEB_PREFIX;
-use crate::routes::web::language::BestLanguage;
-use crate::routes::web::static_content::WebStaticContentRocketBuildExt;
-use crate::routes::web::translator::{t, Translator};
+use crate::routes::language::BestLanguage;
+use crate::routes::static_content::WebStaticContentRocketBuildExt;
+use crate::routes::translator::{t, Translator};
 
 #[derive(Debug, Template)]
 #[template(path = "login.html")]

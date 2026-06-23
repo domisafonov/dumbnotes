@@ -4,7 +4,7 @@ use futures::{FutureExt, StreamExt, future::{join_all, select_all}, stream::BoxS
 use log::{error, info};
 use tokio::{net::unix::OwnedWriteHalf, time::Instant};
 
-use crate::ipc::{data::LoopInputMessage, message_stream, socket::discover_socket_pair};
+use crate::ipc::{data::LoopInputMessage, message_stream, socket::discover_socket};
 
 pub async fn launch_event_loops<
     SocketContainer,
@@ -37,7 +37,7 @@ where
     let n_sockets = socket_fds.len();
     let sockets = socket_fds
         .into_iter()
-        .map(|fd| discover_socket_pair(*fd.borrow()))
+        .map(|fd| discover_socket(*fd.borrow()).into_split())
         .collect::<Vec<_>>();
 
     let deps = Arc::new(create_deps().await);

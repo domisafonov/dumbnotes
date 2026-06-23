@@ -3,5 +3,27 @@ name = "dumbnotesd-api"
 version.workspace = true
 edition.workspace = true
 
+[dependencies]
+api-data.path = "../api-data"
+auth-ipc-data.path = "../auth-ipc-data"
+async-trait.workspace = true
+clap.workspace = true
+data.path = "../data"
+dumbnotes.path = "../dumbnotes"
+figment.workspace = true
+futures.workspace = true
+josekit.workspace = true
+log.workspace = true
+prost.workspace = true
+protobuf-common.path = "../protobuf-common"
+rocket.workspace = true
+rocket-execute.path = "../rocket-execute"
+storage-ipc-sdk.path = "../storage-ipc-sdk"
+thiserror.workspace = true
+tokio.workspace = true
+unix.path = "../unix"
+util.path = "../util"
+uuid.workspace = true
+
 [lints]
 workspace = true

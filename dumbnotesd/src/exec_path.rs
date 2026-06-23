@@ -7,6 +7,8 @@ const OPENBSD_LIBEXEC_BASE: &str = "/usr/local/libexec/dumbnotesd/";
 
 const AUTH_BIN_NAME: &str = "dumbnotesd-auth";
 const STORAGE_BIN_NAME: &str = "dumbnotesd-storage";
+const API_BIN_NAME: &str = "dumbnotesd-api";
+const WEB_BIN_NAME: &str = "dumbnotesd-web";
 
 #[cfg(target_os = "openbsd")]
 pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
@@ -16,6 +18,16 @@ pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
 #[cfg(target_os = "openbsd")]
 pub fn get_storaged_executable_path() -> Result<PathBuf, GetExecPathError> {
     get_executable_path(STORAGE_BIN_NAME)
+}
+
+#[cfg(target_os = "openbsd")]
+pub fn get_apid_executable_path() -> Result<PathBuf, GetExecPathError> {
+    get_executable_path(API_BIN_NAME)
+}
+
+#[cfg(target_os = "openbsd")]
+pub fn get_webd_executable_path() -> Result<PathBuf, GetExecPathError> {
+    get_executable_path(WEB_BIN_NAME)
 }
 
 #[cfg(target_os = "openbsd")]
@@ -36,6 +48,16 @@ pub fn get_authd_executable_path() -> Result<PathBuf, GetExecPathError> {
 #[cfg(not(target_os = "openbsd"))]
 pub fn get_storaged_executable_path() -> Result<PathBuf, GetExecPathError> {
     get_executable_path_fallback(STORAGE_BIN_NAME)
+}
+
+#[cfg(not(target_os = "openbsd"))]
+pub fn get_apid_executable_path() -> Result<PathBuf, GetExecPathError> {
+    get_executable_path_fallback(API_BIN_NAME)
+}
+
+#[cfg(not(target_os = "openbsd"))]
+pub fn get_webd_executable_path() -> Result<PathBuf, GetExecPathError> {
+    get_executable_path_fallback(WEB_BIN_NAME)
 }
 
 fn get_executable_path_fallback(

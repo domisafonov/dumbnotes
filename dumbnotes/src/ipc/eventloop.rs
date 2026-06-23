@@ -111,9 +111,10 @@ where
         });
     }
 
+    debug!("command connection closed");
+
     let active_count = owned_inner_state.active_request_ids.len();
-    if active_count != 0 {
-        debug!("command connection closed");
+    if active_count == 0 {
         return
     }
 

@@ -7,7 +7,8 @@ pub const DEFAULT_JWT_PRIVATE_KEY: &str = "/etc/dumbnotes/private/jwt_private_ke
 pub const DEFAULT_JWT_PUBLIC_KEY: &str = "/etc/dumbnotes/jwt_public_key.json";
 pub const DEFAULT_PEPPER_PATH: &str = "/etc/dumbnotes/private/pepper.b64";
 pub const PEPPER_LENGTH: usize = 128 / 8;
-pub const APP_CONFIG_ENV_PREFIX: &str = "DUMBNOTES_";
+pub const APP_CONFIG_API_ENV_PREFIX: &str = "DUMBNOTES_API_";
+pub const APP_CONFIG_WEB_ENV_PREFIX: &str = "DUMBNOTES_ENV_";
 
 pub const IPC_MESSAGE_MAX_SIZE: usize = 1024 * 16;
 pub const IPC_STORAGE_MESSAGE_MAX_SIZE: usize = (DEFAULT_MAX_NOTE_LEN as usize + DEFAULT_MAX_NOTE_NAME_LEN as usize) * 2; // TODO: validate

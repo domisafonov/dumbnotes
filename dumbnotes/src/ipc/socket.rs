@@ -1,48 +1,39 @@
 use std::{io, os::fd::{FromRawFd, OwnedFd, RawFd}};
 use socket2::{Domain, Socket, Type};
-use tokio::net::{UnixStream, unix::{OwnedReadHalf, OwnedWriteHalf}};
+use tokio::net::UnixStream;
 use util::error_exit;
 use std::os::unix::net::UnixStream as StdUnixStream;
 
-pub fn create_socket_pair() -> Result<(UnixStream, OwnedFd), std::io::Error> {
+pub fn create_socket_pair() -> Result<(Socket, Socket), std::io::Error> {
     Socket
         ::pair_raw(Domain::UNIX, Type::STREAM, None)
-        .and_then(|(socket_to_child, childs_socket)| {
-            socket_to_child.set_nonblocking(true)?;
-            socket_to_child.set_cloexec(true)?;
-            childs_socket.set_nonblocking(true)?;
+        .and_then(|(cloexec_socket, immediate_use_socket)| {
+            cloexec_socket.set_nonblocking(true)?;
+            cloexec_socket.set_cloexec(true)?;
+            immediate_use_socket.set_nonblocking(true)?;
 
             #[cfg(target_os = "macos")] {
-                socket_to_child.set_nosigpipe(true)?;
-                childs_socket.set_nosigpipe(true)?;
+                cloexec_socket.set_nosigpipe(true)?;
+                immediate_use_socket.set_nosigpipe(true)?;
             }
 
-            let socket_to_child = UnixStream::from_std(
-                StdUnixStream::from(socket_to_child)
-            )?;
-            let childs_socket = OwnedFd::from(childs_socket);
-            Ok((socket_to_child, childs_socket))
+            Ok((
+                cloexec_socket,
+                immediate_use_socket,
+            ))
         })
 }
 
-pub fn create_socket_pairs(
-    count: usize,
-) -> Result<Vec<(UnixStream, OwnedFd)>, std::io::Error> {
-    (0..count)
-        .map(|_| create_socket_pair())
-        .collect::<Result<_, _>>()
-}
-
-pub fn discover_socket_pair(
+pub fn discover_socket(
     socket_fd: RawFd,
-) -> (OwnedReadHalf, OwnedWriteHalf) {
-    fn make(socket_fd: RawFd) -> Result<(OwnedReadHalf, OwnedWriteHalf), io::Error> {
+) -> UnixStream {
+    fn make(socket_fd: RawFd) -> Result<UnixStream, io::Error> {
         let command_socket = unsafe { Socket::from_raw_fd(socket_fd) };
         command_socket.set_cloexec(true)?;
         let command_socket = UnixStream::from_std(
             StdUnixStream::from(command_socket),
         )?;
-        Ok(command_socket.into_split())
+        Ok(command_socket)
     }
     make(socket_fd)
         .unwrap_or_else(|e|

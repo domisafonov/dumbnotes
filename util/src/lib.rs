@@ -22,3 +22,15 @@ pub fn make_uuid<R: Rng>(rng: &mut R) -> Uuid {
         .with_version(Version::Random)
         .into_uuid()
 }
+
+pub trait OptionStrRefExt {
+    fn as_str_ref(&self) -> Option<&str>;
+}
+impl<S: AsRef<str>> OptionStrRefExt for Option<S> {
+    fn as_str_ref(&self) -> Option<&str> {
+        match self {
+            Some(v) => Some(v.as_ref()),
+            None => None,
+        }
+    }
+}

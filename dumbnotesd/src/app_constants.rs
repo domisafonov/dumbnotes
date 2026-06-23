@@ -1,4 +1,4 @@
-pub const WEB_PREFIX: &str = "/web";
-pub const API_PREFIX: &str = "/api";
+use std::time::Duration;
 
-pub const API_VERSION: &str = "1";
+pub const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
+pub const EXTRA_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(1);

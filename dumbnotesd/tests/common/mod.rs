@@ -119,7 +119,7 @@ pub fn new_command_faketime(dir: &TempDir) -> (Command, PathBuf) {
 
 pub fn url(endpoint: &str) -> String {
     format!(
-        "http://localhost:{}/api/{endpoint}",
+        "http://localhost:{}/{endpoint}",
         LOCAL_PORT.with(Clone::clone),
     )
 }

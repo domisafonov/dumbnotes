@@ -2,45 +2,33 @@
 name = "dumbnotesd"
 version.workspace = true
 edition.workspace = true
-include = [
-    "locales",
-    "templates",
-]
 
 [dependencies]
-accept-language.workspace = true
-api-data.path = "../api-data"
-askama.workspace = true
 async-trait.workspace = true
-auth-ipc-data.path = "../auth-ipc-data"
 boolean-enums.workspace = true
 clap.workspace = true
 data.path = "../data"
 dumbnotes.path = "../dumbnotes"
-dumbnotesd-web-css.path = "../dumbnotesd-web-css"
 figment.workspace = true
 futures.workspace = true
-josekit.workspace = true
-language-tags.workspace = true
 log.workspace = true
-prost.workspace = true
-protobuf-common.path = "../protobuf-common"
-rocket.workspace = true
-rust-i18n.workspace = true
 serde_json.workspace = true
-smallvec.workspace = true
-storage-ipc-data.path = "../storage-ipc-data"
+socket2.workspace = true
 tap.workspace = true
 thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
 unix.path = "../unix"
 util.path = "../util"
 uuid.workspace = true
+which.workspace = true
 
 [dev-dependencies]
+api-data.path = "../api-data"
 assert_fs.workspace = true
 cfg-or-panic.workspace = true
+josekit.workspace = true
 prost.workspace = true
 reqwest.workspace = true
 rexpect.workspace = true

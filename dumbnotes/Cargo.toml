@@ -35,7 +35,6 @@ toml.workspace = true
 unix.path = "../unix"
 util.path = "../util"
 uuid.workspace = true
-which.workspace = true
 
 [lints]
 workspace = true

@@ -4,6 +4,7 @@ members = [
   "api-data",
   "auth-ipc-data",
   "storage-ipc-data",
+  "storage-ipc-sdk",
   "protobuf-common",
   "data",
   "dumbnotes",
@@ -15,6 +16,7 @@ members = [
   "dumbnotesd-web",
   "dumbnotesd-web-css",
   "dumbnotes-gen",
+  "rocket-execute",
   "test-utils",
   "unix",
 ]
@@ -56,7 +58,7 @@ tap = "1.0.1"
 thiserror = "2.0.18"
 time = { version = "0.3.47", features = ["std", "alloc", "formatting", "serde-human-readable"] }
 tokio = { version = "1.50.0", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync"] }
-tokio-stream = { version = "0.1.18", features = ["sync"] }
+tokio-stream = { version = "0.1.18", features = ["signal", "sync"] }
 toml = "1.0.6"
 uuid = { version = "1.22.0", features = ["v4", "fast-rng", "serde"] }
 which = "8.0.2"

@@ -325,10 +325,14 @@ pub trait ChildKillTermExt {
 }
 impl ChildKillTermExt for Child {
     fn kill_term(&self) -> Result<(), io::Error> {
-        match unsafe { libc::kill(self.id().cast_signed(), libc::SIGTERM) } {
-            -1 => Err(io::Error::last_os_error()),
-            _ => Ok(()),
-        }
+        kill_term(self.id())
+    }
+}
+
+pub fn kill_term(pid: u32) -> Result<(), io::Error> {
+    match unsafe { libc::kill(pid.cast_signed(), libc::SIGTERM) } {
+        -1 => Err(io::Error::last_os_error()),
+        _ => Ok(()),
     }
 }
 

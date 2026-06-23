@@ -8,6 +8,8 @@ use crate::data::MOCK_USER_DB_DATA;
 use crate::data::MOCK_USER_DB_STR;
 use crate::data::{MOCK_JWT_PRIVATE_KEY_STR, MOCK_JWT_PUBLIC_KEY_STR, MOCK_PEPPER_STR};
 
+// FIXME: launch the web part too
+
 pub fn setup_basic_config() -> TempDir {
     setup_basic_config_impl(None::<&str>, None::<&str>)
         .tap(|dir|
@@ -43,24 +45,32 @@ pub fn setup_basic_config_impl(
         ),
         None => String::new(),
     };
+    let api_rocket_path = config_dir.child("dumbnotes.api.rocket.toml");
     let config = format!(
         r#"jwt_private_key = "{}"
 jwt_public_key = "{}"
 pepper_path = "{}"
+api_rocket_config = "{}"
+api_enabled = true
 {}{}
-[rocket]
-port = {}
-temp_dir = "{}"
 "#,
         ro_secrets_dir.child("jwt_private_key.json").to_str().unwrap(),
         config_dir.child("jwt_public_key.json").to_str().unwrap(),
         ro_secrets_dir.child("pepper.b64").to_str().unwrap(),
+        api_rocket_path.to_str().unwrap(),
         data_path_extra,
         user_db_path_extra,
+    );
+    let api_rocket_config = format!(
+        r#"port = {}
+temp_dir = "{}"
+"#,
         LOCAL_PORT.with(Clone::clone),
         root.child("tmp").to_str().unwrap(),
     );
     config_dir.child("dumbnotes.toml").write_str(&config).unwrap();
+    config_dir.child("dumbnotes.api.rocket.toml").write_str(&api_rocket_config)
+        .unwrap();
 
     root
 }
