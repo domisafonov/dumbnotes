@@ -1,4 +1,4 @@
-use std::{io, os::fd::{FromRawFd, OwnedFd, RawFd}};
+use std::{io, os::fd::{FromRawFd, RawFd}};
 use socket2::{Domain, Socket, Type};
 use tokio::net::UnixStream;
 use util::error_exit;

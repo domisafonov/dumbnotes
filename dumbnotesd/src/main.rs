@@ -11,6 +11,7 @@ use tokio_stream::{StreamExt, wrappers::SignalStream};
 use util::{OptionStrRefExt, error_exit};
 use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_manager_init, pledge_manager_normal};
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil:: seal_unveil;
 use log::{error, info};
 use dumbnotes::sandbox::daemonize::daemonize;
 use unix::{is_root, set_umask};
@@ -80,9 +81,10 @@ async fn async_main(cli_config: CliConfig) {
     }
 
     // FIXME: chroot to /var/empty
-    // FIXME: pledge
-    #[cfg(target_os = "openbsd")] pledge_manager_normal();
-    // FIXME: unveil to nothingness
+    #[cfg(target_os = "openbsd")] {
+        seal_unveil();
+        pledge_manager_normal();
+    }
 
     let daemon_termination = select_all(
         spawns.daemons
