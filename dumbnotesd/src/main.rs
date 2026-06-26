@@ -14,7 +14,7 @@ use dumbnotes::logging::init_daemon_logging;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil:: seal_unveil;
 use log::{error, info};
 use dumbnotes::sandbox::daemonize::daemonize;
-use unix::{is_root, set_umask};
+use unix::{chroot_empty, is_root, set_umask};
 
 // FIXME: process the signals
 fn main() {
@@ -67,11 +67,18 @@ async fn async_main(cli_config: CliConfig) {
         );
 
     if !app_config.is_api_enabled && !app_config.is_web_enabled {
-        error_exit!("all network servers are disable in the configuration")
+        error_exit!("all network servers are disabled in the configuration")
     }
 
     let mut shutdown_signals = intercept_singals().await;
     let mut spawns = spawn_children(&cli_config, &app_config).await;
+
+    if is_root {
+        chroot_empty()
+            .unwrap_or_else(|e|
+                error_exit!("failed to chroot to an empty directory")
+            )
+    }
 
     if let Some(ref empty_user_group) = app_config.empty_user_group {
         set_user_and_group(&empty_user_group)
@@ -80,7 +87,6 @@ async fn async_main(cli_config: CliConfig) {
             )
     }
 
-    // FIXME: chroot to /var/empty
     #[cfg(target_os = "openbsd")] {
         seal_unveil();
         pledge_manager_normal();
@@ -158,7 +164,7 @@ async fn spawn_children(
     ) -> Option<Socket> {
         let (cloexec_socket, immediate_use_socket) = create_socket_pair()
             .unwrap_or_else(|e|
-                error_exit!("failed to create an IPC socket pair")
+                error_exit!("failed to create an IPC socket pair: {e}")
             );
         if is_enabled.into() {
             sockets.push(immediate_use_socket);

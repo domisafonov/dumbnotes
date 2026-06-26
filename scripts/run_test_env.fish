@@ -1,11 +1,13 @@
 #!/usr/bin/env fish
 
-argparse --strict-longopts --exclusive u,s,c --exclusive p,s,c\
+argparse --strict-longopts --exclusive u,s,c --exclusive p,s,c --exclusive b,B,s,c\
     h/help\
     u/username\
     p/password\
     s/stop\
     c/cleanup\
+    b/build\
+    B/no-build\
     -- $argv
 or return 1
 
@@ -16,7 +18,7 @@ if set -ql _flag_h
 end
 
 if set -ql _flag_s
-    kill -INT (pgrep dumbnotesd 2>/dev/null) &>/dev/null
+    kill -INT (pgrep -x dumbnotesd 2>/dev/null) &>/dev/null
     return
 end
 
@@ -42,22 +44,25 @@ if not set -ql _flag_p
     set password 123
 end
 
-echo -n 'Compiling ... ' >&2
-cargo build\
-    --profile test-env\
-    --config 'build.rustflags=["--cfg=test_env", "-Awarnings"]'\
-    --bin dumbnotesd\
-    --bin dumbnotesd-api\
-    --bin dumbnotesd-web\
-    --bin dumbnotesd-auth\
-    --bin dumbnotesd-storage\
-    --bin dumbnotes-gen\
-    --quiet
-if test $status -eq 0
-    echo 'finished' >&2
-else
-    echo 'failed' >&2
-    return 1
+test (id -u) -eq 0 && set -l is_root
+if not set -ql _flag_B; and begin not set -ql is_root; or set -ql _flag_b; end
+    echo -n 'Compiling ... ' >&2
+    cargo build\
+        --profile test-env\
+        --config 'build.rustflags=["--cfg=test_env", "-Awarnings"]'\
+        --bin dumbnotesd\
+        --bin dumbnotesd-api\
+        --bin dumbnotesd-web\
+        --bin dumbnotesd-auth\
+        --bin dumbnotesd-storage\
+        --bin dumbnotes-gen\
+        --quiet
+    if test $status -eq 0
+        echo 'finished' >&2
+    else
+        echo 'failed' >&2
+        return 1
+    end
 end
 
 set -l mktemp_location_arg
@@ -102,6 +107,7 @@ jwt_public_key = \"$basedir/jwt_public_key.json\"
 pepper_path = \"$secrets_dir/pepper.b64\"
 user_db = \"$user_db\"
 data_directory = \"$data_dir\"
+api_enabled = true
 " > $config_file
 
 set -l project_dir (path resolve (status dirname)/..)

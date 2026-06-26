@@ -10,7 +10,7 @@ use std::path::Path;
 use std::process::Child;
 use std::sync::LazyLock;
 use libc::{c_int, gid_t, mode_t, uid_t};
-use crate::constants::UMASK;
+use crate::constants::{CHROOT_DIR, UMASK};
 use crate::errors::CheckAccessError;
 
 mod constants;
@@ -371,4 +371,10 @@ unsafe fn fcntl_raw_int(
         -1 => Err(io::Error::last_os_error()),
         res => Ok(res),
     }
+}
+
+pub fn chroot_empty() -> Result<(), io::Error> {
+    std::os::unix::fs::chroot(CHROOT_DIR)?;
+    std::env::set_current_dir("/")?;
+    Ok(())
 }
