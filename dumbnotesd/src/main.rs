@@ -1,5 +1,6 @@
-use std::{ffi::{OsStr, OsString}, os::fd::{AsRawFd, OwnedFd}, process::ExitStatus};
+use std::{ffi::{OsStr, OsString}, ops::Not, os::fd::AsRawFd, process::ExitStatus};
 
+use boolean_enums::gen_boolean_enum;
 use clap::{crate_name, Parser};
 use dumbnotes::{config::{app_config::AppConfig, read::read_app_config}, ipc::socket::create_socket_pair, sandbox::user_group::{clear_supplementary_groups, set_user_and_group}};
 use dumbnotesd::{app_constants::{EXTRA_SHUTDOWN_TIMEOUT, SHUTDOWN_TIMEOUT}, cli::CliConfig, exec_path::{get_apid_executable_path, get_authd_executable_path, get_storaged_executable_path, get_webd_executable_path}, kill_with_timeout::{KillWithTimeoutChildExt, SendTerm}, launch_sub::{launch_sub, launch_sub_with_sockets}};
@@ -16,13 +17,13 @@ use log::{error, info};
 use dumbnotes::sandbox::daemonize::daemonize;
 use unix::{chroot_empty, is_root, set_umask};
 
-// FIXME: process the signals
 fn main() {
-    #[cfg(target_os = "openbsd")] pledge_manager_init(); // FIXME
+    #[cfg(target_os = "openbsd")] pledge_manager_init();
 
     set_umask();
 
     let cli_config = CliConfig::parse();
+    let is_root = is_root();
 
     if cli_config.is_daemonizing() {
         unsafe { daemonize(cli_config.is_not_forking().into()) }
@@ -36,21 +37,20 @@ fn main() {
         .enable_all()
         .build()
         .unwrap()
-        .block_on(async_main(cli_config))
+        .block_on(async_main(cli_config, is_root.into()))
 }
 
-async fn async_main(cli_config: CliConfig) {
+async fn async_main(cli_config: CliConfig, is_root: IsRoot) {
     init_daemon_logging(
         cli_config.is_daemonizing().into(),
     );
 
     info!("{} starting up", crate_name!());
 
-    let is_root = is_root();
-    if !cli_config.is_daemonizing() && is_root {
+    if !cli_config.is_daemonizing() && is_root.into() {
         error_exit!("daemonizing is required when launching from root")
     }
-    if cli_config.is_daemonizing() && !is_root {
+    if cli_config.is_daemonizing() && is_root.not().into() {
         error_exit!("cannot be daemonizing from a non-root user")
     }
 
@@ -73,10 +73,11 @@ async fn async_main(cli_config: CliConfig) {
     let mut shutdown_signals = intercept_singals().await;
     let mut spawns = spawn_children(&cli_config, &app_config).await;
 
-    if is_root {
+    #[cfg(not(target_os = "openbsd"))] if is_root.into() {
         chroot_empty()
             .unwrap_or_else(|e|
-                error_exit!("failed to chroot to an empty directory")
+                error!("failed to chroot to an empty directory: {e}")
+                // FIXME: initiate shutdown
             )
     }
 
@@ -140,6 +141,7 @@ async fn async_main(cli_config: CliConfig) {
 
     info!("shutting the manager process down");
 }
+gen_boolean_enum!(IsRoot);
 
 async fn intercept_singals() -> impl Stream<Item=()> {
     let int_signal = signal(SignalKind::interrupt())

@@ -1,6 +1,10 @@
 #!/usr/bin/env fish
 
-argparse --strict-longopts --exclusive u,s,c --exclusive p,s,c --exclusive b,B,s,c\
+argparse --strict-longopts\
+    --exclusive u,s,c\
+    --exclusive p,s,c\
+    --exclusive D,s,c\
+    --exclusive b,B,s,c\
     h/help\
     u/username\
     p/password\
@@ -8,6 +12,7 @@ argparse --strict-longopts --exclusive u,s,c --exclusive p,s,c --exclusive b,B,s
     c/cleanup\
     b/build\
     B/no-build\
+    D/pass-daemonize\
     -- $argv
 or return 1
 
@@ -101,10 +106,12 @@ chmod 500 $data_dir
 set -l config_file $basedir/dubmnotes.toml
 set -l user_db $secrets_dir/users.toml
 set -l session_db $private_data_dir/session.toml
+set -l jwt_private_key $secrets_dir/jwt_private_key.json
+set -l pepper $secrets_dir/pepper.b64
 
-echo -n "jwt_private_key = \"$secrets_dir/jwt_private_key.json\"
+echo -n "jwt_private_key = \"$jwt_private_key\"
 jwt_public_key = \"$basedir/jwt_public_key.json\"
-pepper_path = \"$secrets_dir/pepper.b64\"
+pepper_path = \"$pepper\"
 user_db = \"$user_db\"
 data_directory = \"$data_dir\"
 api_enabled = true
@@ -116,6 +123,8 @@ $bin_dir/dumbnotes-gen --config-file=$config_file --generate-jwt-key
     or return 1
 $bin_dir/dumbnotes-gen --config-file=$config_file --generate-pepper
     or return 1
+
+chmod 400 $jwt_private_key $pepper
 
 chmod 500 $basedir
 
@@ -135,4 +144,9 @@ chmod 600 $session_db
 tree -a $basedir
     or return 1
 
-$bin_dir/dumbnotesd --config-file=$config_file --no-fork
+set -l extras
+if set -ql _flag_D
+    set extras --daemonize
+end
+
+$bin_dir/dumbnotesd --config-file=$config_file --no-fork $extras

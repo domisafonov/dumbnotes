@@ -3,9 +3,10 @@ use std::ptr::null;
 use log::trace;
 use util::error_exit;
 
+// wpath is required to open /dev/null
 pub fn pledge_manager_init() {
     pledge(
-        Some("stdio rpath unix getpw proc exec id unveil"),
+        Some("stdio rpath wpath unix getpw proc exec id unveil"),
         Some("stdio rpath wpath cpath flock inet unix getpw unveil"),
     )
 }

@@ -106,7 +106,7 @@ fn check_secret_at_least(
     if our & required != required {
         return Err(CheckAccessError::InsufficientPermissions)
     }
-    if our != required || others != 0 {
+    if (!is_root() && our != required) || others != 0 {
         return Err(
             match check_type {
                 CheckType::File => CheckAccessError::FileTooPermissive,
@@ -196,7 +196,11 @@ fn get_effective_mode(metadata: Metadata) -> EffectiveMode {
     let mut our = 0;
     let mut others = 0;
     if uid == 0 {
-        our |= 7;
+        if metadata.is_dir() || mode & 0o111 != 0 {
+            our |= 7;
+        } else {
+            our |= 6;
+        }
     }
     if metadata.uid() == uid {
         our |= (mode >> 6) & 7
