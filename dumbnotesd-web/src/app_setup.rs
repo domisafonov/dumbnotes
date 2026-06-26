@@ -5,7 +5,7 @@ use storage_ipc_sdk::{ProductionStorageAccessor, StorageAccessor};
 use async_trait::async_trait;
 use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenValidator};
 use dumbnotes::ipc::socket::discover_socket;
-#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_liftoff;
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_webd_liftoff;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};
 use josekit::jwk::Jwk;
 use log::error;
@@ -77,7 +77,7 @@ impl Fairing for AppSetupFairing {
 
         #[cfg(target_os = "openbsd")] {
             unveil(
-                &self.app_config.jwt_public_key,
+                &self.jwt_public_key,
                 Permissions::R,
             );
             unveil(
@@ -129,7 +129,7 @@ impl Fairing for AppSetupFairing {
         &self,
         rocket: &Rocket<Orbit>,
     ) {
-        #[cfg(target_os = "openbsd")] pledge_liftoff(); // FIXME
+        #[cfg(target_os = "openbsd")] pledge_webd_liftoff();
         let shutdown = rocket.shutdown();
         let failure_notices = vec![
             self.auth_daemon_failure_notice.clone(),

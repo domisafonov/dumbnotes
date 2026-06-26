@@ -10,14 +10,14 @@ use tokio::{process::{Child, Command}, signal::unix::{SignalKind, signal}, time:
 use tokio_stream::{StreamExt, wrappers::SignalStream};
 use util::{OptionStrRefExt, error_exit};
 use dumbnotes::logging::init_daemon_logging;
-#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_manager_init, pledge_manager_normal};
 use log::{error, info};
 use dumbnotes::sandbox::daemonize::daemonize;
 use unix::{is_root, set_umask};
 
 // FIXME: process the signals
 fn main() {
-    #[cfg(target_os = "openbsd")] pledge_init(); // FIXME
+    #[cfg(target_os = "openbsd")] pledge_manager_init(); // FIXME
 
     set_umask();
 
@@ -81,6 +81,7 @@ async fn async_main(cli_config: CliConfig) {
 
     // FIXME: chroot to /var/empty
     // FIXME: pledge
+    #[cfg(target_os = "openbsd")] pledge_manager_normal();
     // FIXME: unveil to nothingness
 
     let daemon_termination = select_all(

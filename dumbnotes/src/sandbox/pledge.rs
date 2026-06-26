@@ -3,21 +3,46 @@ use std::ptr::null;
 use log::trace;
 use util::error_exit;
 
-pub fn pledge_init() {
+pub fn pledge_manager_init() {
     pledge(
-        Some("stdio rpath wpath cpath inet fattr unix getpw proc exec id unveil"),
-
-        // copied from authd
-        Some("stdio rpath wpath cpath flock unix getpw unveil"),
+        Some("stdio rpath unix getpw proc exec id unveil"),
+        Some("stdio rpath wpath cpath flock inet unix getpw unveil"),
     )
 }
 
-// TODO: does it make sense to repledge after the rocket starts serving?
-// TODO: repledge after self-forking too
-pub fn pledge_liftoff() {
-    trace!("pledging for continuous operation");
+pub fn pledge_manager_normal() {
     pledge(
-        Some("stdio rpath wpath cpath inet fattr"),
+        Some("stdio proc"),
+        Some(""),
+    )
+}
+
+// unix is for initializing syslog
+pub fn pledge_apid_init() {
+    pledge(
+        Some("stdio rpath wpath cpath inet unix unveil"),
+        Some(""),
+    )
+}
+
+pub fn pledge_apid_liftoff() {
+    pledge(
+        Some("stdio rpath wpath cpath inet"),
+        None,
+    )
+}
+
+// unix is for initializing syslog
+pub fn pledge_webd_init() {
+    pledge(
+        Some("stdio rpath wpath cpath inet unix unveil"),
+        Some(""),
+    )
+}
+
+pub fn pledge_webd_liftoff() {
+    pledge(
+        Some("stdio rpath wpath cpath inet"),
         None,
     )
 }

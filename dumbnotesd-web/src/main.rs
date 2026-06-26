@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, crate_name};
 use dumbnotes::logging::init_daemon_logging;
-#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_webd_init;
 use figment::{Figment, providers::Format};
 use log::info;
 use unix::set_umask;
@@ -18,7 +18,7 @@ use crate::{app_constants::DEFAULT_WEB_PORT, app_setup::AppSetupFairing, cli::Cl
 rust_i18n::i18n!();
 
 fn main() {
-    #[cfg(target_os = "openbsd")] pledge_init(); // FIXME
+    #[cfg(target_os = "openbsd")] pledge_webd_init();
     set_umask();
 
     let cli_config = CliConfig::parse();

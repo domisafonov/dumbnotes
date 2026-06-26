@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, crate_name};
 use dumbnotes::{logging::init_daemon_logging};
-#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_init;
+#[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_apid_init;
 use dumbnotesd_api::{app_constants::DEFAULT_API_PORT, app_setup::AppSetupFairing, cli::CliConfig};
 use figment::{Figment, providers::Format};
 use log::info;
@@ -10,7 +10,7 @@ use unix::set_umask;
 use util::error_exit;
 
 fn main() {
-    #[cfg(target_os = "openbsd")] pledge_init(); // FIXME
+    #[cfg(target_os = "openbsd")] pledge_apid_init();
     set_umask();
 
     let cli_config = CliConfig::parse();
