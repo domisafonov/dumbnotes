@@ -3,7 +3,8 @@ use rocket::{Build, Responder, Rocket, get, response::content::RawCss, routes};
 
 use crate::app_constants::WEB_PREFIX;
 
-const HTMX_JS: &str = include_str!("htmx-4.0.0-beta4.min.js");
+#[cfg(not(debug_assertions))] const HTMX_JS: &str = include_str!("htmx.min-4.0.0-beta5.js");
+#[cfg(debug_assertions)] const HTMX_JS: &str = include_str!("htmx-4.0.0-beta5.js");
 
 #[derive(Responder)]
 #[response(content_type = "js")]
