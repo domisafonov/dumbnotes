@@ -1,4 +1,4 @@
-use dumbnotes::access_token::{AccessTokenData, AccessTokenValidator};
+use access_token::{AccessTokenData, AccessTokenValidator};
 use dumbnotes::check_access_token;
 use log::{error, trace};
 use storage_ipc_data::bindings::StorageError;

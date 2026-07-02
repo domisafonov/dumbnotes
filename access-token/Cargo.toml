@@ -1,12 +1,14 @@
 [package]
-name = "data"
+name = "access-token"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-argon2.workspace = true
-kinded.workspace = true
-serde.workspace = true
+access-token-data.path = "../access-token-data"
+data.path = "../data"
+josekit.workspace = true
+log.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 time.workspace = true
 uuid.workspace = true

@@ -11,7 +11,7 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use crate::app_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE};
+use crate::app_constants::{REFRESH_TOKEN_SIZE, SESSION_STORAGE_READ_BUF_SIZE, XSRF_TOKEN_SIZE};
 use crate::session_storage::SessionStorageError;
 
 #[async_trait]
@@ -26,6 +26,8 @@ pub trait SessionStorageIo: Send + Sync + 'static {
     ) -> Result<(), SessionStorageError>;
 
     fn gen_refresh_token(&self) -> Vec<u8>;
+
+    fn gen_xsrf_token(&self) -> Vec<u8>;
 
     fn get_time(&self) -> OffsetDateTime;
     
@@ -161,6 +163,12 @@ impl SessionStorageIo for ProductionSessionStorageIo {
 
     fn gen_refresh_token(&self) -> Vec<u8> {
         let mut token = vec![0u8; REFRESH_TOKEN_SIZE];
+        rand::rng().fill_bytes(token.as_mut_slice());
+        token
+    }
+
+    fn gen_xsrf_token(&self) -> Vec<u8> {
+        let mut token = vec![0u8; XSRF_TOKEN_SIZE];
         rand::rng().fill_bytes(token.as_mut_slice());
         token
     }

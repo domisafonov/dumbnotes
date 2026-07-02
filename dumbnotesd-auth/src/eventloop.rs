@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
+use access_token::{AccessTokenGenerator, AccessTokenValidator};
 use clap::crate_name;
 use protobuf_common::ProtobufRequestError;
 use crate::session_storage::SessionStorage;
 use crate::user_db::UserDb;
 use tokio::net::unix::OwnedWriteHalf;
 use futures::Stream;
-use dumbnotes::{access_token::AccessTokenValidator, bin_constants::IPC_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
+use dumbnotes::{bin_constants::IPC_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
 use crate::processors;
 use auth_ipc_data::bindings;
-use crate::access_token_generator::AccessTokenGenerator;
 
 pub struct State<U: UserDb, S: SessionStorage> {
     pub token_generator: AccessTokenGenerator,

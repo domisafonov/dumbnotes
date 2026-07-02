@@ -3,6 +3,7 @@ use crate::bindings;
 
 pub struct LogoutRequest {
     pub access_token: String,
+    pub xsrf_token: Option<Vec<u8>>,
 }
 
 pub struct LogoutResponse(pub Option<bindings::LogoutError>);
@@ -13,6 +14,7 @@ impl TryFrom<bindings::LogoutRequest> for LogoutRequest {
         Ok(
             LogoutRequest {
                 access_token: value.access_token,
+                xsrf_token: value.xsrf_token,
             }
         )
     }
@@ -50,6 +52,7 @@ impl From<LogoutRequest> for bindings::LogoutRequest {
     fn from(value: LogoutRequest) -> Self {
         bindings::LogoutRequest {
             access_token: value.access_token,
+            xsrf_token: value.xsrf_token,
         }
     }
 }

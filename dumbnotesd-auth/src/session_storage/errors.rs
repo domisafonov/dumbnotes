@@ -1,4 +1,5 @@
 use std::io::Error as IoError;
+use data::SessionKind;
 use thiserror::Error;
 use unix::errors::CheckAccessError;
 use crate::file_watcher::FileWatcherError;
@@ -25,6 +26,15 @@ pub enum SessionStorageError {
     
     #[error(transparent)]
     AccessCheck(#[from] CheckAccessError),
+
+    #[error("incorrect session kind {actual}, expected {expected}")]
+    IncorrectSessionKind {
+        expected: SessionKind,
+        actual: SessionKind,
+    },
+
+    #[error("incorrect xsrf token")]
+    IncorrectXsrfToken,
 }
 
 impl From<std::fs::TryLockError> for SessionStorageError {

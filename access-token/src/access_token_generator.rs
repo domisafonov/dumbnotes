@@ -1,16 +1,16 @@
-use dumbnotes::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
-use data::UsernameStr;
-use errors::AccessTokenGeneratorError;
+use access_token_data::{SESSION_ID_JWT_CLAIM_NAME, SESSION_KIND_API, SESSION_KIND_JWT_CLAIM_NAME, SESSION_KIND_WEB};
+use data::{SessionKind, UsernameStr};
 use josekit::jwk::Jwk;
 use josekit::jws::{EdDSA, JwsHeader};
-use josekit::jwt;
+use josekit::{JoseError, jwt};
 use josekit::jwt::JwtPayload;
 use log::{debug, log_enabled};
+use serde_json::Value;
+use thiserror::Error;
+use std::io;
 use std::time::SystemTime;
 use josekit::jws::alg::eddsa::EddsaJwsSigner;
 use uuid::Uuid;
-
-pub mod errors;
 
 pub struct AccessTokenGenerator {
     signer: EddsaJwsSigner,
@@ -31,6 +31,7 @@ impl AccessTokenGenerator {
         username: &UsernameStr,
         not_before: &SystemTime,
         expires_at: &SystemTime,
+        session_kind: SessionKind,
     ) -> Result<String, AccessTokenGeneratorError> {
         let mut payload = JwtPayload::new();
         let subject = username.to_string();
@@ -44,7 +45,16 @@ impl AccessTokenGenerator {
         payload.set_subject(&subject);
         payload.set_claim(
             SESSION_ID_JWT_CLAIM_NAME,
-            Some(session_id)
+            Some(session_id),
+        )?;
+        payload.set_claim(
+            SESSION_KIND_JWT_CLAIM_NAME,
+            Some(
+                match session_kind {
+                    SessionKind::Api => Value::from(SESSION_KIND_API),
+                    SessionKind::Web => Value::from(SESSION_KIND_WEB),
+                }
+            ),
         )?;
         payload.set_not_before(not_before);
         payload.set_expires_at(expires_at);
@@ -62,4 +72,16 @@ impl AccessTokenGenerator {
         );
         Ok(token)
     }
+}
+
+#[derive(Debug, Error)]
+pub enum AccessTokenGeneratorError {
+    #[error("cryptographic operation failed: {0}")]
+    Crypto(#[from] JoseError),
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error("access token serialization failed: {0}")]
+    SessionIdSerialization(serde_json::Error),
 }

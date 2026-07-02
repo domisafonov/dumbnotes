@@ -1,12 +1,14 @@
 use async_trait::async_trait;
+use data::{ApiSession, SessionKind, WebSession};
 use ::data::{UsernameStr, UsernameString};
 use dumbnotesd_auth_data::session_storage::{SessionsData, UserSessionData, UserSessionsData};
 use std::collections::HashMap;
 use std::mem::ManuallyDrop;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use futures::{Stream, StreamExt};
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 use time::OffsetDateTime;
 use tokio::spawn;
 use tokio::sync::{oneshot, RwLock, RwLockWriteGuard};
@@ -20,7 +22,6 @@ use crate::session_storage::internal::io_trait::{ProductionSessionStorageIo, Ses
 use crate::session_storage::{Session, SessionStorage, SessionStorageError};
 
 #[cfg(test)] mod tests;
-pub mod session;
 mod io_trait;
 
 #[allow(private_bounds)]
@@ -42,15 +43,18 @@ impl<Io: SessionStorageIo, W: FileWatcher> Drop for SessionStorageImpl<Io, W> {
 #[derive(Debug)]
 struct State {
     id_to_session: HashMap<Uuid, Arc<Session>>,
-    name_to_sessions_cache: HashMap<UsernameString, Vec<Arc<Session>>>,
-    token_to_session_cache: HashMap<Vec<u8>, Arc<Session>>,
+
+    // source of truth for writes
+    name_to_sessions: HashMap<UsernameString, Vec<Arc<Session>>>,
+
+    token_to_api_session: HashMap<Vec<u8>, Arc<ApiSession>>,
 }
 
 impl From<SessionsData> for State {
     fn from(value: SessionsData) -> Self {
         let mut id_to_session = HashMap::new();
-        let mut name_to_sessions_cache: HashMap<_, Vec<Arc<Session>>> = HashMap::new();
-        let mut token_to_session_cache = HashMap::new();
+        let mut name_to_sessions: HashMap<_, Vec<Arc<Session>>> = HashMap::new();
+        let mut token_to_api_session = HashMap::new();
         value.users
             .into_iter()
             .map(|user_data| {
@@ -58,12 +62,32 @@ impl From<SessionsData> for State {
                     user_data.sessions
                         .into_iter()
                         .map(|session_data| {
-                            Session {
-                                session_id: session_data.session_id,
-                                username: user_data.username.clone(),
-                                refresh_token: session_data.refresh_token,
-                                created_at: session_data.created_at,
-                                expires_at: session_data.expires_at,
+                            match session_data {
+                                UserSessionData::Api {
+                                    session_id,
+                                    refresh_token,
+                                    created_at,
+                                    expires_at,
+                                } => Session::Api(ApiSession {
+                                    session_id,
+                                    username: user_data.username.clone(),
+                                    refresh_token,
+                                    created_at,
+                                    expires_at,
+                                }),
+
+                                UserSessionData::Web {
+                                    session_id,
+                                    xsrf_token,
+                                    created_at,
+                                    expires_at,
+                                } => Session::Web(WebSession {
+                                    session_id,
+                                    username: user_data.username.clone(),
+                                    xsrf_token,
+                                    created_at,
+                                    expires_at,
+                                }),
                             }
                         })
                         .map(Arc::new)
@@ -73,15 +97,17 @@ impl From<SessionsData> for State {
             })
             .for_each(|(sessions, username)| {
                 sessions.iter().for_each(|session| {
-                    id_to_session.insert(session.session_id, session.clone());
-                    token_to_session_cache.insert(session.refresh_token.clone(), session.clone());
+                    id_to_session.insert(session.get_session_id(), session.clone());
+                    if let Session::Api(ref s@ApiSession { ref refresh_token, .. }) = **session {
+                        token_to_api_session.insert(refresh_token.clone(), Arc::new(s.clone()));
+                    }
                 });
-                name_to_sessions_cache.insert(username, sessions);
+                name_to_sessions.insert(username, sessions);
             });
         State {
             id_to_session,
-            name_to_sessions_cache,
-            token_to_session_cache,
+            name_to_sessions,
+            token_to_api_session,
         }
     }
 }
@@ -183,16 +209,22 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
         trace!("writing updated session db");
         let now = self.io.get_time();
         let mapped = SessionsData {
-            users: guard.name_to_sessions_cache
+            users: guard.name_to_sessions
                 .iter()
                 .filter_map(|(username, sessions)| {
                     let user_sessions: Vec<_> = sessions
                         .iter()
                         .filter_map(|session| {
-                            if session.expires_at + REFRESH_TOKEN_VALIDITY_TIME <= now {
-                                None
-                            } else {
-                                Some(Self::session_to_session_data(session))
+                            match **session {
+                                Session::Web(WebSession { expires_at, .. })
+                                    if expires_at <= now
+                                => None,
+                                Session::Api(ApiSession { expires_at, .. })
+                                    if expires_at + REFRESH_TOKEN_VALIDITY_TIME
+                                        <= now
+                                => None,
+                                _
+                                => Some(Self::session_to_session_data(session)),
                             }
                         })
                         .collect();
@@ -220,11 +252,31 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorageImpl<Io, W> {
     }
 
     fn session_to_session_data(session: &Session) -> UserSessionData {
-        UserSessionData {
-            session_id: session.session_id,
-            refresh_token: session.refresh_token.clone(),
-            created_at: session.created_at,
-            expires_at: session.expires_at,
+        match session {
+            Session::Api(ApiSession {
+                session_id,
+                username: _,
+                refresh_token,
+                created_at,
+                expires_at,
+            }) => UserSessionData::Api {
+                session_id: *session_id,
+                refresh_token: refresh_token.clone(),
+                created_at: *created_at,
+                expires_at: *expires_at,
+            },
+            Session::Web(WebSession {
+                session_id,
+                username: _,
+                xsrf_token,
+                created_at,
+                expires_at,
+            }) => UserSessionData::Web {
+                session_id: *session_id,
+                xsrf_token: xsrf_token.clone(),
+                created_at: *created_at,
+                expires_at: *expires_at,
+            },
         }
     }
 }
@@ -236,26 +288,39 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorage for SessionStorageImpl
         username: &UsernameStr,
         created_at: OffsetDateTime,
         expires_at: OffsetDateTime,
+        session_kind: SessionKind,
     ) -> Result<Session, SessionStorageError> {
         let session_id = self.io.generate_uuid();
         info!(
             "creating new user session {session_id} \
                 for user \"{username}\", expires at {expires_at}"
         );
-        let token = self.io.gen_refresh_token();
-        let mut state = self.state.write().await;
-        let new_session = Session {
-            session_id,
-            username: username.to_owned(),
-            refresh_token: token.clone(),
-            created_at,
-            expires_at,
+        let new_session = match session_kind {
+            SessionKind::Api => {
+                Session::Api(ApiSession {
+                    session_id,
+                    username: username.to_owned(),
+                    refresh_token: self.io.gen_refresh_token(),
+                    created_at,
+                    expires_at,
+                })
+            },
+            SessionKind::Web => {
+                Session::Web(WebSession {
+                    session_id,
+                    username: username.to_owned(),
+                    xsrf_token: self.io.gen_xsrf_token(),
+                    created_at,
+                    expires_at,
+                })
+            }
         };
         let new_session_arc = Arc::new(new_session.clone());
-        match state.name_to_sessions_cache.get_mut(username) {
+        let mut state = self.state.write().await;
+        match state.name_to_sessions.get_mut(username) {
             Some(sessions) => sessions.push(new_session_arc),
             None => {
-                state.name_to_sessions_cache.insert(
+                state.name_to_sessions.insert(
                     username.to_owned(),
                     vec![new_session_arc],
                 );
@@ -269,10 +334,10 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorage for SessionStorageImpl
         &self,
         refresh_token: &[u8],
         expires_at: OffsetDateTime,
-    ) -> Result<Session, SessionStorageError> {
+    ) -> Result<ApiSession, SessionStorageError> {
         let new_refresh_token = self.io.gen_refresh_token();
         let mut state = self.state.write().await;
-        let session = state.token_to_session_cache
+        let session = state.token_to_api_session
             .get(refresh_token)
             .filter(|s|
                 s.expires_at + REFRESH_TOKEN_VALIDITY_TIME > self.io.get_time()
@@ -283,20 +348,27 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorage for SessionStorageImpl
             session.session_id,
             session.username,
         );
-        let new_session = Session {
+        let username = session.username.clone();
+        let new_session = ApiSession {
             session_id: session.session_id,
-            username: session.username.clone(),
+            username: username.clone(),
             refresh_token: new_refresh_token.clone(),
             created_at: session.created_at,
             expires_at,
         };
-        let new_session_arc = Arc::new(new_session.clone());
-        let name_to_sessions = state.name_to_sessions_cache
-            .get_mut(&new_session.username)
+        let new_session_arc = Arc::new(Session::Api(new_session.clone()));
+        let name_to_sessions = state.name_to_sessions
+            .get_mut(&username)
             .expect("session cache incoherent");
         let session_index = name_to_sessions
             .iter()
-            .position(|s| s.refresh_token == refresh_token)
+            .position(|s|
+                matches!(
+                    **s,
+                    Session::Api(ref s@ApiSession { .. })
+                        if s.refresh_token == refresh_token
+                )
+            )
             .expect("session cache incoherent");
         name_to_sessions[session_index] = new_session_arc.clone();
         self.write_state(state).await?;
@@ -306,25 +378,50 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorage for SessionStorageImpl
     async fn delete_session(
         &self,
         session_id: Uuid,
+        xsrf_token: Option<Vec<u8>>,
     ) -> Result<bool, SessionStorageError> {
         let mut state = self.state.write().await;
-        let found_username = state.id_to_session
-            .get(&session_id)
-            .map(|s| s.username.clone());
+        let session_kind = match xsrf_token {
+            Some(_) => SessionKind::Web,
+            None => SessionKind::Api,
+        };
+        let found_session = state.id_to_session.get(&session_id);
+        let found_username = match found_session.map(Deref::deref) {
+            Some(session) if session.kind() != session_kind
+            => {
+                warn!("invalid session kind for session {session_id}");
+                Err(
+                    SessionStorageError::IncorrectSessionKind {
+                        expected: session_kind,
+                        actual: session.kind() ,
+                    }
+                )
+            },
+
+            Some(Session::Web(s@WebSession { .. }))
+                if s.xsrf_token != xsrf_token.unwrap()
+            => {
+                warn!("invalid xsrf token received for session {session_id}");
+                Err(SessionStorageError::IncorrectXsrfToken)
+            },
+
+            Some(session) => Ok(Some(session.get_username())),
+            None => Ok(None),
+        }?;
         info!(
             "terminating session {session_id} for user {}",
             found_username.as_ref().map(UsernameString::as_str).unwrap_or("None")
         );
         match found_username {
             Some(found_username) => {
-                let (_, users_sessions) = state.name_to_sessions_cache
+                let (_, users_sessions) = state.name_to_sessions
                     .iter_mut()
                     .find(|(username, _)| **username == found_username)
                     .expect("Session cache incoherent");
                 users_sessions
                     .remove(
                         users_sessions.iter()
-                            .position(|s| s.session_id == session_id)
+                            .position(|s| s.get_session_id() == session_id)
                             .expect("Session cache incoherent")
                     );
 
@@ -349,15 +446,15 @@ impl<Io: SessionStorageIo, W: FileWatcher> SessionStorage for SessionStorageImpl
         )
     }
 
-    async fn get_session_by_token(
+    async fn get_api_session_by_token(
         &self,
         refresh_token: &[u8],
-    ) -> Result<Option<Arc<Session>>, SessionStorageError> {
+    ) -> Result<Option<Arc<ApiSession>>, SessionStorageError> {
         Ok(
             self.state
                 .read()
                 .await
-                .token_to_session_cache
+                .token_to_api_session
                 .get(refresh_token)
                 .cloned(),
         )
@@ -395,7 +492,7 @@ impl ProductionSessionStorage {
             )
             .await
     }
-    
+
     pub fn get_storage_path(data_directory: &Path) -> PathBuf {
         let mut path = data_directory.to_path_buf();
         path.push(SESSION_STORAGE_PATH);

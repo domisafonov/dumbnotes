@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use log::{trace, warn};
 use thiserror::Error;
 
-use crate::access_token::{AccessTokenDecoder, AccessTokenDecoderError, data::AccessTokenData};
+use crate::{AccessTokenDecoder, AccessTokenDecoderError, data::AccessTokenData};
 
 pub struct AccessTokenValidator {
     access_token_decoder: AccessTokenDecoder,

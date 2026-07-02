@@ -4,14 +4,12 @@ mod processors;
 pub mod session_storage;
 mod app_constants;
 pub mod user_db;
-pub mod access_token_generator;
 pub mod file_watcher;
 
-use crate::access_token_generator::AccessTokenGenerator;
 use crate::app_constants::SHUTDOWN_TIMEOUT;
 use crate::cli::CliConfig;
 use clap::{crate_name, Parser};
-use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenValidator};
+use access_token::{AccessTokenDecoder, AccessTokenGenerator, AccessTokenValidator};
 use dumbnotes::config::hasher_config::ProductionHasherConfigData;
 use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::ipc::launch_event_loops::launch_event_loops;

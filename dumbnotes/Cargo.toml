@@ -15,7 +15,6 @@ data.path = "../data"
 env_logger.workspace = true
 figment.workspace = true
 futures.workspace = true
-josekit.workspace = true
 libc.workspace = true
 log.workspace = true
 prost.workspace = true
@@ -24,17 +23,18 @@ rand.workspace = true
 scc.workspace = true
 scopeguard.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 socket2.workspace = true
 syslog.workspace = true
 thiserror.workspace = true
-time.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 toml.workspace = true
 unix.path = "../unix"
 util.path = "../util"
 uuid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

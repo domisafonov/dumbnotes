@@ -8,6 +8,7 @@ include = [
 ]
 
 [dependencies]
+access-token.path = "../access-token"
 accept-language.workspace = true
 auth-ipc-data.path = "../auth-ipc-data"
 askama.workspace = true

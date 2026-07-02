@@ -9,6 +9,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f27d075294830fcab6f66e320dab524bc6d048f4a151698e153205559113772"
 
 [[package]]
+name = "access-token"
+version = "0.1.0"
+dependencies = [
+ "access-token-data",
+ "data",
+ "josekit",
+ "log",
+ "serde_json",
+ "thiserror",
+ "time",
+ "uuid",
+]
+
+[[package]]
+name = "access-token-data"
+version = "0.1.0"
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -486,6 +504,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55b672471b4e9f9e95499ea597ff64941a309b2cdbffcc46f2cc5e2d971fd335"
 
 [[package]]
+name = "convert_case"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "affbf0190ed2caf063e3def54ff444b449371d55c58e513a95ab98eca50adb49"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "cookie"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -578,6 +605,7 @@ name = "data"
 version = "0.1.0"
 dependencies = [
  "argon2",
+ "kinded",
  "serde",
  "thiserror",
  "time",
@@ -676,7 +704,6 @@ dependencies = [
  "env_logger",
  "figment",
  "futures",
- "josekit",
  "libc",
  "log",
  "prost",
@@ -689,7 +716,6 @@ dependencies = [
  "socket2 0.6.3",
  "syslog",
  "thiserror",
- "time",
  "tokio",
  "tokio-stream",
  "toml 1.1.2+spec-1.1.0",
@@ -728,6 +754,7 @@ dependencies = [
 name = "dumbnotesd"
 version = "0.1.0"
 dependencies = [
+ "access-token-data",
  "api-data",
  "assert_fs",
  "async-trait",
@@ -761,6 +788,7 @@ dependencies = [
 name = "dumbnotesd-api"
 version = "0.1.0"
 dependencies = [
+ "access-token",
  "api-data",
  "async-trait",
  "auth-ipc-data",
@@ -787,6 +815,7 @@ dependencies = [
 name = "dumbnotesd-auth"
 version = "0.1.0"
 dependencies = [
+ "access-token",
  "argon2",
  "async-stream",
  "async-trait",
@@ -798,6 +827,7 @@ dependencies = [
  "dumbnotesd-auth-data",
  "futures",
  "josekit",
+ "kinded",
  "log",
  "notify",
  "notify-debouncer-full",
@@ -835,6 +865,7 @@ dependencies = [
 name = "dumbnotesd-storage"
 version = "0.1.0"
 dependencies = [
+ "access-token",
  "async-trait",
  "clap",
  "data",
@@ -859,6 +890,7 @@ name = "dumbnotesd-web"
 version = "0.1.0"
 dependencies = [
  "accept-language",
+ "access-token",
  "askama",
  "async-trait",
  "auth-ipc-data",
@@ -1674,6 +1706,27 @@ dependencies = [
  "futures-util",
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kinded"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53c48b3aa70f02a317f180f7d4e0834bbd2ffa293e352a132bb2ac9351736635"
+dependencies = [
+ "kinded_macros",
+]
+
+[[package]]
+name = "kinded_macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "feeb717349480c3d8125f84afdd78e9d7128004d8e2a561c35b3bbd76363d085"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -3401,6 +3454,12 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
 name = "unicode-xid"

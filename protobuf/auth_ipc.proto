@@ -23,6 +23,7 @@ message Response {
 message LoginRequest {
     string username = 1;
     string password = 2;
+    SessionKind session_kind = 3;
 }
 
 message LoginResponse {
@@ -46,6 +47,7 @@ message RefreshTokenResponse {
 
 message LogoutRequest {
     string access_token = 1;
+    optional bytes xsrf_token = 2;
 }
 
 message LogoutResponse {
@@ -54,7 +56,10 @@ message LogoutResponse {
 
 message SuccessfulLogin {
     string access_token = 1;
-    bytes refresh_token = 2;
+    oneof extra_token {
+        bytes refresh_token = 2;
+        bytes xsrf_token = 3;
+    }
 }
 
 enum LoginError {
@@ -65,4 +70,9 @@ enum LoginError {
 enum LogoutError {
     LOGOUT_INVALID_CREDENTIALS = 0;
     LOGOUT_INTERNAL_ERROR = 1;
+}
+
+enum SessionKind {
+    API = 0;
+    WEB = 1;
 }

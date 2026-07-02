@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+access-token.path = "../access-token"
 async-trait.workspace = true
 clap.workspace = true
 data.path = "../data"

@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+access-token.path = "../access-token"
 api-data.path = "../api-data"
 auth-ipc-data.path = "../auth-ipc-data"
 async-trait.workspace = true

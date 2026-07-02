@@ -1,4 +1,7 @@
+use access_token::{AccessTokenGenerator, AccessTokenGeneratorError};
+use data::{ApiSession, Session, SessionKind, WebSession};
 use thiserror::Error;
+use crate::app_constants::{API_ACCESS_TOKEN_VALIDITY_TIME, WEB_ACCESS_TOKEN_VALIDITY_TIME};
 use crate::session_storage::{SessionStorage, SessionStorageError};
 use crate::user_db::{UserDb, UserDbError};
 use log::{debug, error, info, warn};
@@ -6,9 +9,6 @@ use time::OffsetDateTime;
 use auth_ipc_data::model::login::{LoginRequest, LoginResponse};
 use auth_ipc_data::model::successful_login::SuccessfulLogin;
 use auth_ipc_data::bindings::LoginError;
-use crate::access_token_generator::AccessTokenGenerator;
-use crate::access_token_generator::errors::AccessTokenGeneratorError;
-use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 pub async fn process_login(
     user_db: &impl UserDb,
@@ -35,34 +35,50 @@ async fn process_login_impl(
     token_generator: &AccessTokenGenerator,
     request: LoginRequest,
 ) -> Result<LoginResponse, LoginProcessorError> {
-    let LoginRequest { username, password } = request;
+    let LoginRequest { username, password, session_kind } = request;
+    let session_kind: SessionKind = session_kind.into();
     debug!("logging user \"{username}\" in");
     if user_db.check_user_credentials(&username, &password).await? {
         let now = OffsetDateTime::now_utc();
+        let expires_at = match session_kind {
+            SessionKind::Api => now + API_ACCESS_TOKEN_VALIDITY_TIME,
+            SessionKind::Web => now + WEB_ACCESS_TOKEN_VALIDITY_TIME,
+        };
         let session = session_storage
             .create_session(
                 &username,
                 now,
-                now + ACCESS_TOKEN_VALIDITY_TIME,
+                expires_at,
+                session_kind,
             )
             .await?;
         let access_token = token_generator
             .generate_token(
-                session.session_id,
-                &session.username,
+                session.get_session_id(),
+                &session.get_username(),
                 &now.into(),
-                &session.expires_at.into(),
+                &expires_at.into(),
+                session_kind,
             )?;
         info!(
             "logged user \"{username}\" in with session \"{}\"",
-            session.session_id,
+            session.get_session_id(),
         );
         Ok(
             LoginResponse(
                 Ok(
-                    SuccessfulLogin {
-                        access_token,
-                        refresh_token: session.refresh_token,
+                    match session {
+                        Session::Api(ApiSession { refresh_token, .. })
+                        => SuccessfulLogin::Api {
+                            access_token,
+                            refresh_token,
+                        },
+
+                        Session::Web(WebSession { xsrf_token, .. })
+                        => SuccessfulLogin::Web {
+                            access_token,
+                            xsrf_token,
+                        },
                     }
                 )
             )

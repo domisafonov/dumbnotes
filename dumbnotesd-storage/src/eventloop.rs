@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use access_token::AccessTokenValidator;
 use clap::crate_name;
-use dumbnotes::{access_token::AccessTokenValidator, bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
+use dumbnotes::{bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, gen_proto_ipc_wrappers, ipc::data::{LoopInputMessage, LoopStreamExt}};
 use futures::stream::BoxStream;
 use protobuf_common::ProtobufRequestError;
 use storage_ipc_data::bindings;

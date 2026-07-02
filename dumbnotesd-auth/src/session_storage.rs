@@ -5,11 +5,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use time::OffsetDateTime;
 use uuid::Uuid;
-use data::UsernameStr;
+use data::{ApiSession, UsernameStr};
 
 pub use errors::*;
 pub use internal::ProductionSessionStorage;
-pub use internal::session::Session;
+pub use data::{Session, SessionKind};
 
 #[async_trait]
 pub trait SessionStorage: Send + Sync {
@@ -18,17 +18,19 @@ pub trait SessionStorage: Send + Sync {
         username: &UsernameStr,
         created_at: OffsetDateTime,
         expires_at: OffsetDateTime,
+        session_kind: SessionKind,
     ) -> Result<Session, SessionStorageError>;
 
     async fn refresh_session(
         &self,
         refresh_token: &[u8],
         expires_at: OffsetDateTime,
-    ) -> Result<Session, SessionStorageError>;
+    ) -> Result<ApiSession, SessionStorageError>;
 
     async fn delete_session(
         &self,
         session_id: Uuid,
+        xsrf_token: Option<Vec<u8>>,
     ) -> Result<bool, SessionStorageError>;
 
     async fn get_session_by_id(
@@ -36,8 +38,8 @@ pub trait SessionStorage: Send + Sync {
         session_id: Uuid,
     ) -> Result<Option<Arc<Session>>, SessionStorageError>;
 
-    async fn get_session_by_token(
+    async fn get_api_session_by_token(
         &self,
         refresh_token: &[u8],
-    ) -> Result<Option<Arc<Session>>, SessionStorageError>;
+    ) -> Result<Option<Arc<ApiSession>>, SessionStorageError>;
 }

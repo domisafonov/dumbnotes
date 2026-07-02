@@ -1,12 +1,13 @@
-use dumbnotes::access_token::{AccessTokenValidator, AccessTokenValidatorError};
-use data::UsernameStr;
+use access_token::{AccessTokenValidator, AccessTokenValidatorError};
+use auth_ipc_data::model::successful_login::SuccessfulLogin;
+use data::{SessionKind, UsernameStr};
 use dumbnotes::bin_constants::IPC_MESSAGE_MAX_SIZE;
 use dumbnotes::gen_proto_ipc_wrappers;
 use dumbnotes::ipc::data::IpcOutput;
 use tokio::sync::oneshot;
 use std::marker::PhantomData;
 use async_trait::async_trait;
-use log::{debug, trace};
+use log::{debug, error, trace};
 use tokio::net::UnixStream;
 use dumbnotes::ipc::caller::{Caller, CallerImpl};
 use auth_ipc_data::model::login::{LoginRequest, LoginResponse};
@@ -152,6 +153,7 @@ impl<
                         LoginRequest {
                             username: username.to_owned(),
                             password: password.to_owned(),
+                            session_kind: SessionKind::Api,
                         }.into()
                     )
                 )
@@ -159,10 +161,17 @@ impl<
             .await?
             .try_into()?;
         match response.0 {
-            Ok(successful_login) => Ok(LoginResult {
-                refresh_token: successful_login.refresh_token,
-                access_token: successful_login.access_token,
+            Ok(SuccessfulLogin::Api { access_token, refresh_token })
+            => Ok(LoginResult {
+                refresh_token,
+                access_token,
             }),
+
+            Ok(_) => {
+                error!("received invalid login response");
+                Err(AccessGranterError::AuthDaemonInternalError)
+            },
+
             Err(e) => Err(
                 match e {
                     LoginError::LoginInvalidCredentials => AccessGranterError::InvalidCredentials,
@@ -192,10 +201,17 @@ impl<
             .await?
             .try_into()?;
         match response.0 {
-            Ok(successful_login) => Ok(LoginResult {
-                refresh_token: successful_login.refresh_token,
-                access_token: successful_login.access_token,
+            Ok(SuccessfulLogin::Api { access_token, refresh_token })
+            => Ok(LoginResult {
+                refresh_token,
+                access_token,
             }),
+
+            Ok(_) => {
+                error!("received invalid login response");
+                Err(AccessGranterError::AuthDaemonInternalError)
+            },
+
             Err(e) => Err(
                 match e {
                     LoginError::LoginInvalidCredentials => AccessGranterError::InvalidCredentials,
@@ -216,6 +232,7 @@ impl<
                     bindings::command::Command::Logout(
                         LogoutRequest {
                             access_token: access_token.to_owned(),
+                            xsrf_token: None,
                         }.into()
                     )
                 )

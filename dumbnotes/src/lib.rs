@@ -6,7 +6,6 @@ mod lib_constants;
 pub mod bin_constants;
 pub mod hasher;
 pub mod logging;
-pub mod access_token;
 pub mod ipc;
 pub mod sandbox;
 #[cfg(test)] pub mod test;

@@ -58,13 +58,30 @@ macro_rules! gen_proto_ipc_wrappers {
 #[macro_export]
 macro_rules! check_access_token {
     ($request_name:expr, $access_token_validator:ident, $access_token:ident, $invalid_credentials_error:expr$(,)*) => {
+        ::dumbnotes::_check_access_token_impl!($request_name, $access_token_validator, $access_token, None, $invalid_credentials_error)
+    };
+    ($request_name:expr, $access_token_validator:ident, $access_token:ident, $expected_token_kind:expr, $invalid_credentials_error:expr$(,)*) => {
+        ::dumbnotes::_check_access_token_impl!($request_name, $access_token_validator, $access_token, Some($expected_token_kind), $invalid_credentials_error)
+    };
+}
+
+#[macro_export]
+macro_rules! _check_access_token_impl {
+    ($request_name:expr, $access_token_validator:ident, $access_token:ident, $expected_token_kind:expr, $invalid_credentials_error:expr$(,)*) => {
         match $access_token_validator.check_access_token(&$access_token) {
-            ::std::result::Result::Ok(data) => data,
-            Err(::dumbnotes::access_token::AccessTokenValidatorError::InvalidToken(_)) => {
+            ::std::result::Result::Ok(data) => {
+                if let Some(exp) = $expected_token_kind && data.session_kind != exp {
+                    ::log::warn!("attempted \"{}\" request using invalid token kind: {}, expected: {exp}", $request_name, data.session_kind);
+                    return ::std::result::Result::Ok($invalid_credentials_error)
+                } else {
+                    data
+                }
+            },
+            Err(::access_token::AccessTokenValidatorError::InvalidToken(_)) => {
                 ::log::warn!("attempted \"{}\" request using invalid access token: {}", $request_name, $access_token);
                 return ::std::result::Result::Ok($invalid_credentials_error)
             },
-            Err(::dumbnotes::access_token::AccessTokenValidatorError::ExpiredToken(_)) => {
+            Err(::access_token::AccessTokenValidatorError::ExpiredToken(_)) => {
                 ::log::warn!("attempted \"{}\" request using expired token", $request_name);
                 return ::std::result::Result::Ok($invalid_credentials_error)
             },

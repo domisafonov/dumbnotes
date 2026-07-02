@@ -12,5 +12,3 @@ pub const APP_CONFIG_WEB_ENV_PREFIX: &str = "DUMBNOTES_ENV_";
 
 pub const IPC_MESSAGE_MAX_SIZE: usize = 1024 * 16;
 pub const IPC_STORAGE_MESSAGE_MAX_SIZE: usize = (DEFAULT_MAX_NOTE_LEN as usize + DEFAULT_MAX_NOTE_NAME_LEN as usize) * 2; // TODO: validate
-
-pub const SESSION_ID_JWT_CLAIM_NAME: &str = "session_id";

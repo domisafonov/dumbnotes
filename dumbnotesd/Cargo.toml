@@ -25,6 +25,7 @@ uuid.workspace = true
 which.workspace = true
 
 [dev-dependencies]
+access-token-data.path = "../access-token-data"
 api-data.path = "../api-data"
 assert_fs.workspace = true
 cfg-or-panic.workspace = true

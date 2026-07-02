@@ -1,9 +1,9 @@
 use std::{error::Error, str::FromStr, thread::sleep, time::{Duration, SystemTime}};
 
+use access_token_data::SESSION_ID_JWT_CLAIM_NAME;
 use api_data::{bindings, http::status::Unauthorized, model::{LoginRequest, LoginRequestSecret, LoginResponse}};
 use cfg_or_panic::cfg_or_panic;
 use data::UsernameString;
-use dumbnotes::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
 use josekit::jwt::JwtPayload;
 use reqwest::StatusCode;
 use tap::Tap;

@@ -4,7 +4,7 @@ use futures::FutureExt;
 use futures::future::{join_all, select_all};
 use storage_ipc_sdk::{ProductionStorageAccessor, StorageAccessor};
 use async_trait::async_trait;
-use dumbnotes::access_token::{AccessTokenDecoder, AccessTokenValidator};
+use access_token::{AccessTokenDecoder, AccessTokenValidator};
 use dumbnotes::ipc::socket::discover_socket;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::pledge_apid_liftoff;
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::unveil::{Permissions, unveil, seal_unveil};

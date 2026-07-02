@@ -7,8 +7,9 @@ mod util;
 
 use std::{error::Error, path::Path};
 
+use access_token::{AccessTokenDecoder, AccessTokenValidator};
 use clap::{Parser, crate_name};
-use dumbnotes::{access_token::{AccessTokenDecoder, AccessTokenValidator}, bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, ipc::launch_event_loops::launch_event_loops, logging::init_daemon_logging};
+use dumbnotes::{bin_constants::IPC_STORAGE_MESSAGE_MAX_SIZE, ipc::launch_event_loops::launch_event_loops, logging::init_daemon_logging};
 #[cfg(target_os = "openbsd")] use dumbnotes::sandbox::pledge::{pledge_storage_init, pledge_storage_normal};
 use josekit::jwk::Jwk;
 use log::info;

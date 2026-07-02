@@ -1,13 +1,13 @@
+use access_token::{AccessTokenGenerator, AccessTokenGeneratorError};
+use data::SessionKind;
 use log::{debug, error, info, warn};
 use thiserror::Error;
 use time::OffsetDateTime;
+use crate::app_constants::API_ACCESS_TOKEN_VALIDITY_TIME;
 use crate::session_storage::{SessionStorage, SessionStorageError};
 use auth_ipc_data::model::refresh_token::{RefreshTokenRequest, RefreshTokenResponse};
 use auth_ipc_data::model::successful_login::SuccessfulLogin;
 use auth_ipc_data::bindings::LoginError;
-use crate::access_token_generator::AccessTokenGenerator;
-use crate::access_token_generator::errors::AccessTokenGeneratorError;
-use crate::app_constants::ACCESS_TOKEN_VALIDITY_TIME;
 
 pub async fn process_refresh_token(
     session_storage: &impl SessionStorage,
@@ -31,10 +31,10 @@ async fn process_refresh_token_impl(
     token_generator: &AccessTokenGenerator,
     request: RefreshTokenRequest,
 ) -> Result<RefreshTokenResponse, RefreshTokenProcessorError> {
-    let RefreshTokenRequest { username, refresh_token} = request;
+    let RefreshTokenRequest { username, refresh_token } = request;
     debug!("refreshing access token for user \"{username}\"");
     let session = session_storage
-        .get_session_by_token(&refresh_token)
+        .get_api_session_by_token(&refresh_token)
         .await?;
     if let Some(session) = session
         && session.username.as_username_str() != username.as_username_str()
@@ -53,7 +53,7 @@ async fn process_refresh_token_impl(
     let session = session_storage
         .refresh_session(
             &refresh_token,
-            now + ACCESS_TOKEN_VALIDITY_TIME,
+            now + API_ACCESS_TOKEN_VALIDITY_TIME,
         )
         .await;
     let session = match session {
@@ -75,11 +75,12 @@ async fn process_refresh_token_impl(
             &session.username,
             &now.into(),
             &session.expires_at.into(),
+            SessionKind::Api,
         )?;
     Ok(
         RefreshTokenResponse(
             Ok(
-                SuccessfulLogin {
+                SuccessfulLogin::Api {
                     access_token,
                     refresh_token: session.refresh_token,
                 }

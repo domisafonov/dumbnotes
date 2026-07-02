@@ -1,4 +1,5 @@
-use dumbnotes::access_token::{AccessTokenData, AccessTokenValidator};
+use access_token::{AccessTokenData, AccessTokenValidator};
+use data::SessionKind;
 use dumbnotes::check_access_token;
 use log::{debug, error, info, warn};
 use thiserror::Error;
@@ -25,18 +26,22 @@ async fn process_logout_impl(
     access_token_validator: &AccessTokenValidator,
     request: LogoutRequest,
 ) -> Result<LogoutResponse, LogoutProcessorError> {
-    let LogoutRequest { access_token } = request;
+    let LogoutRequest { access_token, xsrf_token } = request;
 
     let AccessTokenData { session_id, .. } = check_access_token!(
         "logout",
         access_token_validator,
         access_token,
+        match xsrf_token {
+            Some(_) => SessionKind::Web,
+            None => SessionKind::Api,
+        },
         LogoutResponse(Some(LogoutError::LogoutInvalidCredentials)),
     );
 
     debug!("deleting session {session_id}");
     let did_exist = session_storage
-        .delete_session(session_id)
+        .delete_session(session_id, xsrf_token)
         .await?;
     if did_exist {
         info!("session {session_id} deleted");

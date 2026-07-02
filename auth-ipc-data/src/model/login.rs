@@ -1,12 +1,13 @@
 use std::str::FromStr;
 use protobuf_common::{MappingError, OptionExt, ProtobufRequestError};
-use data::UsernameString;
+use data::{SessionKind, UsernameString};
 use super::successful_login::SuccessfulLogin;
 use crate::bindings;
 
 pub struct LoginRequest {
     pub username: UsernameString,
     pub password: String,
+    pub session_kind: SessionKind,
 }
 
 pub struct LoginResponse(pub Result<SuccessfulLogin, bindings::LoginError>);
@@ -18,6 +19,9 @@ impl TryFrom<bindings::LoginRequest> for LoginRequest {
             LoginRequest {
                 username: UsernameString::from_str(&value.username)?,
                 password: value.password,
+                session_kind: <_ as TryInto<bindings::SessionKind>>
+                    ::try_into(value.session_kind)?
+                    .into(),
             }
         )
     }
@@ -34,7 +38,7 @@ impl TryFrom<bindings::response::Response> for LoginResponse {
         Ok(
             LoginResponse(
                 match value.response.ok_or_mapping_error(MappingError::missing("response"))? {
-                    Response::SuccessfulLogin(successful_login) => Ok(successful_login.into()),
+                    Response::SuccessfulLogin(successful_login) => Ok(successful_login.try_into()?),
                     Response::LoginError(login_error) => Err(login_error.try_into()?),
                 }
             )
@@ -68,6 +72,9 @@ impl From<LoginRequest> for bindings::LoginRequest {
         bindings::LoginRequest {
             username: value.username.into_string(),
             password: value.password,
+            session_kind: <_ as Into<bindings::SessionKind>>
+                ::into(value.session_kind)
+                .into(),
         }
     }
 }

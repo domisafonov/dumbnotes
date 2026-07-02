@@ -6,5 +6,6 @@ pub mod model {
     pub mod login;
     pub mod refresh_token;
     pub mod logout;
+    pub mod session_kind;
     pub mod successful_login;
 }

@@ -1,17 +1,16 @@
-use crate::access_token::data::AccessTokenData;
-use data::UsernameString;
-use errors::AccessTokenDecoderError;
+use crate::data::AccessTokenData;
+use access_token_data::{SESSION_ID_JWT_CLAIM_NAME, SESSION_KIND_API, SESSION_KIND_JWT_CLAIM_NAME, SESSION_KIND_WEB};
+use data::{SessionKind, UsernameParseError, UsernameString};
 use josekit::jwk::Jwk;
-use josekit::jwt;
+use josekit::{JoseError, jwt};
 use log::info;
+use thiserror::Error;
+use std::io;
 use std::str::FromStr;
 use josekit::jws::alg::eddsa::EddsaJwsVerifier;
 use josekit::jws::EdDSA;
 use time::OffsetDateTime;
 use uuid::Uuid;
-use crate::bin_constants::SESSION_ID_JWT_CLAIM_NAME;
-
-pub mod errors;
 
 pub struct AccessTokenDecoder {
     verifier: EddsaJwsVerifier,
@@ -53,6 +52,17 @@ impl AccessTokenDecoder {
                 AccessTokenDecoderError::PayloadParse(e)
             })?
             .ok_or_else(|| missing_field(token, SESSION_ID_JWT_CLAIM_NAME))?;
+        let session_kind = payload.claim(SESSION_KIND_JWT_CLAIM_NAME)
+            .ok_or_else(|| missing_field(token, SESSION_KIND_JWT_CLAIM_NAME))
+            .map(|v| match v.as_str().ok_or_else(|| AccessTokenDecoderError::InvalidTokenKind(v.to_string())) {
+                Ok(SESSION_KIND_API) => Ok(SessionKind::Api),
+                Ok(SESSION_KIND_WEB) => Ok(SessionKind::Web),
+                Ok(v) => {
+                    info!("invalid session kind \"{v}\"");
+                    Err(AccessTokenDecoderError::InvalidTokenKind(v.to_string()))
+                }
+                Err(e) => Err(e),
+            })??;
         let username = payload.subject()
             .map(UsernameString::from_str)
             .transpose()?
@@ -69,6 +79,7 @@ impl AccessTokenDecoder {
                 username,
                 not_before,
                 expires_at,
+                session_kind,
             }
         )
     }
@@ -80,4 +91,27 @@ fn missing_field(token: &[u8], part: &'static str) -> AccessTokenDecoderError {
         String::from_utf8_lossy(token),
     );
     AccessTokenDecoderError::PayloadMissing { part }
+}
+
+#[derive(Debug, Error)]
+pub enum AccessTokenDecoderError {
+    #[error("cryptographic operation failed: {0}")]
+    Crypto(#[from] JoseError),
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error("invalid access token payload: {0}")]
+    PayloadParse(serde_json::Error),
+
+    #[error("invalid username: {0}")]
+    PayloadUsername(#[from] UsernameParseError),
+
+    #[error("missing {part} in the payload")]
+    PayloadMissing {
+        part: &'static str,
+    },
+
+    #[error("invalid session kind: {0}")]
+    InvalidTokenKind(String),
 }

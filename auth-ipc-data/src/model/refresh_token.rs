@@ -36,7 +36,7 @@ impl TryFrom<bindings::response::Response> for RefreshTokenResponse {
         Ok(
             RefreshTokenResponse(
                 match value.result.ok_or_mapping_error(MappingError::missing("result"))? {
-                    Result::SuccessfulLogin(successful_login) => Ok(successful_login.into()),
+                    Result::SuccessfulLogin(successful_login) => Ok(successful_login.try_into()?),
                     Result::LoginError(login_error) => Err(login_error.try_into()?),
                 }
             )
